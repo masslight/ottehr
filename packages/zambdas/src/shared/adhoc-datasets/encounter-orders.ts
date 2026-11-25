@@ -58,7 +58,6 @@ const dedupeById = <T extends FhirResource>(resources: T[]): T[] => {
   });
 };
 
-/** Groups resources by every reference `refsOf` returns, so a lookup by reference is a map read, not a scan. */
 const indexBy = <T>(
   resources: T[],
   refsOf: (resource: T) => ({ reference?: string } | undefined)[] | undefined
@@ -324,10 +323,6 @@ export async function fetchEncounterOrders(
   const reportsFor = (sr: ServiceRequest): DiagnosticReport[] =>
     reportsByBasedOnRef.get(`ServiceRequest/${sr.id}`) ?? [];
 
-  // The EHR mappers find an order's Tasks, reports, result Observations and Encounter by scanning the lists they
-  // are handed — fine for one visit's orders, hundreds of millions of comparisons for a report's thousands of
-  // orders (UC 18: 589 s). So each order is mapped on its own, handed only what is linked to it, which is all
-  // those mappers read: Tasks and Observations by basedOn (the order or its reports), the Encounter by id.
   const tasksByBasedOnRef = indexBy(pools.tasks, (task) => task.basedOn);
   const encounterById = new Map(encounters.map((e) => [e.id, e]));
   const encountersFor = (sr: ServiceRequest): Encounter[] => {
@@ -379,7 +374,6 @@ export async function fetchEncounterOrders(
 
       if (!encounterId) continue;
 
-      // The order's reports, and the Tasks based on the order (PST) or on one of its reports (result review).
       const ownReports = reportsFor(serviceRequest);
       const ownTasks = dedupeById(
         [`ServiceRequest/${serviceRequest.id}`, ...ownReports.map((dr) => `DiagnosticReport/${dr.id}`)].flatMap(

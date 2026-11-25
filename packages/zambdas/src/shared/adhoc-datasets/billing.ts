@@ -304,7 +304,6 @@ export async function fetchAdHocBillingRows(
     defaultInsurance: [] as ChargeItemDefinition[],
   };
 
-  // The layers do not depend on each other: they load at once.
   const loadPayments = async (): Promise<void> => {
     if (!includePayments) return;
     // Scope to THIS batch's encounters (PaymentNotice.request → Encounter) rather than scanning
@@ -395,7 +394,6 @@ export async function fetchAdHocBillingRows(
     for (const p of procedures) pushTo(proceduresByEncId, stripRef(p.encounter?.reference, 'Encounter'), p);
   };
 
-  // The foreign patient layers (`patients.*`), for the patients of the visits.
   let foreignColumns = new Map<string, Record<string, unknown>>();
   const loadForeign = async (): Promise<void> => {
     foreignColumns = await fetchForeignPatientColumns(oystehr, {

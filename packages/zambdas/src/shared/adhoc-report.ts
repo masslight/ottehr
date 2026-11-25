@@ -115,10 +115,6 @@ export async function adHocReportTaskStatus(
   return { status: task.status === 'in-progress' ? 'in-progress' : 'requested' };
 }
 
-/**
- * The report data as stored in Z3: gzip, about 10–14 % of the JSON. The browser inflates it itself
- * (DecompressionStream), so the stored object needs no Content-Encoding.
- */
 export function gzipReportJson(json: string): Blob {
   return new Blob([new Uint8Array(gzipSync(Buffer.from(json, 'utf8')))], { type: 'application/gzip' });
 }
@@ -156,7 +152,6 @@ const REPORT_BUDGET_MS = 13 * 60 * 1000;
 
 const DEFAULT_JOB_TIMEOUT_MS = 10 * 60 * 1000;
 
-// Job status poll. A job of a few entries is often done in ~1 s; polling every 2 s cost up to 2 s per job.
 const JOB_POLL_INTERVAL_MS = 1000;
 
 let reportDeadlineMs = 0;
@@ -212,76 +207,32 @@ async function downloadNdjson<T extends FhirResource>(url: string): Promise<T[]>
   }
 }
 
-// ---- Fetch helpers: one async-bulk job per search ------------------------------------------------
-//
-// Every report search runs as an async-bulk job (start → poll → download). A search set is cut into bounded
-// searches — the windows of a date range (DEFAULT_WINDOW_DAYS) or the id chunks of an id list (IDS_PER_ENTRY)
-// — and each runs as its own job, JOBS_IN_PARALLEL at once.
-//
-// Why not one batch-Bundle job per set (the first plan): the M0 spike measured that a search inside an async
-// batch job ignores its own _count and stops at 1 000 resources, and a larger result can come back empty — with
-// no error and no next link (OTR-3686 again). A batch job's output does not say which search returned what, so
-// that loss cannot even be detected. One job per search is what the reports ran before, with _count=30000.
-//
-// The async job removes the limit on what the server may SEND, not on what one query may RUN: a search that
-// runs too long fails with "Internal Error". Such a search is split in two (its window or its id list) and run
-// again, up to MAX_SPLIT_DEPTH levels; then the report fails. A part of the data is never returned.
-
-// Two knobs can be overridden by environment variables for tuning runs (bench, local server); when unset or not a
-// positive whole number, the defaults below apply. Change the defaults here once the runs have settled them.
 const tuning = (name: string, fallback: number): number => {
   const value = Number(process.env[name]);
   return Number.isInteger(value) && value > 0 ? value : fallback;
 };
 
-/**
- * Ids in one search (`_id=a,b,…` / `encounter=…`); ADHOC_IDS_PER_SEARCH. Measured on local, a year, 43 500 visits:
- * 250 → 336 s, 500 → 185 s, both without a split; at 1 000 an Observation search ran into the 30 s database limit.
- */
 export const IDS_PER_ENTRY = tuning('ADHOC_IDS_PER_SEARCH', 500);
-/** Days in one date window: ~1 400 appointments at ~91 a day on production, far under one 30 000 page. */
 export const DEFAULT_WINDOW_DAYS = 15;
-/**
- * Async jobs one report runs at once; ADHOC_JOBS_IN_PARALLEL. Measured on local with 500 ids: 8 → 185 s, 16 → 101 s
- * (SC on production, sync searches: 8 → 11.0 s, 16 → 9.0 s).
- */
 export const JOBS_IN_PARALLEL = tuning('ADHOC_JOBS_IN_PARALLEL', 16);
-/**
- * A search first runs as a plain (sync) paged search, up to this many pages; only a larger one runs as an async job.
- * On synth, a 15-day window of encounters is ~2 000 (4–5 pages): 6 pages keeps it sync.
- * An async job costs ~2.5 s however little it returns, a page 0.1–1 s, so most id chunks and short windows finish in
- * one page. ADHOC_SYNC_PAGES (0 = every search as an async job, as before); read per call so tests can set it.
- */
 const syncPages = (): number => {
   const value = Number(process.env.ADHOC_SYNC_PAGES);
   return Number.isInteger(value) && value >= 0 ? value : 6;
 };
-/** Matches per sync page; ADHOC_SYNC_PAGE_SIZE. A page of visits with their encounters stays well under 6 MiB. */
 const syncPageSize = (): number => tuning('ADHOC_SYNC_PAGE_SIZE', 500);
-/** Halvings of one search before the report fails. */
 const MAX_SPLIT_DEPTH = 3;
-/** The most resources one async-bulk result page holds; without _count a job returns 1 000 (OTR-3686). */
 const ASYNC_BULK_MAX_RESULTS = 30000;
 
 type SearchParam = { name: string; value: string };
 
-/** One bounded search. `split` halves it (its window or its id list) when its job fails. */
 interface SearchEntry {
   resourceType: FhirResource['resourceType'];
   params: SearchParam[];
   split?: () => [SearchEntry, SearchEntry] | undefined;
 }
 
-/**
- * A job that a smaller search may pass: the job failed after it was accepted (Internal Error, the 30 s database
- * limit), a 5xx or a timeout when it was started, an error file, a capped result.
- */
 class SplittableJobFailure extends Error {}
 
-/**
- * At most `max` tasks at once. Only a job (start → poll → download) goes through it, and a job waits for
- * nothing else in the limiter, so it cannot deadlock. Splits and next links run after the slot is free.
- */
 function createLimiter(max: number): <T>(task: () => Promise<T>) => Promise<T> {
   let active = 0;
   const queue: (() => void)[] = [];
@@ -337,9 +288,6 @@ async function runJob(oystehr: Oystehr, entry: SearchEntry, label: string): Prom
       const message = `job answered status ${status.status}, mode ${'mode' in status ? status.mode : 'none'} ${
         detail === undefined ? '' : JSON.stringify(detail).slice(0, FAILURE_BODY_CHARS)
       }`;
-      // A job the server accepted and then failed is a query that did not finish — on local, a 1 000-id search ran
-      // into the 30 s database limit and the job answered 400 with no body. A smaller search can pass, so it is
-      // split. A bad request is refused when the job is started (the search call throws), not here.
       throw new SplittableJobFailure(message);
     }
 
@@ -358,7 +306,6 @@ async function runJob(oystehr: Oystehr, entry: SearchEntry, label: string): Prom
     );
     const resources = files.flatMap((file) => file.resources);
 
-    // OYST-3505: a result over one page carries a next link in the manifest.
     const nextUrl = (status.manifest as { link?: { relation?: string; url?: string }[] }).link?.find(
       (link) => link.relation === 'next'
     )?.url;
@@ -377,8 +324,6 @@ async function runJob(oystehr: Oystehr, entry: SearchEntry, label: string): Prom
         `code=${code ?? 'none'} message=${error instanceof Error ? error.message : String(error)}`
     );
     if (error instanceof SplittableJobFailure) throw error;
-    // An error thrown by the SDK (start or poll) or a failed download: a 5xx, a timeout or a network error may
-    // pass as a smaller search, a 4xx will not.
     if (isSplittableStatus(code)) {
       throw new SplittableJobFailure(error instanceof Error ? error.message : String(error));
     }
@@ -387,7 +332,6 @@ async function runJob(oystehr: Oystehr, entry: SearchEntry, label: string): Prom
   }
 }
 
-// A next link is the original search with an offset: it runs as a job of its own, with the same checks.
 function entryFromNextUrl(entry: SearchEntry, nextUrl: string): SearchEntry {
   const params = Array.from(new URLSearchParams(nextUrl.split('?')[1] ?? ''), ([name, value]) => ({
     name,
@@ -396,11 +340,6 @@ function entryFromNextUrl(entry: SearchEntry, nextUrl: string): SearchEntry {
   return { resourceType: entry.resourceType, params };
 }
 
-/**
- * The search as plain paged requests, up to syncPages() pages. Undefined when it has more pages than that, or when a
- * page fails in a way an async job may not (timeout, 5xx, response too large): the caller then runs it as an async
- * job, with the split rules. A bad request (4xx) throws.
- */
 async function runSync(oystehr: Oystehr, entry: SearchEntry, label: string): Promise<FhirResource[] | undefined> {
   const pages = syncPages();
   if (pages === 0) return undefined;
@@ -418,7 +357,6 @@ async function runSync(oystehr: Oystehr, entry: SearchEntry, label: string): Pro
             ...params,
             { name: '_count', value: `${size}` },
             { name: '_offset', value: `${page * size}` },
-            // The first page asks for the number of matches, so exactly the pages needed are read next.
             ...(page === 0 ? [{ name: '_total', value: 'accurate' }] : []),
           ],
         })
@@ -432,12 +370,9 @@ async function runSync(oystehr: Oystehr, entry: SearchEntry, label: string): Pro
 
   let result: Page[];
   try {
-    // The first page tells whether there are more; the rest are read side by side, not one after another (a page
-    // takes ~1 s whatever its offset, so a 5-page search costs ~2 pages of time). Pages past the end come back empty.
     const first = await fetchPage(0);
     result = [first];
     if (first.hasNext) {
-      // With the total, only the pages that exist (more than allowed → an async job); without it, every allowed page.
       const needed = typeof first.total === 'number' && first.total > 0 ? Math.ceil(first.total / size) : pages;
       if (needed > pages) {
         console.log(`[adhoc] ${label}: job=sync ${first.total} matches, more than ${pages} pages: an async job`);
@@ -485,7 +420,6 @@ async function runEntry(oystehr: Oystehr, entry: SearchEntry, label: string, dep
     return splitAndRun(oystehr, entry, label, depth, error.message);
   }
 
-  // A full page and no next link: the rest was dropped without an error (problem 6).
   if (result.resources.length >= ASYNC_BULK_MAX_RESULTS && !result.nextUrl) {
     return splitAndRun(oystehr, entry, label, depth, `${result.resources.length} resources without a next link`);
   }
@@ -516,7 +450,6 @@ async function splitAndRun(
   return parts.flat();
 }
 
-/** Runs each search as its own job, at most JOBS_IN_PARALLEL at once; each resource once. */
 async function runEntries<T extends FhirResource>(
   oystehr: Oystehr,
   entries: SearchEntry[],
@@ -530,7 +463,6 @@ async function runEntries<T extends FhirResource>(
   const out: T[] = [];
   const seen = new Set<string>();
   for (const resource of parts.flat()) {
-    // An included or revincluded resource can come back from two searches (a follow-up of two windows).
     const key = `${resource.resourceType}/${resource.id}`;
     if (resource.id && seen.has(key)) continue;
     if (resource.id) seen.add(key);
@@ -549,7 +481,6 @@ export function reportWindows(
   dateRange: { start: string; end: string },
   windowDays = DEFAULT_WINDOW_DAYS
 ): { start: string; end: string }[] {
-  // setZone keeps the offset the range was given in, so window bounds read like the range itself.
   const start = DateTime.fromISO(dateRange.start, { setZone: true });
   const end = DateTime.fromISO(dateRange.end, { setZone: true });
   if (!start.isValid || !end.isValid || end <= start) return [dateRange];
@@ -565,7 +496,6 @@ export function reportWindows(
   return windows;
 }
 
-/** One date-window search; it halves its window when its job fails. */
 function windowEntry(
   resourceType: FhirResource['resourceType'],
   dateParam: string,
@@ -593,7 +523,6 @@ function windowEntry(
   };
 }
 
-/** One id-chunk search; it halves its id list when its job fails. */
 function idsEntry(
   resourceType: FhirResource['resourceType'],
   paramName: string,
@@ -625,7 +554,6 @@ const participantIds = (appointments: Appointment[], type: 'Patient' | 'Location
     )
   );
 
-/** The appointments of the range with their encounters (`_revinclude`), one async job per window. */
 export async function fetchReportAppointments(
   oystehr: Oystehr,
   opts: {
@@ -644,21 +572,11 @@ export async function fetchReportAppointments(
   return runEntries<Appointment | Encounter>(oystehr, entries, 'Appointment by date');
 }
 
-/**
- * The visits of the range — the module-tagged appointments and their encounters, follow-ups included — as two (or
- * three) light searches side by side instead of one Appointment search that revincludes the encounters:
- *   - Appointment by date (status and module tag filters);
- *   - Encounter by `appointment.date` (a visit's encounter, and the follow-ups that carry its appointment);
- *   - Encounter by `part-of.appointment.date` (follow-ups without an appointment of their own).
- * The encounters are then kept as the revinclude kept them: those of a kept appointment, and their part-of chain.
- * If the server refuses the chained part-of search, the follow-ups are searched by their parents' ids instead.
- */
 export async function fetchReportVisits(
   oystehr: Oystehr,
   opts: {
     dateRange: { start: string; end: string };
     statuses?: string;
-    /** Called as soon as the appointments are in, before the encounters: what needs only them can start. */
     onAppointments?: (appointments: Appointment[]) => void;
   }
 ): Promise<(Appointment | Encounter)[]> {
@@ -705,7 +623,6 @@ export async function fetchReportVisits(
     ),
   ]);
 
-  // Each search keeps only its own type (a search can carry included resources).
   const visits = appointments.filter((a) => a.resourceType === 'Appointment');
   const appointmentRefs = new Set(visits.map((a) => `Appointment/${a.id}`));
   const kept = new Map<string, Encounter>();
@@ -718,7 +635,6 @@ export async function fetchReportVisits(
       kept.set(e.id, e);
   }
 
-  // Follow-ups: an encounter whose part-of points at a kept encounter is kept too, down the chain.
   let followUps = chainedFollowUps ?? [];
   if (!chainedFollowUps) {
     followUps = await fetchScopedResources<Encounter>(
@@ -743,7 +659,6 @@ export async function fetchReportVisits(
   return [...visits, ...kept.values()];
 }
 
-/** The patients and locations of the appointments, by id. */
 export async function fetchAppointmentParticipants(
   oystehr: Oystehr,
   appointments: Appointment[]
@@ -755,7 +670,6 @@ export async function fetchAppointmentParticipants(
   return { patients, locations };
 }
 
-/** The patients, locations and attending / intake practitioners of the appointments and encounters, by id. */
 export async function fetchReportRootLookups(
   oystehr: Oystehr,
   root: FhirResource[]
@@ -769,11 +683,6 @@ export async function fetchReportRootLookups(
   return { patients, locations, practitioners };
 }
 
-/**
- * The report's root: the appointments of the range with their encounters, then their patients, locations and
- * attending / intake practitioners by id — once each for the whole report, not as an `_include` in every window.
- * Returns all of them in one list. (The encounters dataset runs the two parts itself, the lookups next to its layers.)
- */
 export async function fetchAppointmentReportResources<T extends FhirResource>(
   oystehr: Oystehr,
   opts: {
@@ -839,7 +748,6 @@ export async function fetchAttendingPractitioners<T extends FhirResource>(
   ]);
 }
 
-/** Resources whose `paramName` is one of `values`: one async job per id chunk of IDS_PER_ENTRY. */
 export async function fetchScopedResources<T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],

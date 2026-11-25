@@ -6,7 +6,6 @@ import {
 import { AdHocEncounterRow } from 'utils/lib/types/adhoc/datasets/encounters';
 import { defineEncounterLayer } from '../context';
 
-// Follow-up notes: the note itself on a follow-up row, the count of notes on a visit row.
 export const followUpLayer = defineEncounterLayer<{ followUpNoteCountByParentId: Map<string, number> }>({
   id: 'followUp',
   fetch: async (ctx) => {

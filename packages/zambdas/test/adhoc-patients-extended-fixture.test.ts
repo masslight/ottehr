@@ -42,7 +42,6 @@ import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 import { makeProcedureResource } from '../src/shared/chart-data';
 
-// These fakes emulate async-bulk jobs only; the sync first page has its own test (adhoc-async-bulk-next-link).
 process.env.ADHOC_SYNC_PAGES = '0';
 
 // Fixture tests for the Patients layers that reuse app logic: the Recent Patients report's new-vs-existing
@@ -513,8 +512,6 @@ const resourcesByJob: Record<string, FhirResource[]> = {
   ),
   'Appointment:prior': [priorAppointment, priorSeenVisit, longAgoSeenVisit],
 };
-// The encounters dataset searches the encounters on their own (by appointment date); the other datasets still get
-// them revincluded with the appointments.
 resourcesByJob.Encounter ??= (resourcesByJob.Appointment ?? []).filter((r) => r.resourceType === 'Encounter');
 
 const jobIdFor = (resourceType: string, params: { name: string; value: string }[]): string => {
@@ -820,7 +817,6 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
     }
     expect(encounterRows.find((r) => r.patientId === 'pat-1')?.allergies).toEqual(['Penicillin', 'Aspirin']);
 
-    // A foreign layer never overwrites the dataset's own fields.
     expect(encounterRows.every((r) => !('totalVisits' in r))).toBe(true);
 
     const billingRows = await fetchAdHocBillingRows(
@@ -882,13 +878,11 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
         },
       }) as FhirResource;
 
-    // The answers come through the report's search helpers (the async-bulk path here), beside the prior visits.
     try {
       resourcesByJob.Observation = [staffAnswer('obs-seen', 'yes', '2026-07-01T10:00:00.000Z')];
       const rows = await fetchAdHocPatientRows(fakeOystehr, { dateRange, includeVisitHistory: true });
       expect(rows.find((r) => r.patientId === 'pat-2')?.patientStatus).toBe('existing');
 
-      // Answered twice: the newest answer decides, whatever order the search returns them in.
       resourcesByJob.Observation = [
         staffAnswer('obs-new', 'no', '2026-07-02T10:00:00.000Z'),
         staffAnswer('obs-old', 'yes', '2026-07-01T10:00:00.000Z'),

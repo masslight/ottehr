@@ -104,8 +104,6 @@ const extraElementsFor = (flags: LayerFlags): string[] => [
 /**
  * `oystehr` is the billing client. `eraReadClient` (untagged) is needed only for the insurancePayments
  * layer: the ERA PaymentReconciliations and their processing Provenances carry no billing tag.
- *
- * `encounterIds` replaces the date range: a claim's service date is not always its visit's date.
  */
 export async function fetchAdHocClaimRows(
   oystehr: Oystehr,
@@ -304,9 +302,6 @@ async function scanAllClaims(
   return claims;
 }
 
-// Not `_summary=count`: Oystehr answers it with total 1 when nothing matches (see ehr/patient-notes/count),
-// which failed every run on a project with no claims. A one-entry search carries an accurate total, and an
-// empty one means there are none, whatever its total says.
 async function countClaims(oystehr: Oystehr): Promise<number> {
   const bundle = await oystehr.fhir.search<Claim>({
     resourceType: 'Claim',

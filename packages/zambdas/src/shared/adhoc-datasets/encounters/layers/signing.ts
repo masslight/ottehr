@@ -12,7 +12,6 @@ import { resolveEncounterSignatures } from '../../../pdf/get-encounter-signature
 import { defineEncounterLayer } from '../context';
 import { lastSignedAt, minutesBetween, SIGNED_VISIT_STATUSES, stripEnc } from '../helpers';
 
-// Who signed the visit and when, supervisor approval, the lock.
 export const signingLayer = defineEncounterLayer<{
   signatureProvenancesByEncounterId: Map<string, Provenance[]>;
   signerById: Map<string, Practitioner>;

@@ -22,12 +22,9 @@ import {
 interface MedicationsOut {
   requestsByEncounterId: Map<string, MedicationRequest[]>;
   administrations: MedicationAdministrationBundle;
-  /** Built on the first row: what buildOrderPackage reads for one order, looked up by reference. */
   lookup?: { byRef: Map<string, FhirResource>; statementByMaRef: Map<string, MedicationStatement> };
 }
 
-// Only what buildOrderPackage reads for one order: its patient, its practitioners, its MedicationRequest and its
-// administration MedicationStatement — so mapping an order never scans every resource of the report.
 function orderLookup(out: MedicationsOut, ctx: EncounterReportContext): NonNullable<MedicationsOut['lookup']> {
   if (out.lookup) return out.lookup;
   const resources: FhirResource[] = [
@@ -47,13 +44,10 @@ function orderLookup(out: MedicationsOut, ctx: EncounterReportContext): NonNulla
   return out.lookup;
 }
 
-// Prescriptions (eRx) and in-house medication orders of the visit, with the staff who ordered / gave them and the
-// diagnosis each drug was given for.
 export const medicationsLayer = defineEncounterLayer<MedicationsOut>({
   id: 'medications',
   fetch: async (ctx) => {
     // The prescriptions as get-erx-orders / the tracking board search them: only eRx-tagged requests (the
-    // in-house medication orders also carry a MedicationRequest on the encounter, read via their MA).
     const [requests, administrations] = await Promise.all([
       fetchScopedResources<MedicationRequest>(ctx.oystehr, 'MedicationRequest', 'encounter', ctx.encRefs, [
         { name: '_tag', value: ERX_MEDICATION_META_TAG_CODE },

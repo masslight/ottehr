@@ -5,7 +5,6 @@ import { fetchScopedResources } from '../../../adhoc-report';
 import { defineEncounterLayer } from '../context';
 import { hasDocRefTypeCode } from '../helpers';
 
-// Work / school notes and condition photos of the visit.
 export const documentsLayer = defineEncounterLayer<{
   docRefsByEncounterId: Map<string, DocumentReference[]>;
   conditionPhotoDocRefsByAppointmentId: Map<string, DocumentReference[]>;

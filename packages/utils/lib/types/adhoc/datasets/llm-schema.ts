@@ -124,8 +124,7 @@ export function llmFieldsFromZodObject(
 }
 
 /** The prompt-facing field list for a dataset: base fields (minus internal ids) plus the fields of
- *  each SELECTED opt-in layer, in declaration order. `domains` carries any sampled value sets.
- *  A name declared by several layers (`claimMatched`) is listed once: the raw-data grid builds its columns from it. */
+ *  each SELECTED opt-in layer, in declaration order. `domains` carries any sampled value sets. */
 export function llmFieldsForLayers(
   base: z.ZodObject<z.ZodRawShape>,
   layers: Record<string, z.ZodObject<z.ZodRawShape>>,

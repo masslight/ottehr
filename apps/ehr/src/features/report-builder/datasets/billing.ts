@@ -13,7 +13,6 @@ import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/datas
 import { buildLlmDatasetSchema } from './schema';
 import { AdHocDataset, FetchContext } from './types';
 
-// Own layers and the foreign `patients.*` ones (DATASET_META).
 const BILLING_ALL_LAYERS = layersForDataset('billing');
 
 export const ADHOC_BILLING_OPTIONS: AdHocLayer[] = layerOptions(BILLING_ALL_LAYERS);

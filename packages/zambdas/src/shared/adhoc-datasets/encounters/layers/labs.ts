@@ -4,7 +4,6 @@ import { EncounterOrderRecords } from '../../encounter-orders';
 import { defineEncounterLayer } from '../context';
 import { isActiveOrder, isLabOrder, orderDisplay } from '../helpers';
 
-// Lab orders of the visit, and each lab test as the lab pages read it.
 export const labsLayer = defineEncounterLayer<{
   serviceRequestsByEncounterId: Map<string, ServiceRequest[]>;
   ordersByEncounterId: Map<string, EncounterOrderRecords>;

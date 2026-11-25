@@ -8,12 +8,9 @@ import { indexByEncounter, isActiveOrder, orderDisplay, stripEnc } from '../help
 interface ImagingOut {
   radiologyRequestsByEncounterId: Map<string, ServiceRequest[]>;
   radiologyPool: { tasks: Task[]; diagnosticReports: DiagnosticReport[]; documentReferences: DocumentReference[] };
-  /** Built on the first row: every practitioner and encounter of the report, as the study records look them up. */
   lookup?: { practitioners: Practitioner[]; encounters: Encounter[] };
 }
 
-// The radiology orders page's search (getRadiologyOrders). Cancelled (revoked) orders are kept: the dataset lists
-// them, the page does not.
 export const imagingLayer = defineEncounterLayer<ImagingOut>({
   id: 'imaging',
   fetch: async (ctx) => {
@@ -40,7 +37,6 @@ export const imagingLayer = defineEncounterLayer<ImagingOut>({
         radiologyParams
       ));
 
-    // Practitioners from the radiology search land after the root's own (rootLookups).
     await ctx.rootLookups();
     const requests: ServiceRequest[] = [];
 

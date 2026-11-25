@@ -1,12 +1,5 @@
 #!/usr/bin/env bash
-# Compares the encounters dataset fetch of the current code with the code before the layer redesign:
-# time of each run (alternating old/new, so a warm database cache helps neither) and whether the rows are the
-# same. READ-ONLY against Oystehr.
-#
 #   packages/zambdas/scripts/adhoc-bench-compare.sh <env> [days=60] [layers=codes,vitals,medications,labs,signing] [rounds=2]
-#
-# <env> is a file in config/.env (e.g. local). The old code is checked out in a temporary git worktree at the
-# commit before "batch async-bulk fetch helpers, layer modules" (override with ADHOC_BENCH_BASE=<commit>).
 set -euo pipefail
 
 ENV_NAME=${1:?usage: adhoc-bench-compare.sh <env> [days] [layers] [rounds]}
@@ -25,8 +18,6 @@ trap cleanup EXIT
 echo "old code: $(git -C "$CORE" log --format='%h %s' -1 "$BASE")"
 git -C "$CORE" worktree add --detach --quiet "$OLD" "$BASE"
 
-# Dependencies from the main checkout. Workspace packages (relative links such as utils -> ../packages/utils)
-# are copied as links, so in the worktree they point at the worktree's own (old) packages.
 mkdir -p "$OLD/node_modules"
 for entry in "$CORE"/node_modules/* "$CORE"/node_modules/.bin; do
   name=$(basename "$entry")
@@ -45,14 +36,11 @@ for file in "$CORE"/config/.env/*.json; do
 done
 cp "$CORE/packages/zambdas/src/scripts/adhoc-bench.ts" "$OLD/packages/zambdas/src/scripts/adhoc-bench.ts"
 
-# The same range for every run.
 END=$(node -e 'console.log(new Date().toISOString())')
 START=$(node -e "console.log(new Date(Date.now() - $DAYS * 86400000).toISOString())")
 echo "range $START .. $END, layers: $LAYERS, rounds: $ROUNDS"
 echo "results print when a run ends; to follow a run: tail -f $OUT/*.log"
 
-# A run that fails (a dropped connection — "fetch failed" — fails the old code, which has no retry) is run
-# again, up to 3 attempts; the failed attempts' logs are kept.
 run() { # <tree> <label> <n>
   local attempt
   for attempt in 1 2 3; do
@@ -61,7 +49,6 @@ run() { # <tree> <label> <n>
       echo "  $2 #$3: $(node -e "const r=require('$OUT/$2-$3.json'); console.log(r.ms + ' ms, ' + r.rows + ' rows, ' + r.networkRetries + ' network retries' + (r.overBudget ? ', OVER the 13-minute budget (the worker would have stopped it)' : ''))")"
       return
     fi
-    # The report's 13-minute fetch budget ran out: that is the result, not a glitch to retry.
     if grep -q 'exceeded its time budget' "$OUT/$2-$3.attempt$attempt.log"; then
       echo "  $2 #$3: did not finish within the 13-minute report budget"
       echo '{"dnf":true}' >"$OUT/$2-$3.json"

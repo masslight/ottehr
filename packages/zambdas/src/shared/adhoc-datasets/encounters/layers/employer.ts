@@ -11,7 +11,6 @@ import { composeEmployerData } from '../../../pdf/sections/employerInfo';
 import { fetchPatientAccounts } from '../../patient-accounts';
 import { defineEncounterLayer } from '../context';
 
-// Occupational medicine / workers' comp employer of the visit.
 export const employerLayer = defineEncounterLayer<{
   accountsByPatient: Map<string, PatientAccountAndCoverageResources>;
   visitEmployerOrgById: Map<string, Organization>;

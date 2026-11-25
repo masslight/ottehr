@@ -1,4 +1,3 @@
-// Helpers shared by the encounters dataset's root and layer modules.
 import {
   Appointment,
   DocumentReference,
@@ -123,8 +122,6 @@ export const lastSignedAt = (history: ReturnType<typeof getVisitStatusHistory>):
  * override applied, as slot generation applies them). 0 on a closed day; null when no schedule is set.
  */
 export const openHoursOnDay = (owner: Schedule | Location, start: string, timezone: string): number | null => {
-  // Every visit of a clinic reads the same schedule, and most visits share a day with others: the answer is
-  // computed once per clinic and local day (parsing the extension and applying overrides took ~1 s per 7 500 rows).
   const date = localDate(start, timezone);
   if (date === undefined) return openHoursOnDayUncached(owner, start, timezone);
   let byDay = openHoursCache.get(owner);
@@ -137,7 +134,6 @@ export const openHoursOnDay = (owner: Schedule | Location, start: string, timezo
 const openHoursCache = new WeakMap<Schedule | Location, Map<string, number | null>>();
 const dateFormatByZone = new Map<string, Intl.DateTimeFormat>();
 
-/** The calendar day `start` falls on in `timezone` (yyyy-mm-dd); undefined for an unreadable time or zone. */
 const localDate = (start: string, timezone: string): string | undefined => {
   const instant = new Date(start);
   if (Number.isNaN(instant.getTime())) return undefined;
@@ -220,7 +216,6 @@ export const noteRecordBase = (note: NoteDTO): { text: string; author: string; a
 
 export const stripEnc = (ref?: string): string | undefined => ref?.replace('Encounter/', '');
 
-/** Groups items by the encounter id `encOf` reads off each one. */
 export const indexByEncounter = <T>(items: T[], encOf: (item: T) => string | undefined): Map<string, T[]> => {
   const map = new Map<string, T[]>();
   for (const item of items) {
@@ -230,5 +225,4 @@ export const indexByEncounter = <T>(items: T[], encOf: (item: T) => string | und
   return map;
 };
 
-/** Every vital the chart writes, by its Observation tag code (chart-data `fillMeta(field, field)`). FHIR `_tag` has no wildcard. */
 export const VITAL_TAG_CODES = Object.values(VitalFieldNames).join(',');

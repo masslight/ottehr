@@ -5,7 +5,6 @@ import { openHoursOnDay } from '../src/shared/adhoc-datasets/encounters/helpers'
 import { DEFAULT_SCHEDULE_JSON } from './helpers/testScheduleUtils';
 
 describe('openHoursOnDay', () => {
-  // Overrides on a few days, so the answer differs from day to day.
   const overrides = Object.fromEntries(
     ['01/05/2026', '01/06/2026', '01/09/2026', '01/14/2026'].map((day, i) => [
       day,
@@ -25,7 +24,6 @@ describe('openHoursOnDay', () => {
   };
 
   it('answers per clinic and local day as an uncached read would, in whole-, half- and quarter-hour zones', () => {
-    // The answer is cached per schedule and local calendar day; a copy of the schedule is a fresh cache.
     for (const timezone of ['America/New_York', 'Asia/Kolkata', 'Asia/Kathmandu', 'Pacific/Chatham']) {
       for (let i = 0; i < 600; i++) {
         const start = new Date(Date.UTC(2026, 0, 1) + i * 97 * 60_000).toISOString();

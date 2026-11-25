@@ -1,13 +1,4 @@
-// Times the encounters dataset fetch (fetchAdHocEncounterRows) and fingerprints its rows. READ-ONLY.
-// Written against the API both the current code and the code before the layer redesign have, so
-// scripts/adhoc-bench-compare.sh runs this same file in both trees and compares them.
-//
 //   npx tsx src/scripts/adhoc-bench.ts <env> <startISO> <endISO> <layers,comma,separated> <out.json>
-//
-// Both versions get the same two allowances, so the run measures speed and data, not luck:
-// - a dropped connection ("fetch failed", a network error, never an HTTP answer) is retried, up to 3 times;
-// - no 13-minute report budget: a run that takes longer is timed to the end and flagged overBudget (the
-//   worker would have stopped it).
 import { createHash } from 'crypto';
 import { writeFileSync } from 'fs';
 import { fetchAdHocEncounterRows } from '../shared/adhoc-datasets/encounters';
@@ -16,7 +7,6 @@ import { getAuth0Token } from '../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../shared/helpers';
 import { performEffectWithEnvFile } from './helpers';
 
-// Keys sorted at every level, so the same data gives the same text whatever the property order.
 const stable = (value: unknown): unknown =>
   Array.isArray(value)
     ? value.map(stable)
@@ -41,13 +31,11 @@ globalThis.fetch = async (
   input: Parameters<typeof fetch>[0],
   init?: Parameters<typeof fetch>[1]
 ): Promise<Response> => {
-  // A Request's body can be read once: every attempt sends a fresh copy of the untouched original.
   const request = input instanceof Request ? input : undefined;
   for (let attempt = 1; ; attempt++) {
     try {
       return await plainFetch(request ? request.clone() : input, init);
     } catch (error) {
-      // Only a network error (fetch rejects); an HTTP error answer resolves and is never retried here.
       if (attempt >= 4 || (error as { name?: string })?.name === 'AbortError') throw error;
       networkRetries++;
       await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
@@ -81,14 +69,12 @@ async function main(config: Record<string, string>): Promise<void> {
     out,
     JSON.stringify({
       ms,
-      // The fetch settings of this run, when the code has them (the code before the redesign does not).
       idsPerSearch: (adhocReport as Record<string, unknown>).IDS_PER_ENTRY,
       jobsInParallel: (adhocReport as Record<string, unknown>).JOBS_IN_PARALLEL,
       overBudget: ms > REPORT_BUDGET_MS,
       networkRetries,
       rows: rows.length,
       fingerprint: sha(sorted),
-      // One hash per column, so a difference names the columns it is in.
       fields: Object.fromEntries(
         fields.map((field) => [field, sha(sorted.map((row) => [row.encounterId, row[field]]))])
       ),

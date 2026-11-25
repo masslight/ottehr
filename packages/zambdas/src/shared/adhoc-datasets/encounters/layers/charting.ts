@@ -10,7 +10,6 @@ import { mapChartResources } from '../../../chart-sections/map';
 import { defineEncounterLayer } from '../context';
 import { ChartNoteType, hasDocRefTypeCode, indexByEncounter, noteRecordBase, stripEnc } from '../helpers';
 
-// The visit's chart text: chief complaint, HPI, MDM, instructions, notes and addenda.
 export const chartingLayer = defineEncounterLayer<{
   encounterConditionsByEncounterId: Map<string, Condition[]>;
   clinicalImpressionsByEncounterId: Map<string, ClinicalImpression[]>;

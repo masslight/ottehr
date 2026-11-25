@@ -273,7 +273,6 @@ export const BILLING_LAYERS = {
 
 export type BillingLayerId = keyof typeof BILLING_LAYERS;
 
-// The patients dataset's layers, offered on every visit row by its patientId (`patients.allergies`, …).
 export const BILLING_FOREIGN_LAYERS: AdHocLayerMap = foreignLayers({
   sourceId: 'patients',
   sourceLabel: 'Patient',

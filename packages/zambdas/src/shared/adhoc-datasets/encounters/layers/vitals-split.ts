@@ -6,10 +6,6 @@ import { AnyEncounterLayerModule, defineEncounterLayer } from '../context';
 import { indexByEncounter, stripEnc } from '../helpers';
 import { vitalsLayer } from './vitals';
 
-/**
- * A smaller vital-sign layer: loads only the readings of its own vitals (by Observation tag) and gives the same
- * columns as the "vitals" layer for them, mapped by the vitals layer itself.
- */
 const vitalSubLayer = (id: EncounterLayerId, tags: VitalFieldNames[]): AnyEncounterLayerModule => {
   const fields = Object.keys(ENCOUNTER_LAYERS[id].schema.shape);
   return defineEncounterLayer<{ observationsByEncounterId: Map<string, Observation[]> }>({

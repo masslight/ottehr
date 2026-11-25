@@ -68,7 +68,6 @@ import {
 import { WRITE_OFF_PARTY_EXT_URL, WRITE_OFF_REASON_EXT_URL, WRITE_OFF_SYSTEM } from '../../../src/billing/write-offs';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
 
-// These fakes emulate async-bulk jobs only; the sync first page has its own test (adhoc-async-bulk-next-link).
 process.env.ADHOC_SYNC_PAGES = '0';
 
 const ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
@@ -503,7 +502,6 @@ function stubBillingClient({
     let matches = store.filter((r) => r.resourceType === resourceType && !(noClaims && r.resourceType === 'Claim'));
 
     if (all('_summary')[0] === 'count') {
-      // As Oystehr does: an empty match set still reports total 1.
       return { resourceType: 'Bundle', type: 'searchset', total: Math.max(matches.length, 1), unbundle: () => [] };
     }
 

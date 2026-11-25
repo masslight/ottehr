@@ -340,12 +340,10 @@ const ENCOUNTER_NATIVE_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
 // Opt-in layers, declared once (metadata + Zod field schema). Row/response schema, endpoint input
 // flags, UI checkboxes, and the prompt's availableLayers all derive from this map — a layer's id
 // lives here and nowhere else.
-// Appended to each one-vital layer's description, so infer and generation pick it over the full vitals layer.
 const ONE_VITAL =
   ' Same columns as in "Vital signs", loading only these readings: pick it instead of "Vital signs" when no other ' +
   'vital is needed.';
 
-// The full vital-signs columns, shared by the "vitals" layer and the smaller vital layers below.
 const VITALS_SCHEMA = z.object({
   temperatureF: z
     .number()
@@ -684,9 +682,6 @@ export const ENCOUNTER_LAYERS = {
       'respiration, SpO₂, weight/height/head circumference/BMI).',
     schema: VITALS_SCHEMA,
   },
-  // Smaller vital-sign layers: each loads only its own readings (one Observation tag), so a report about one vital
-  // does not download every vital of every visit. Their columns are the same as in "vitals"; pick the smallest
-  // layer that covers the request, and "vitals" for alerts, several vitals at once, vision, LMP or who recorded.
   vitalsTemperature: {
     label: 'Temperature',
     description: 'Temperature only (°F and °C): latest, every reading in order, how it was taken.' + ONE_VITAL,
@@ -1496,7 +1491,6 @@ export const ENCOUNTER_LAYERS = {
 
 export type EncounterLayerId = keyof typeof ENCOUNTER_LAYERS;
 
-// The patients dataset's layers, offered on every encounter row by its patientId (`patients.allergies`, …).
 export const ENCOUNTER_FOREIGN_LAYERS: AdHocLayerMap = foreignLayers({
   sourceId: 'patients',
   sourceLabel: 'Patient',
@@ -1543,7 +1537,6 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly string[] = [
 ];
 
 type EncounterNativeRow = z.infer<typeof EncounterBaseRowSchema> & LayerRowFields<typeof ENCOUNTER_LAYERS>;
-/** The foreign patient-layer columns an encounter row may carry (each optional, the base's own fields excluded). */
 export type EncounterForeignRowFields = Omit<LayerRowFields<typeof PATIENT_LAYERS>, keyof EncounterNativeRow>;
 
 // Full row: base columns required, every layer column optional (present when its layer was
@@ -1555,7 +1548,6 @@ export const AdHocEncounterRowSchema = datasetRowSchema(EncounterBaseRowSchema, 
   'One row per encounter.'
 ) as unknown as z.ZodType<AdHocEncounterRow>;
 
-// Endpoint input: the date window + one include<Layer> flag per layer (foreign ones too), derived from the maps.
 export const AdHocEncountersInputSchema = datasetInputSchema(ENCOUNTER_ALL_LAYERS);
 export type AdHocEncountersInput = DatasetInput<typeof ENCOUNTER_LAYERS> & Partial<Record<`include${string}`, boolean>>;
 

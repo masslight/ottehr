@@ -3,7 +3,6 @@ import { Appointment, Encounter, FhirResource, Location, Patient } from 'fhir/r4
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_WINDOW_DAYS, fetchAppointmentReportResources, fetchReportVisits } from '../src/shared/adhoc-report';
 
-// These fakes emulate async-bulk jobs only; the sync first page has its own test (adhoc-async-bulk-next-link).
 process.env.ADHOC_SYNC_PAGES = '0';
 
 type Param = { name: string; value: string };
@@ -42,7 +41,6 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-// Every Appointment window answers the same 1 002 appointments with their encounters; Patient / Location by id.
 const resourcesFor = (resourceType: string): FhirResource[] => {
   if (resourceType === 'Appointment') {
     const appointments = Array.from({ length: 1002 }, (_, i) => appt(`appt-${i}`));
@@ -113,7 +111,6 @@ describe('report root (fetchAppointmentReportResources)', () => {
     expect(bounds[0][0]).toBe(`ge${dateRange.start}`);
     expect(bounds.at(-1)?.[1]).toBe(`le${dateRange.end}`);
 
-    // The same ids from every window are reported once.
     expect(resources.filter((r) => r.resourceType === 'Appointment')).toHaveLength(1002);
   });
 });
@@ -162,7 +159,6 @@ describe('report visits (fetchReportVisits): appointments and encounters searche
     const out = await fetchReportVisits(
       client({
         Appointment: [visit('a1')],
-        // e2 belongs to an appointment the filters dropped (another module, another status).
         Encounter: [enc('e1', 'a1'), enc('e2', 'other')],
         chained: [enc('f1', undefined, 'e1'), enc('f2', undefined, 'e2'), enc('f3', undefined, 'f1')],
       }),

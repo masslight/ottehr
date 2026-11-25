@@ -35,11 +35,9 @@ import {
   VITAL_TAG_CODES,
 } from '../helpers';
 
-// The visit's vital readings: latest values, every reading in order, alerts, how each was taken, vision, LMP.
 export const vitalsLayer = defineEncounterLayer<{ observationsByEncounterId: Map<string, Observation[]> }>({
   id: 'vitals',
   fetch: async (ctx) => {
-    // Only the vital readings (by tag), unless a layer that reads every Observation of the visit is loaded anyway.
     const observationsByEncounterId =
       ctx.requested.has('examRos') || ctx.requested.has('intake')
         ? await ctx.shared.observations()

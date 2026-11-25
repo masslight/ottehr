@@ -56,7 +56,6 @@ import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 
-// These fakes emulate async-bulk jobs only; the sync first page has its own test (adhoc-async-bulk-next-link).
 process.env.ADHOC_SYNC_PAGES = '0';
 
 // Design requirement: "fixture tests asserting the fetched rows parse against the Zod schema
@@ -542,7 +541,6 @@ const paymentNotices: FhirResource[] = [
 // the fake serves Practitioner as a scoped type rather than alongside the appointment graph.
 const rootResources: FhirResource[] = [appointment, encounter];
 const scopedByType: Record<string, FhirResource[]> = {
-  // Patients and locations are loaded by id after the appointments, never as an _include.
   Patient: [patient],
   Location: [location],
   Practitioner: [practitioner],
@@ -554,8 +552,6 @@ const scopedByType: Record<string, FhirResource[]> = {
   MedicationAdministration: [...medicationAdministrations, administeredStatement],
   PaymentNotice: paymentNotices,
 };
-// The encounters dataset searches the encounters on their own (by appointment date); the other datasets still get
-// them revincluded with the appointments.
 const resourcesFor = (resourceType: string): FhirResource[] =>
   resourceType === 'Appointment'
     ? rootResources

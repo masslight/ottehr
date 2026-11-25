@@ -2,7 +2,6 @@ import { Procedure } from 'fhir/r4b';
 import { defineEncounterLayer } from '../context';
 import { hasChartTag } from '../helpers';
 
-// Diagnoses (the encounter's ranked Condition references) and the charted CPT / E&M Procedures.
 export const codesLayer = defineEncounterLayer<Map<string, Procedure[]>>({
   id: 'codes',
   fetch: async (ctx) => {

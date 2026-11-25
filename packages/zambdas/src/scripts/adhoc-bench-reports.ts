@@ -1,23 +1,4 @@
-// Three typical ad-hoc reports, each fetched three ways and computed to the same result, so the ways can be compared on
-// time, request count and correctness. READ-ONLY. Run by scripts/adhoc-bench-reports.sh, which runs this same file in
-// the current checkout ("current", "ideal") and in a worktree of the Report Studio branch ("studio").
-//
 //   npx tsx src/scripts/adhoc-bench-reports.ts <env> <current|ideal|studio> <r1…r5> <startISO> <endISO> <out.json>
-//
-// Reports (a visit = an Appointment of the range with an Ottehr module tag, and its encounter that is not a follow-up
-// note):
-//   r1  visits per month per attending provider
-//   r2  per location: visits, visits with a temperature, average latest temperature (°F)
-//   r3  visits, visits with a diagnosis, visits with a CPT code, top 10 ICD-10 codes by visits
-//   r4  heavy, visits + patients data: per month, visits, visits with a temperature, with a diagnosis, of a patient
-//       with a known allergy (encounters + vitals + codes + patients.allergies)
-//   r5  heavy, visits + patients data: per location, visits, visits of new patients (no appointment before the
-//       range), visits with a CPT code; top 10 problems of the visits' patients (encounters + codes +
-//       patients.problems + patients.allergies + patients.visitHistory)
-// Ways:
-//   current  this version: fetchAdHocEncounterRows with the layer the report needs, result computed from its rows
-//   ideal    hand-written minimal searches (only the fields the report reads), one async job per search, 16 at once
-//   studio   Report Studio's runner (runFetchPlan) with a plan written the way its data map recommends
 import {
   AllergyIntolerance,
   Appointment,
@@ -43,8 +24,6 @@ type ReportId = 'r1' | 'r2' | 'r3' | 'r4' | 'r5';
 const STATUSES = 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow';
 const MODULE_TAGS = 'OTTEHR-TM,OTTEHR-IP';
 
-// ---- Same allowance for every way: a dropped connection is retried (never an HTTP answer) -------------------------
-
 let networkRetries = 0;
 const plainFetch = globalThis.fetch;
 globalThis.fetch = async (
@@ -62,8 +41,6 @@ globalThis.fetch = async (
     }
   }
 };
-
-// ---- The reports, computed from raw FHIR (ideal, studio) or from this version's rows (current) ---------------------
 
 interface RawData {
   appointments: Appointment[];
@@ -87,7 +64,6 @@ const sortKeys = <T>(obj: Record<string, T>): Record<string, T> =>
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 const round3 = (n: number): number => Math.round(n * 1000) / 1000;
 
-/** The visits: encounters of the range's appointments, follow-up notes left out. */
 function rawVisits(data: RawData): { encounter: Encounter; appointment: Appointment }[] {
   const appointmentByRef = new Map(data.appointments.map((a) => [`Appointment/${a.id}`, a]));
   const seen = new Set<string>();
@@ -227,8 +203,6 @@ function computeRows(report: ReportId, allRows: Row[]): Record<string, unknown> 
   return codesResult(rows.map((r) => ({ icd: (r.icdCodes as string[]) ?? [], cpt: (r.cptCodes as string[]) ?? [] })));
 }
 
-// ---- r4 / r5: visits joined with their patients' data ------------------------------------------------------------
-
 type HeavyVisit = {
   month: string;
   location: string;
@@ -309,7 +283,6 @@ function computeHeavyRaw(
   return heavyResult(
     report,
     visits.map(({ encounter, appointment }) => {
-      // As this version's rows: the visit's patient is the encounter's subject, when that patient exists.
       const subject = ref(encounter.subject?.reference, 'Patient');
       const patient = subject && loaded.has(subject) ? subject : undefined;
       return {
@@ -347,8 +320,6 @@ const heavyRows = (report: 'r4' | 'r5', rows: Row[]): Record<string, unknown> =>
     }))
   );
 
-// ---- Groups: where the time went -----------------------------------------------------------------------------------
-
 interface Group {
   name: string;
   ms: number;
@@ -356,8 +327,6 @@ interface Group {
   resources?: number;
   error?: string;
 }
-
-// ---- ideal: hand-written minimal searches ----------------------------------------------------------------------------
 
 const IDEAL_JOBS = 16;
 const IDEAL_IDS = 500;
@@ -436,7 +405,6 @@ const dedupe = <T extends FhirResource>(items: FhirResource[]): T[] => {
   }) as T[];
 };
 
-/** What each report reads besides the visits. */
 const NEEDS: Record<
   ReportId,
   Partial<
@@ -517,7 +485,6 @@ async function runIdeal(
       return out;
     });
 
-  // Stage 1: the visits — appointments and their encounters by the appointment's date, side by side, trimmed.
   const need = NEEDS[report];
   const encounterElements = [
     'id',
@@ -542,7 +509,6 @@ async function runIdeal(
   const visits = rawVisits(data);
   const encounterRefs = visits.map((v) => `Encounter/${v.encounter.id}`);
 
-  // Stage 2: what the report reads besides the visits, by the visits' ids, all side by side.
   const participantIds = (type: string): string[] =>
     visits
       .map((v) =>
@@ -579,7 +545,6 @@ async function runIdeal(
       ]).then((r) => (data.procedures = r as Procedure[])),
     need.patients &&
       (async () => {
-        // Patients first (which exist), then their data by patient, side by side.
         const ids = participantIds('Patient');
         data.patients = (await byIds('patients', 'Patient', '_id', ids, [
           { name: '_elements', value: 'id' },
@@ -607,8 +572,6 @@ async function runIdeal(
 
   return { result: computeRaw(report, data), groups, requests: groups.reduce((n, g) => n + (g.requests ?? 0), 0) };
 }
-
-// ---- studio: Report Studio's runner with plans written the way its data map recommends ------------------------------
 
 const studioPlan = (report: ReportId): unknown => {
   const need = NEEDS[report];
@@ -762,8 +725,6 @@ async function runStudio(
   };
 }
 
-// ---- current: this version's encounters dataset ---------------------------------------------------------------------
-
 async function runCurrent(
   oystehr: Oystehr,
   report: ReportId,
@@ -784,7 +745,6 @@ async function runCurrent(
     },
   }[report];
 
-  // This version logs its own breakdown; keep it, and count its jobs.
   let timing = '';
   let jobs = 0;
   const log = console.log;
@@ -816,8 +776,6 @@ async function runCurrent(
   }
   return { result: computeRows(report, rows), groups, requests: jobs };
 }
-
-// ---- main -----------------------------------------------------------------------------------------------------------
 
 async function main(config: Record<string, string>): Promise<void> {
   const [, , , way, report, start, end, out] = process.argv as [

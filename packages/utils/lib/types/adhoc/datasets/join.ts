@@ -7,8 +7,6 @@ const keyOf = (row: Row, field: string): string | undefined => {
   return value === undefined || value === null || value === '' ? undefined : String(value);
 };
 
-// Host rows are never added or dropped. On a duplicate source key (a race in claim creation) the smallest
-// sourceRowKey wins, so the result does not depend on fetch order.
 export function joinRows<T extends Row>(params: {
   host: T[];
   source: Row[];

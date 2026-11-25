@@ -216,9 +216,6 @@ export function useReportBuilder(): UseReportBuilder {
     [customDate, customStartDate, customEndDate]
   );
 
-  // The loaded data of this session: which dataset, for which date controls, with which layers. The range is
-  // fixed at the first load (a range "until now" would get new visits every minute), so a later layer can be
-  // loaded alone and merged into the rows already here.
   const loadedRef = useRef<LoadedData | null>(null);
 
   const rangeKeyOf = useCallback(
@@ -264,7 +261,6 @@ export function useReportBuilder(): UseReportBuilder {
           fetched = session.rows;
           layers = session.layers;
         } else {
-          // Only the layers not loaded yet; the rest comes from the rows already here.
           const merged = mergeRows(session.rows, await fetchLayers(missing), dataset.rowKey);
           fetched = merged ?? (await fetchLayers(wanted));
           layers = merged ? new Set([...session.layers, ...missing]) : new Set(wanted);
@@ -300,7 +296,6 @@ export function useReportBuilder(): UseReportBuilder {
     [oystehrZambda, queryClient, dateRange, getDateRangeIso, rangeKeyOf]
   );
 
-  // An explicit fetch starts a new session: the range is computed again and every layer is loaded.
   const handleFetch = useCallback((): void => {
     if (datasetId) void fetchWithOptions(datasetId, datasetOptions, { refresh: true });
   }, [fetchWithOptions, datasetId, datasetOptions]);

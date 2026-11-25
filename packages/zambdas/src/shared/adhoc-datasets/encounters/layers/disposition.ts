@@ -11,7 +11,6 @@ import { followUpTypeFromPerformerType, makeDispositionDTOFromFhirResources } fr
 import { defineEncounterLayer } from '../context';
 import { hasChartTag, isActiveOrder } from '../helpers';
 
-// The chart's disposition and the follow-up orders of the visit.
 export const dispositionLayer = defineEncounterLayer<{ serviceRequestsByEncounterId: Map<string, ServiceRequest[]> }>({
   id: 'disposition',
   fetch: async (ctx) => ({ serviceRequestsByEncounterId: await ctx.shared.serviceRequests() }),

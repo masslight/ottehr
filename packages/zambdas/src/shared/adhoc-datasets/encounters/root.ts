@@ -1,5 +1,3 @@
-// The base of the encounters dataset: the root resources, the base row of each encounter, and the few
-// root-only lookups the base row needs (registrar names, location schedules, provider groups).
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { Appointment, Encounter, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
@@ -38,22 +36,15 @@ import {
 import { EncounterRoot, EncounterRowInput } from './context';
 import { groupIdOf, minutesBetween, openHoursOnDay, practitionerDisplayName } from './helpers';
 
-/**
- * The appointments of the range with their encounters. The Encounters dataset also walks Encounter:part-of so a
- * follow-up encounter resolves to its parent's appointment. Patients, locations and the attending / intake
- * practitioners come later, next to the layers (loadEncounterRootLookups).
- */
 export async function fetchEncounterRoot(
   oystehr: Oystehr,
   dateRange: { start: string; end: string }
 ): Promise<EncounterRoot> {
-  // Patients and locations need only the appointments, which come in before the encounters: they start then.
   let participants: EncounterRoot['participants'];
   const resources = await fetchReportVisits(oystehr, {
     dateRange,
     onAppointments: (appointments) => {
       participants = fetchAppointmentParticipants(oystehr, appointments);
-      // Awaited later (loadEncounterRootLookups); a failure must not surface before that as an unhandled rejection.
       participants.catch(() => undefined);
     },
   });
@@ -75,7 +66,6 @@ export async function fetchEncounterRoot(
   return root;
 }
 
-/** Fills the root's patients and locations and returns its attending / intake practitioners. */
 export async function loadEncounterRootLookups(oystehr: Oystehr, root: EncounterRoot): Promise<Practitioner[]> {
   const appointments = root.resources.filter((r): r is Appointment => r.resourceType === 'Appointment');
   const [{ patients, locations }, practitioners] = await Promise.all([
@@ -123,14 +113,12 @@ async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string
   return map;
 }
 
-/** What the base row reads beyond the root: registrar names, each location's Schedule, provider group names. */
 export interface EncounterBaseLookups {
   staffNames: Map<string, string>;
   scheduleByLocationId: Map<string, Schedule>;
   groupNameById: Map<string, string>;
 }
 
-/** Runs next to the layers, not after them: it needs only the root (the schedules wait for its locations). */
 export async function fetchEncounterBaseLookups(
   oystehr: Oystehr,
   root: EncounterRoot,
@@ -194,7 +182,6 @@ export async function fetchEncounterBaseLookups(
   return { staffNames, scheduleByLocationId, groupNameById };
 }
 
-/** The base row of one encounter, and what the layers' `map` reads for it. */
 export function buildEncounterBaseRow(
   encounter: Encounter,
   appointment: Appointment,

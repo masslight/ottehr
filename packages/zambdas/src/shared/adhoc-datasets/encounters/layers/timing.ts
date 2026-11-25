@@ -4,7 +4,6 @@ import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { defineEncounterLayer } from '../context';
 import { minutesBetween } from '../helpers';
 
-// Per-visit KPI durations from the Ottehr status history. Nothing to fetch.
 export const timingLayer = defineEncounterLayer<null>({
   id: 'timing',
   fetch: async () => null,

@@ -11,10 +11,6 @@ export interface AdHocLayerDef {
   label: string;
   description: string;
   default?: boolean;
-  /**
-   * The base field the layer's columns are keyed by. A dataset can use a layer when its base row has this field.
-   * Omitted on a dataset's own layers: they are keyed by the dataset's row key (DATASET_META).
-   */
   key?: string;
   schema: z.ZodObject<z.ZodRawShape>;
 }
@@ -85,11 +81,6 @@ export function unloadedLayers(
     .map(([id, def]) => ({ id, label: def.label, description: def.description }));
 }
 
-/**
- * Another dataset's layers, offered on this one (`<sourceId>.<layerId>`): each layer of `source` is available when
- * this dataset's base row has the layer's key field (`key`). A foreign layer adds only the fields this dataset
- * does not already have in its base or its own layers; a layer left with no field is not offered.
- */
 export function foreignLayers(params: {
   sourceId: string;
   sourceLabel: string;
@@ -123,5 +114,4 @@ export function foreignLayers(params: {
   return out;
 }
 
-/** The fields a layer contributes to a row. */
 export const layerFields = (def: AdHocLayerDef): string[] => Object.keys(def.schema.shape);

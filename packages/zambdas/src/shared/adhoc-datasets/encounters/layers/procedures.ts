@@ -4,7 +4,6 @@ import { chartDataResourceHasMetaTagByCode, makeProceduresDTOFromFhirResources }
 import { defineEncounterLayer } from '../context';
 import { isActiveOrder } from '../helpers';
 
-// Completed procedures of the visit, as the chart's procedures section reads them.
 export const proceduresLayer = defineEncounterLayer<{
   serviceRequestsByEncounterId: Map<string, ServiceRequest[]>;
   proceduresByEncounterId: Map<string, Procedure[]>;

@@ -1,5 +1,3 @@
-// The patients dataset: root (the appointments of the range folded to one row per patient), then every
-// requested layer in parallel — each layer one module (layers.ts), keyed by patient.
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, Location, Patient, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -38,7 +36,6 @@ interface PatientAgg {
 
 const includeFlag = (id: string): string => `include${id.charAt(0).toUpperCase()}${id.slice(1)}`;
 
-/** The layer ids an endpoint input asks for (its include<Layer> flags). */
 export function requestedPatientLayers(params: AdHocPatientsInput): PatientLayerId[] {
   const flags = params as unknown as Record<string, boolean | undefined>;
   return (Object.keys(PATIENT_LAYER_MODULES) as PatientLayerId[]).filter((id) => flags[includeFlag(id)]);
@@ -53,7 +50,6 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
   type ReportResource = Appointment | Encounter | Patient | Location | Practitioner;
 
   // Anchored on Appointment in the date range (like the Encounters dataset), but folded to one row
-  // per patient. The main search stays light; the layers are loaded afterwards per patient.
   // Attended visits only (no cancelled / no-show): unlike the Encounters/Billing datasets, the
   // per-patient rollups (totalVisits, first/lastVisitDate, locations, providers) carry no per-visit
   // status a report could filter on, so cancelled/no-show visits would silently inflate the counts
@@ -187,7 +183,6 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     if (serviceCategory) agg.serviceCategories.add(serviceCategory);
   }
 
-  // Every requested layer at once, for the patients of the rows.
   const columns = await fetchPatientLayerColumns(oystehr, {
     dateRange,
     patients: Array.from(aggByPatient.values()).map((agg) => agg.patient),

@@ -3,7 +3,6 @@ import { FhirResource, Practitioner } from 'fhir/r4b';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchScopedResources, IDS_PER_ENTRY } from '../src/shared/adhoc-report';
 
-// These fakes emulate async-bulk jobs only; the sync first page has its own test (adhoc-async-bulk-next-link).
 process.env.ADHOC_SYNC_PAGES = '0';
 
 type Param = { name: string; value: string };
@@ -27,7 +26,6 @@ type JobAnswer =
   | { status: 200; resources: FhirResource[]; next?: string; errorFile?: string }
   | { status: number; outcome?: unknown };
 
-/** A fake async-bulk search: `answer` decides each job's result from its parameters. Every job's params are kept. */
 function fakeClient(answer: (params: Param[], jobIndex: number) => JobAnswer): {
   oystehr: Oystehr;
   jobs: Param[][];
@@ -159,7 +157,6 @@ describe('fetch helpers: one async-bulk job per search', () => {
     const resources = await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', all);
 
     expect(resources.map((r) => r.id).sort()).toEqual(all);
-    // 6 ids → 3 + 3 → (2 + 1) + (2 + 1)
     expect(jobs).toHaveLength(7);
   });
 
@@ -266,7 +263,6 @@ describe('fetch helpers: a sync first page before an async job', () => {
   });
 
   it('with the total on the first page, reads exactly the pages that exist, side by side', async () => {
-    // 1 200 matches at 500 a page: 3 pages; page 3 is the last.
     const { oystehr, syncCalls, jobs } = syncClient((params) => {
       const offset = Number(values(params, '_offset')[0]);
       return { resources: [practitioner(`p-${offset}`)], next: offset < 1000, total: 1200 };

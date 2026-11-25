@@ -15,7 +15,6 @@ import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/datas
 import { buildLlmDatasetSchema } from './schema';
 import { AdHocDataset, FetchContext } from './types';
 
-// Own layers and the foreign `patients.*` ones (DATASET_META).
 const ENCOUNTER_ALL_LAYERS = layersForDataset('encounters-comprehensive');
 
 export const ADHOC_ENCOUNTERS_OPTIONS: AdHocLayer[] = layerOptions(ENCOUNTER_ALL_LAYERS);

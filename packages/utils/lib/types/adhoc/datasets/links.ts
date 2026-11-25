@@ -34,7 +34,6 @@ export const linksOfHost = (host: string): AdHocDatasetLink[] => DATASET_LINKS.f
 
 export const LINK_BASE_LAYER = 'base';
 
-// claimType stays claimType, not claimClaimType.
 export const linkColumnName = (prefix: string, field: string): string => {
   const next = field.charAt(prefix.length);
   if (field.startsWith(prefix) && next !== '' && next === next.toUpperCase() && next !== next.toLowerCase()) {

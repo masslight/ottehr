@@ -1,5 +1,3 @@
-// The patients dataset's layers, one module each, keyed by patient. The same modules give the encounters and
-// billing datasets their foreign `patients.*` layers (fetchPatientLayerColumns).
 import Oystehr from '@oystehr/sdk';
 import {
   AllergyIntolerance,
@@ -91,16 +89,12 @@ export interface PatientVisit {
 export interface PatientLayerContext {
   oystehr: Oystehr;
   dateRange: { start: string; end: string };
-  /** The patients the columns are for. */
   patients: Patient[];
-  /** `Patient/{id}` of each. */
   refs: string[];
   /** Each patient's visits in the range (keyed `Patient/{id}`), for the new-vs-established check. */
   visitsByPatient: Map<string, PatientVisit[]>;
-  /** Fetch time per layer (and per step inside a layer, `<layer>.<step>`), in ms, for the report's timing log. */
   timings: Map<string, number>;
   shared: {
-    /** The patient-account page's account / coverage picture, for the contacts, insurance, eligibility and employer layers. */
     accounts(): Promise<Map<string, PatientAccountAndCoverageResources>>;
   };
 }
@@ -118,10 +112,6 @@ const definePatientLayer = <Out>(module: PatientLayerModule<Out>): AnyPatientLay
 
 type ChartListResource = AllergyIntolerance | Condition | MedicationStatement | Procedure | EpisodeOfCare;
 
-/**
- * A chart list of the patients, by the tag chart-data writes it with — only the list resources, not every
- * Condition / Procedure the patient ever had — sorted into the list by the chart's own resource → DTO mapper.
- */
 const chartListLayer = (
   id: PatientLayerId,
   resourceType: ChartListResource['resourceType'],
@@ -236,9 +226,6 @@ const visitHistoryLayer = definePatientLayer<{
       return out;
     };
 
-    // The prior visits and the seen-before screening answers side by side, both through the report's search
-    // helpers. The answers are loaded for every patient's deciding visits, not only for those the prior visits
-    // leave undecided: waiting for the prior visits first cost ~2.8 s on synth (r5), the extra answers cost little.
     const deciding = Array.from(
       new Set(ctx.refs.flatMap((patientRef) => seenBeforeEncounterIds(ctx.visitsByPatient.get(patientRef) ?? [])))
     );
@@ -313,8 +300,6 @@ const visitHistoryLayer = definePatientLayer<{
   }),
 });
 
-// The visit details face sheet's composers, fed the way visit-details-to-pdf feeds them: the PCP is the active
-// contained Practitioner and the pharmacy the contained Organization with the pharmacy id.
 const demographicsLayer = definePatientLayer<null>({
   id: 'demographics',
   fetch: async () => null,
@@ -377,7 +362,6 @@ const demographicsLayer = definePatientLayer<null>({
   },
 });
 
-// The face sheet's responsible-party, emergency-contact and attorney composers.
 const contactsLayer = definePatientLayer<Map<string, PatientAccountAndCoverageResources>>({
   id: 'contacts',
   fetch: (ctx) => ctx.shared.accounts(),
@@ -553,7 +537,6 @@ const notesLayer = definePatientLayer<Map<string, Communication[]>>({
   },
 });
 
-/** Every layer module of the patients dataset, by layer id. */
 export const PATIENT_LAYER_MODULES: Record<PatientLayerId, AnyPatientLayerModule> = {
   allergies: allergiesLayer,
   problems: problemsLayer,
@@ -569,10 +552,6 @@ export const PATIENT_LAYER_MODULES: Record<PatientLayerId, AnyPatientLayerModule
   notes: notesLayer,
 };
 
-/**
- * The columns of the given patient layers for the given patients, keyed `Patient/{id}`. The layers load at
- * once; the account picture is loaded once for all the layers that read it.
- */
 export async function fetchPatientLayerColumns(
   oystehr: Oystehr,
   params: {
@@ -580,7 +559,6 @@ export async function fetchPatientLayerColumns(
     patients: Patient[];
     visitsByPatient: Map<string, PatientVisit[]>;
     layerIds: PatientLayerId[];
-    /** Filled with each layer's fetch time (PatientLayerContext.timings). */
     timings?: Map<string, number>;
   }
 ): Promise<Map<string, Partial<AdHocPatientRow>>> {

@@ -91,7 +91,6 @@ import { applyDatasetLinks, LINK_SOURCES } from '../src/shared/adhoc-datasets/li
 import { makeNoteResource } from '../src/shared/chart-data';
 import { makeExamObservationResource, makeObservationResource } from '../src/shared/chart-data';
 
-// These fakes emulate async-bulk jobs only; the sync first page has its own test (adhoc-async-bulk-next-link).
 process.env.ADHOC_SYNC_PAGES = '0';
 
 // Fixture tests for the Encounters layers that reuse the app's own mappers (tracking-board orders, chart
@@ -933,8 +932,6 @@ const resourcesByJob: Record<string, FhirResource[]> = {
     attending,
   ],
 };
-// The encounters dataset searches the encounters on their own (by appointment date); the other datasets still get
-// them revincluded with the appointments.
 resourcesByJob.Encounter ??= (resourcesByJob.Appointment ?? []).filter((r) => r.resourceType === 'Encounter');
 
 // Searches sharing a resource type are told apart by what they ask for.
@@ -1504,10 +1501,6 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
   });
 
   it('labs and nursing at scale: each order is matched to its own resources only, in linear time', async () => {
-    // A report's order search returns every order of the range with its Tasks, reports, Provenances and Specimens.
-    // The EHR mappers scan whatever lists they are handed, so handed the whole report they compared every order
-    // with every resource (UC 18: 589 s). Here the fixture's orders are copied COPIES times, each copy on its own
-    // encounters with its own ids: every copy must map to exactly the original's records.
     const COPIES = 1500;
     const orderResources = resourcesByJob['ServiceRequest:orders'].filter((r) => r.resourceType !== 'Practitioner');
     const renamed = new Set([...orderResources.map((r) => r.id!), 'enc-1', 'enc-2']);

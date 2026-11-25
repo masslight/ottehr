@@ -13,7 +13,6 @@ export const ADHOC_QUERY_STALE_MS = 5 * 60 * 1000;
 
 const isGzip = (bytes: Uint8Array): boolean => bytes.length > 1 && bytes[0] === 0x1f && bytes[1] === 0x8b;
 
-/** The report data file: gzip from the report workers (inflated here), or plain JSON from an older Task. */
 export async function readReportDataBytes(bytes: Uint8Array): Promise<string> {
   if (!isGzip(bytes)) return new TextDecoder().decode(bytes);
   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
@@ -28,8 +27,6 @@ export async function downloadReportData<T>(downloadUrl: string): Promise<T> {
   return JSON.parse(await readReportDataBytes(new Uint8Array(await response.arrayBuffer()))) as T;
 }
 
-// Every 2 s, the first check 2 s after the start (a Task is never done sooner). Each check is a zambda call; polling
-// every second would double them for ~0.5 s of average wait on reports that take 8–40 s.
 const ADHOC_POLL_INTERVAL_MS = 2000;
 const ADHOC_TASK_WORKER_TIMEOUT_MS = 900 * 1000;
 const ADHOC_POLL_TIMEOUT_MS = ADHOC_TASK_WORKER_TIMEOUT_MS + 2 * 60 * 1000;

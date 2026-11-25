@@ -4,7 +4,6 @@ import { fetchScopedResources } from '../../../adhoc-report';
 import { defineEncounterLayer } from '../context';
 import { indexByEncounter, stripEnc } from '../helpers';
 
-// Result reports of the visit.
 export const resultsLayer = defineEncounterLayer<{ resultsByEncounterId: Map<string, DiagnosticReport[]> }>({
   id: 'results',
   fetch: async (ctx) => ({

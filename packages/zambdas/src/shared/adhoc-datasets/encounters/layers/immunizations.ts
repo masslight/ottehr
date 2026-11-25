@@ -6,7 +6,6 @@ import { vaccineOrderRecord } from '../../encounter-clinical-orders';
 import { defineEncounterLayer } from '../context';
 import { hasChartTag, indexByEncounter, stripEnc } from '../helpers';
 
-// Vaccines given (or not given) on the visit, and vaccine history charted on it.
 export const immunizationsLayer = defineEncounterLayer<{
   medAdminsByEncounterId: Map<string, MedicationAdministration[]>;
   medStatementsByEncounterId: Map<string, MedicationStatement[]>;

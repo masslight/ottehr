@@ -1,5 +1,3 @@
-// The report context of the encounters dataset: root resources, memoized shared searches and by-id
-// loaders. Layer modules read only from here; no layer calls FHIR except through the fetch helpers.
 import Oystehr from '@oystehr/sdk';
 import {
   Appointment,
@@ -27,23 +25,16 @@ import { ByIdLoader, byIdLoader, once } from '../memo';
 import { indexByEncounter, stripEnc } from './helpers';
 
 export interface EncounterRoot {
-  /** The appointments and encounters as fetched. */
   resources: (Appointment | Encounter)[];
-  /** The appointments' patients and locations, already loading when the root is returned. */
   participants?: Promise<{ patients: Patient[]; locations: Location[] }>;
-  /** Keyed `Appointment/{id}`. */
   appointmentMap: Map<string, Appointment>;
-  /** Keyed `Patient/{id}`. Filled by `rootLookups()`. */
   patientMap: Map<string, Patient>;
-  /** Keyed `Location/{id}`. Filled by `rootLookups()`. */
   locationMap: Map<string, Location>;
-  /** Keyed by id. */
   encounterById: Map<string, Encounter>;
 }
 
 export interface MedicationAdministrationBundle {
   byEncounter: Map<string, MedicationAdministration[]>;
-  /** The MAs with what rides along: administration statements, performers, requests. */
   resources: (MedicationAdministration | MedicationStatement | MedicationRequest | Practitioner)[];
 }
 
@@ -53,26 +44,16 @@ export interface EncounterReportContext {
   environment: string;
   requested: ReadonlySet<EncounterLayerId>;
   root: EncounterRoot;
-  /**
-   * Loads the root's patients, locations and attending / intake practitioners, once. It runs next to the layers;
-   * a layer that reads root.patientMap / locationMap while fetching awaits it first. The practitioner loader and the
-   * shared searches that add practitioners await it themselves, so the root's practitioners always land first.
-   */
   rootLookups(): Promise<void>;
-  /** `Encounter/{id}` of every encounter of the report. */
   encRefs: string[];
-  /** Keyed by id. The attending / intake practitioners of the root land first (rootLookups). */
   practitioners: ByIdLoader<Practitioner>;
-  /** Keyed by id: diagnoses and the conditions drugs were given for. */
   conditions: ByIdLoader<Condition>;
   shared: {
-    /** Loads the visits' diagnosis Conditions into `conditions`. */
     diagnoses(): Promise<void>;
     procedures(): Promise<Map<string, Procedure[]>>;
     docRefs(): Promise<Map<string, DocumentReference[]>>;
     serviceRequests(): Promise<Map<string, ServiceRequest[]>>;
     medicationAdministrations(): Promise<MedicationAdministrationBundle>;
-    /** Every Observation of the visits (exam, ROS, screening, vitals…), for the layers that read several kinds. */
     observations(): Promise<Map<string, Observation[]>>;
     encounterConditions(): Promise<Map<string, Condition[]>>;
     paperwork(): Promise<Map<string, QuestionnaireResponse>>;
@@ -80,7 +61,6 @@ export interface EncounterReportContext {
   };
 }
 
-/** What a layer's `map` gets for one row. */
 export interface EncounterRowInput {
   encounter: Encounter;
   appointment: Appointment;
@@ -93,7 +73,6 @@ export interface EncounterRowInput {
   statusHistory: ReturnType<typeof getVisitStatusHistory>;
 }
 
-/** One layer: what it fetches for the whole report, and the columns it adds to one row. */
 export interface EncounterLayerModule<Out> {
   id: EncounterLayerId;
   fetch(ctx: EncounterReportContext): Promise<Out>;
@@ -111,9 +90,7 @@ export function createEncounterContext(params: {
   environment: string;
   requested: ReadonlySet<EncounterLayerId>;
   root: EncounterRoot;
-  /** Loads the root's patients and locations, returns its practitioners. */
   loadRootLookups: () => Promise<Practitioner[]>;
-  /** Filled with each shared search's time (`shared.<name>`, ms) once it is done, for the timing log. */
   timings?: Map<string, number>;
 }): EncounterReportContext {
   const { oystehr, root, requested, environment } = params;
@@ -173,9 +150,6 @@ export function createEncounterContext(params: {
       )
     ),
 
-    // The in-house administration MedicationStatement has no encounter context — only partOf → MA — so it
-    // rides along the MA search as a revinclude (the same way get-medication-orders reads it). As
-    // get-medication-orders searches: the order's performers and its MedicationRequest ride along.
     medicationAdministrations: once(async () => {
       const resources = await scoped<MedicationAdministration | MedicationStatement | MedicationRequest | Practitioner>(
         'MedicationAdministration',
@@ -217,7 +191,6 @@ export function createEncounterContext(params: {
       )
     ),
 
-    // The visit's intake paperwork (QuestionnaireResponse).
     paperwork: once(async () => {
       const byEncounter = new Map<string, QuestionnaireResponse>();
       for (const qr of await scoped<QuestionnaireResponse>('QuestionnaireResponse', 'encounter', encRefs)) {
@@ -239,7 +212,6 @@ export function createEncounterContext(params: {
     }),
   };
 
-  // Each shared search is timed from its first call: the layers waiting on it all wait that long.
   for (const name of Object.keys(shared) as (keyof typeof shared)[]) {
     const run = shared[name] as () => Promise<unknown>;
     let timed: Promise<unknown> | undefined;

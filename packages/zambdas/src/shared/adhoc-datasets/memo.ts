@@ -1,13 +1,10 @@
-// Memoized fetches for one report: a search that several layers read runs once; an id is loaded once.
 import { FhirResource } from 'fhir/r4b';
 
-/** Runs `fn` once, on the first call; later calls get the same promise. */
 export const once = <T>(fn: () => Promise<T>): (() => Promise<T>) => {
   let promise: Promise<T> | undefined;
   return () => (promise ??= fn());
 };
 
-/** A memoized by-id loader: an id is requested once per report, whoever asks; resources land in `map`. */
 export interface ByIdLoader<T extends FhirResource> {
   map: Map<string, T>;
   load(ids: (string | undefined)[]): Promise<void>;

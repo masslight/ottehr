@@ -5,7 +5,6 @@ import { mapResourceToChartDataResponse } from '../../../chart-data';
 import { parseExamFieldsFromExamObservations } from '../../../pdf/sections/visit-note/examination';
 import { defineEncounterLayer } from '../context';
 
-// Review of systems and the examination, as the visit note reads them.
 export const examRosLayer = defineEncounterLayer<{ observationsByEncounterId: Map<string, Observation[]> }>({
   id: 'examRos',
   fetch: async (ctx) => ({ observationsByEncounterId: await ctx.shared.observations() }),

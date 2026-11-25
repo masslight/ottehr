@@ -177,10 +177,6 @@ only LAYER ids of that dataset and is an empty array when no optional layer is n
 `;
 };
 
-/**
- * Drops a picked layer whose fields another picked layer already has (the temperature layer next to the full
- * vital-signs one): it would only fetch the same readings twice.
- */
 const withoutCoveredLayers = (layerIds: string[], dataset: CatalogDataset): string[] => {
   const fieldsOf = (layerId: string): string[] =>
     dataset.layers.find((l) => l.id === layerId)?.fields.map((f) => f.name) ?? [];
@@ -191,7 +187,6 @@ const withoutCoveredLayers = (layerIds: string[], dataset: CatalogDataset): stri
       if (otherId === layerId) return false;
       const other = new Set(fieldsOf(otherId));
       const covers = own.every((name) => other.has(name));
-      // Two layers with the same fields: keep the first.
       return covers && (other.size > own.length || otherIndex < index);
     });
   });
@@ -226,8 +221,6 @@ export const parseDatasets = (value: unknown, catalog: CatalogDataset[]): InferA
   }));
 };
 
-// A layer-less dataset folds into the host's `<dataset>.base`, or is dropped when the host is linked to it without
-// one (its base is already on the host). The host may be a dataset the model did not pick.
 export const foldIntoForeignLayers = (
   picked: InferAdHocLayersOutput['datasets'],
   catalog: CatalogDataset[]

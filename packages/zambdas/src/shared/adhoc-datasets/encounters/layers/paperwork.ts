@@ -6,7 +6,6 @@ import { getPaperworkCompleteness } from '../../../paperwork-completeness';
 import { defineEncounterLayer } from '../context';
 import { paperworkAnswer } from '../helpers';
 
-// Paperwork completeness of the visit, as the tracking board reads it, and the consent signer.
 export const paperworkLayer = defineEncounterLayer<{
   paperworkQrByEncounterId: Map<string, QuestionnaireResponse>;
   identityDocRefsByPatient: Map<string, DocumentReference[]>;

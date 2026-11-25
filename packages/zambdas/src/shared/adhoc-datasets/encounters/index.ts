@@ -1,5 +1,3 @@
-// The encounters dataset: root → base rows, then every requested layer in parallel, each layer one module
-// (layers/*.ts) with its own fetch and map. Shared searches and by-id loaders live in the report context.
 import Oystehr from '@oystehr/sdk';
 import {
   AdHocEncounterRow,
@@ -46,7 +44,6 @@ import {
   timezoneLookup,
 } from './root';
 
-/** Every layer module of the dataset, by layer id. A layer listed in ENCOUNTER_LAYERS must have one. */
 export const ENCOUNTER_LAYER_MODULES: Record<EncounterLayerId, AnyEncounterLayerModule> = {
   codes: codesLayer,
   timing: timingLayer,
@@ -78,7 +75,6 @@ export const ENCOUNTER_LAYER_MODULES: Record<EncounterLayerId, AnyEncounterLayer
 
 const includeFlag = (id: string): string => `include${id.charAt(0).toUpperCase()}${id.slice(1)}`;
 
-/** The layer ids an endpoint input asks for (its include<Layer> flags). */
 export function requestedEncounterLayers(params: AdHocEncountersInput): EncounterLayerId[] {
   const flags = params as unknown as Record<string, boolean | undefined>;
   return (Object.keys(ENCOUNTER_LAYER_MODULES) as EncounterLayerId[]).filter((id) => flags[includeFlag(id)]);
@@ -93,7 +89,6 @@ export async function fetchAdHocEncounterRows(
   const requested = requestedEncounterLayers(params);
   const modules = requested.map((id) => ENCOUNTER_LAYER_MODULES[id]);
 
-  // 1. Root: the appointments of the range with their encounters.
   const startedAt = Date.now();
   const root = await fetchEncounterRoot(oystehr, dateRange);
   const rootMs = Date.now() - startedAt;
@@ -109,9 +104,6 @@ export async function fetchAdHocEncounterRows(
     timings: sharedMs,
   });
 
-  // 2. All at once, each needing only the root: its patients / locations / practitioners by id (rootLookups — a
-  //    layer that reads them waits for it), the base lookups, every requested layer and the foreign patient
-  //    layers (`patients.*`). The fetch helpers' job pool limits the requests, not these.
   const fetchMs = new Map<string, number>();
   const timed = async <T>(id: string, run: () => Promise<T>): Promise<T> => {
     const fetchStartedAt = Date.now();
@@ -119,7 +111,6 @@ export async function fetchAdHocEncounterRows(
     fetchMs.set(id, Date.now() - fetchStartedAt);
     return out;
   };
-  // Each foreign layer, and the steps inside it (patients.visitHistory.seenBeforeAnswers), for the timing log.
   const foreignMs = new Map<string, number>();
   const [, lookups, outs, foreignColumns] = await Promise.all([
     timed('rootLookups', () => ctx.rootLookups()),
@@ -140,7 +131,6 @@ export async function fetchAdHocEncounterRows(
     ),
   ]);
 
-  // 3. One row per encounter: the base, then each layer's columns.
   const fetchedAt = Date.now();
   const timezoneForLocation = timezoneLookup();
   const rows: AdHocEncounterRow[] = [];
@@ -170,8 +160,6 @@ export async function fetchAdHocEncounterRows(
     rows.push(row);
   }
 
-  // Where the time went. Layer fetches run at once and share the job pool, so a layer's fetch time includes
-  // waiting for a slot; map time is the work on this server.
   console.log(
     `[adhoc] encounters timing: rows=${rows.length} root ms=${rootMs} layers ms=${fetchedAt - startedAt - rootMs} ` +
       `map ms=${Date.now() - fetchedAt} | ` +

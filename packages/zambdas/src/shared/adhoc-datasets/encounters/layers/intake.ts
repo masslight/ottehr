@@ -7,7 +7,6 @@ import { makeAccidentDTOFromFhirResources } from '../../../chart-data';
 import { defineEncounterLayer } from '../context';
 import { paperworkAnswer, screeningAnswer } from '../helpers';
 
-// Intake: ASQ, birth history, screening answers (chart and paperwork), accident, paperwork details.
 export const intakeLayer = defineEncounterLayer<{
   observationsByEncounterId: Map<string, Observation[]>;
   paperworkQrByEncounterId: Map<string, QuestionnaireResponse>;
