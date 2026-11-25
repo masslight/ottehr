@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
@@ -14,6 +13,7 @@ import {
   insertInPersonAppointmentBase,
   setupIntegrationTest,
 } from '../helpers/integration-test-seed-data-setup';
+import { ligatureFreeSuffix } from '../helpers/ligature-free-suffix';
 
 const pdfText = async (url: string): Promise<string> => {
   const data = new Uint8Array(await (await fetch(url)).arrayBuffer());
@@ -33,9 +33,9 @@ describe('save-patient-education-pdf integration', () => {
   let base: InsertFullAppointmentDataBaseResult;
   let educationList: List;
   let documentReference: DocumentReference | undefined;
-  const title = `Strep throat education ${randomUUID().slice(0, 8)}`;
+  const title = `Strep throat education ${ligatureFreeSuffix()}`;
   const section = {
-    patientTitle: `About strep throat ${randomUUID().slice(0, 8)}`,
+    patientTitle: `About strep throat ${ligatureFreeSuffix()}`,
     content: 'Take the full course of antibiotics.',
     icdCode: 'J02.0',
     icdDescription: 'Streptococcal pharyngitis',

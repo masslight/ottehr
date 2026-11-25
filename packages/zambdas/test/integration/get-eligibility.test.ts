@@ -28,6 +28,8 @@ import { index } from '../../src/patient/get-eligibility/index';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler, loadZambdaSecrets } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const LOCATION_TIMEZONE = 'America/New_York';
 const PAYER_URL = getPayerUrl('60054');
 

@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { randomUUID } from 'crypto';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
@@ -11,6 +10,7 @@ import {
   insertInPersonAppointmentBase,
   setupIntegrationTest,
 } from '../helpers/integration-test-seed-data-setup';
+import { ligatureFreeSuffix } from '../helpers/ligature-free-suffix';
 
 const pdfText = async (url: string): Promise<string> => {
   const data = new Uint8Array(await (await fetch(url)).arrayBuffer());
@@ -28,7 +28,7 @@ describe('make-patient-instructions-pdf integration', () => {
   let oystehrZambdas: Oystehr;
   let cleanup: () => Promise<void>;
   let base: InsertFullAppointmentDataBaseResult;
-  const instructions = [`Drink fluids ${randomUUID().slice(0, 8)}`, `Rest for two days ${randomUUID().slice(0, 8)}`];
+  const instructions = [`Drink fluids ${ligatureFreeSuffix()}`, `Rest for two days ${ligatureFreeSuffix()}`];
 
   beforeAll(async () => {
     const setup = await setupIntegrationTest('make-patient-instructions-pdf.test.ts', M2MClientMockType.provider);

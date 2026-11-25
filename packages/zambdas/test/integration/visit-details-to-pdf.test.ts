@@ -1,5 +1,4 @@
 import Oystehr, { FhirResourceReturnValue, SearchParam } from '@oystehr/sdk';
-import { randomUUID } from 'crypto';
 import {
   Account,
   Consent,
@@ -48,6 +47,9 @@ import {
   setupIntegrationTest,
 } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../helpers/invoke-zambda-handler';
+import { ligatureFreeSuffix } from '../helpers/ligature-free-suffix';
+
+vi.hoisted(() => vi.resetModules());
 
 const { stripeClient } = vi.hoisted(() => ({
   stripeClient: {
@@ -79,7 +81,7 @@ describe('visit-details-to-pdf integration', () => {
   let cleanup: () => Promise<void>;
   const created: FhirResource[] = [];
   const z3Objects: string[] = [];
-  const suffix = randomUUID().slice(0, 8);
+  const suffix = ligatureFreeSuffix();
   const paymentIntentId = `pi_${suffix}`;
   const paymentMethodId = `pm_${suffix}`;
   const insurerName = `Integration Payer ${suffix}`;

@@ -20,6 +20,8 @@ import {
 } from '../../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/shared/stripeIntegration')>();
   return { ...actual, getStripeClient: vi.fn(() => ({})) };

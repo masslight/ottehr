@@ -24,6 +24,8 @@ import {
 } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const z3Location = (z3Url: string): { bucketName: string; 'objectPath+': string } => {
   const [bucketName, ...objectPath] = z3Url.split('/z3/')[1].split('/');
   return { bucketName, 'objectPath+': objectPath.join('/') };

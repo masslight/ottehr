@@ -15,6 +15,8 @@ import {
 } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const { getPostGridLetter } = vi.hoisted(() => ({ getPostGridLetter: vi.fn() }));
 
 vi.mock('../../src/shared/postgrid', async (importOriginal) => ({

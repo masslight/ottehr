@@ -17,7 +17,7 @@ import {
   REFRESH_REPORT_TASK_CODE,
 } from 'utils/lib/types/data/billing/billing.constants';
 import { GetBillingPaymentsReportResponse, PaymentsReportDetail } from 'utils/lib/types/data/billing/billing.types';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { OYSTEHR_ADJUDICATION_SYSTEM, X12_ADJUSTMENT_GROUP_SYSTEM } from '../../../src/billing/claim-amounts';
 import { paymentsReport } from '../../../src/billing/reports/definitions/payments.report';
 import { REFRESH_TASK_IDENTIFIER_SYSTEM } from '../../../src/billing/reports/framework/refresh-task';
@@ -38,6 +38,8 @@ import {
 import { index } from '../../../src/subscriptions/task/sub-refresh-billing-report/index';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler, loadZambdaSecrets } from '../../helpers/invoke-zambda-handler';
+
+vi.hoisted(() => vi.resetModules());
 
 type PaymentsPayload = Omit<GetBillingPaymentsReportResponse, 'fromCache' | 'status'>;
 

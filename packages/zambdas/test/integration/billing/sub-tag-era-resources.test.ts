@@ -4,12 +4,14 @@ import { ClaimResponse, FhirResource, PaymentReconciliation, Provenance } from '
 import { DateTime } from 'luxon';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { OYSTEHR_ADJUDICATION_SYSTEM } from '../../../src/billing/claim-amounts';
 import { ERA_PROCESSING_ACTIVITY_CODE, PROVENANCE_ACTIVITY_TYPE_SYSTEM } from '../../../src/billing/shared';
 import { index } from '../../../src/subscriptions/payment-reconciliation/sub-tag-era-resources/index';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../../helpers/invoke-zambda-handler';
+
+vi.hoisted(() => vi.resetModules());
 
 const hasBillingTag = (resource: FhirResource): boolean =>
   resource.meta?.tag?.some(

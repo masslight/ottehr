@@ -15,6 +15,8 @@ import {
 } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const candid = vi.hoisted(() => ({
   inventory: [] as { claimId: string; encounterId: string; patientExternalId: string; timestamp: Date }[],
   itemize: vi.fn(async (claimId: string) => ({ ok: true, body: { claimId, patientBalanceCents: 3200 } })),

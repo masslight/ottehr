@@ -20,6 +20,8 @@ import { INTEGRATION_TEST_PROCESS_ID_SYSTEM } from '../helpers/integration-tags'
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const fakes = vi.hoisted(() => ({
   encounterId: '',
   sendGenericOutreachEmail: vi.fn(async () => undefined),

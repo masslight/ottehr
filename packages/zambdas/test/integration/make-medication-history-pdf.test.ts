@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { randomUUID } from 'crypto';
 import { DocumentReference, Location } from 'fhir/r4b';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
@@ -14,6 +13,7 @@ import {
   insertInPersonAppointmentBase,
   setupIntegrationTest,
 } from '../helpers/integration-test-seed-data-setup';
+import { ligatureFreeSuffix } from '../helpers/ligature-free-suffix';
 
 const pdfText = async (url: string): Promise<string> => {
   const data = new Uint8Array(await (await fetch(url)).arrayBuffer());
@@ -41,12 +41,12 @@ describe('make-medication-history-pdf integration', () => {
   let documentReferences: DocumentReference[] = [];
   const medicationHistory: MedicationInfoForPrinting[] = [
     {
-      name: `Amoxicillin ${randomUUID().slice(0, 8)}`,
+      name: `Amoxicillin ${ligatureFreeSuffix()}`,
       type: 'scheduled',
       status: 'active',
       intakeInfo: { dose: '500 mg', lastFilledDate: '2025-10-12' },
     },
-    { name: `Ibuprofen ${randomUUID().slice(0, 8)}`, type: 'as-needed', status: 'active' },
+    { name: `Ibuprofen ${ligatureFreeSuffix()}`, type: 'as-needed', status: 'active' },
   ];
 
   beforeAll(async () => {

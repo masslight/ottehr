@@ -10,6 +10,8 @@ import {
 } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const { invokeChatbotVertexAI, SIGN_REVIEW_PROMPT } = vi.hoisted(() => ({
   invokeChatbotVertexAI: vi.fn(),
   SIGN_REVIEW_PROMPT: 'Every note must state the duration of the presenting symptoms.',

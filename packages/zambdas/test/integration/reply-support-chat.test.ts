@@ -18,6 +18,8 @@ import {
 } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const { getUser, sendGenericOutreachEmail } = vi.hoisted(() => ({
   getUser: vi.fn(),
   sendGenericOutreachEmail: vi.fn(),

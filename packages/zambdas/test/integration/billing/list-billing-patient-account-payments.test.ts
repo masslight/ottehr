@@ -24,6 +24,8 @@ import {
 } from '../../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const stripe = vi.hoisted(() => ({
   paymentIntents: { retrieve: vi.fn(), search: vi.fn() },
   paymentMethods: { retrieve: vi.fn(), list: vi.fn() },

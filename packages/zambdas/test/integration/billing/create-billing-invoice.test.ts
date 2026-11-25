@@ -33,6 +33,8 @@ import {
 } from '../../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler, loadZambdaSecrets } from '../../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const stripe = vi.hoisted(() => ({
   invoices: { create: vi.fn(), finalizeInvoice: vi.fn(), sendInvoice: vi.fn(), retrieve: vi.fn(), del: vi.fn() },
   invoiceItems: { create: vi.fn() },
