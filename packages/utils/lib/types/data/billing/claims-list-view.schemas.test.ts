@@ -67,3 +67,10 @@ describe('claimsListFiltersToSearchInput: tags', () => {
     ).toBe(true);
   });
 });
+
+describe('claimsListFiltersToSearchInput: plan type', () => {
+  it('passes the chosen plan types and drops an empty choice', () => {
+    expect(claimsListFiltersToSearchInput({ planType: ['12', 'MC'] })).toEqual({ planType: ['12', 'MC'] });
+    expect(claimsListFiltersToSearchInput({ planType: [] })).toEqual({});
+  });
+});

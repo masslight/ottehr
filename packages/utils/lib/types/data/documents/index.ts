@@ -134,18 +134,18 @@ export interface PhotoIdExtraction {
   extractedAt: string;
 }
 
-/** The clockwise rotation angles the rotate-insurance-card-image zambda accepts. */
-export const INSURANCE_CARD_ROTATION_DEGREES = [90, 180, 270] as const;
-export type InsuranceCardRotationDegrees = (typeof INSURANCE_CARD_ROTATION_DEGREES)[number];
+/** The clockwise rotation angles the rotate-card-image zambda accepts. */
+export const CARD_ROTATION_DEGREES = [90, 180, 270] as const;
+export type CardRotationDegrees = (typeof CARD_ROTATION_DEGREES)[number];
 
-/** Input for the staff-triggered rotate-insurance-card-image zambda. */
-export interface RotateInsuranceCardImageInput {
+/** Input for the staff-triggered rotate-card-image zambda. */
+export interface RotateCardImageInput {
   documentReferenceId: string;
   /** CLOCKWISE rotation to bake into the stored card image. */
-  rotationDegrees: InsuranceCardRotationDegrees;
+  rotationDegrees: CardRotationDegrees;
 }
 
-export interface RotateInsuranceCardImageResponse {
+export interface RotateCardImageResponse {
   documentReferenceId: string;
   rotated: boolean;
 }

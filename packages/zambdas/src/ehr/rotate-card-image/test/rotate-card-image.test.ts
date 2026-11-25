@@ -163,7 +163,7 @@ beforeEach(() => {
   vi.mocked(createClinicalOystehrClient).mockReturnValue(mockOystehr as any);
 });
 
-describe('rotate-insurance-card-image validateRequestParameters', () => {
+describe('rotate-card-image validateRequestParameters', () => {
   it('throws MISSING_AUTH_TOKEN when there is no Authorization header', () => {
     expect(() => validateRequestParameters(makeInput(ROTATE_BODY, {}))).toThrow();
   });
@@ -196,7 +196,7 @@ describe('rotate-insurance-card-image validateRequestParameters', () => {
   });
 });
 
-describe('rotate-insurance-card-image handler', () => {
+describe('rotate-card-image handler', () => {
   it('rotates 90deg CLOCKWISE, re-stores to the same Z3 url, updates size, and resets readable to null', async () => {
     const docRef = makeDocRef({
       extension: [
@@ -298,7 +298,22 @@ describe('rotate-insurance-card-image handler', () => {
   });
 
   it.each([
-    ['non insurance-card type coding', { type: { coding: [{ system: 'http://loinc.org', code: '55188-7' }] } }],
+    ['unrelated type coding', { type: { coding: [{ system: 'http://loinc.org', code: '72170-4' }] } }],
+    [
+      'photo ID type coding on an insurance card slot title',
+      { type: { coding: [{ system: 'http://loinc.org', code: '55188-7' }] } },
+    ],
+    [
+      'insurance type coding on a photo ID slot title',
+      { content: [{ attachment: { url: Z3_URL, title: 'photo-id-front', contentType: 'image/jpeg' } }] },
+    ],
+    [
+      'non card-image title (fullPhotoIDCard pdf)',
+      {
+        type: { coding: [{ system: 'http://loinc.org', code: '55188-7' }] },
+        content: [{ attachment: { url: Z3_URL, title: 'fullPhotoIDCard', contentType: 'application/pdf' } }],
+      },
+    ],
     ['superseded status', { status: 'superseded' }],
     ['missing attachment url', { content: [{ attachment: { title: 'insurance-card-front' } }] }],
     [
@@ -320,6 +335,31 @@ describe('rotate-insurance-card-image handler', () => {
     expect(uploadObjectToZ3).not.toHaveBeenCalled();
     expect(mockPatch).not.toHaveBeenCalled();
   });
+
+  it.each(['photo-id-front', 'photo-id-back'])(
+    'rotates a %s photo ID image CLOCKWISE and re-stores it to the same Z3 url',
+    async (title) => {
+      const photoIdDocRef = makeDocRef({
+        type: { coding: [{ system: 'http://loinc.org', code: '55188-7' }] },
+        content: [{ attachment: { url: Z3_URL, title, contentType: 'image/jpeg' } }],
+      });
+      setupHappyMocks(photoIdDocRef);
+
+      const result = await invokeHandler(makeInput(ROTATE_BODY));
+
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body)).toEqual({ documentReferenceId: DOC_REF_ID, rotated: true });
+      expect(createPresignedUrl).toHaveBeenCalledWith('mock-m2m-token', Z3_URL, 'upload');
+      const rotated = await Jimp.read(uploadedBuffer());
+      // 32x16 scene rotated 90deg -> 16x32, with the top-left red block landing top-right
+      expect([rotated.width, rotated.height]).toEqual([SCENE_H, SCENE_W]);
+      expect(isRedAt(rotated, rotated.width - 1, 0)).toBe(true);
+      // A photo ID has no insurance extraction extension: only attachment metadata is patched
+      const operations = getPatchOperations();
+      expect(operations.length).toBeGreaterThan(0);
+      expect(operations.every((operation) => operation.path.startsWith('/content/'))).toBe(true);
+    }
+  );
 
   it('reports an undownloadable image: captureException + structured 500, nothing stored', async () => {
     setupHappyMocks(makeDocRef());

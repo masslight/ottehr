@@ -1187,13 +1187,13 @@ describe('ClaimDetail — patient payments', () => {
     const paymentCells = within(paymentRow as HTMLElement)
       .getAllByRole('cell')
       .map((cell) => cell.textContent);
-    expect(paymentCells).toEqual(['07/10/2026', 'check', 'check collected at front desk', '1234', 'active', '$60.00']);
+    expect(paymentCells).toEqual(['07/10/2026', 'check', 'check collected at front desk', '1234', 'Paid', '$60.00']);
 
     const refundRow = (await screen.findByText('partial refund')).closest('tr');
     const refundCells = within(refundRow as HTMLElement)
       .getAllByRole('cell')
       .map((cell) => cell.textContent);
-    expect(refundCells).toEqual(['07/11/2026', 'card', 'partial refund', '-', 'active', '-$20.00']);
+    expect(refundCells).toEqual(['07/11/2026', 'card', 'partial refund', '-', 'Refunded', '-$20.00']);
   });
 
   it('shows the empty state when the claim has no patient payments', async () => {
@@ -1233,7 +1233,7 @@ describe('ClaimDetail — patient payments', () => {
     const nioCells = within(invoiceLink.closest('tr') as HTMLElement)
       .getAllByRole('cell')
       .map((cell) => cell.textContent);
-    expect(nioCells).toEqual(['07/20/2026', 'Wire', 'WIRE-88', 'View invoice', 'active', '$150.00']);
+    expect(nioCells).toEqual(['07/20/2026', 'Wire', 'WIRE-88', 'View invoice', 'Paid', '$150.00']);
     expect(screen.getByText('No patient payments yet')).toBeInTheDocument();
   });
 

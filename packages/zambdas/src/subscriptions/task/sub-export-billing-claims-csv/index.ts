@@ -16,6 +16,7 @@ import {
   claimMatchesServiceDateRange,
   enrichAndMapClaims,
   fetchClaimsPageByIds,
+  filterClaimsByPrimaryPlanType,
   searchClaimsBySearchText,
 } from '../../../billing/claim-search';
 import { createBillingClient } from '../../../billing/shared';
@@ -104,6 +105,9 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
   });
 
   const filteringByServiceDate = Boolean(filters.serviceDateFrom || filters.serviceDateTo);
+  // Claim has no search parameter for its coverage's plan type, so each batch is narrowed in memory.
+  const keepPlanTypes = async <T extends Claim>(claims: T[]): Promise<T[]> =>
+    filters.planType?.length ? filterClaimsByPrimaryPlanType({ oystehr, claims, planTypes: filters.planType }) : claims;
   const rows: string[][] = [];
   const exported = new Set<string>();
 
@@ -133,12 +137,14 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
       searchText: filters.searchText,
       filterParams,
       withServiceDateElements: filteringByServiceDate,
+      withInsuranceElements: Boolean(filters.planType?.length),
     });
-    const matching = filteringByServiceDate
+    const inDateRange = filteringByServiceDate
       ? matched.claims.filter((claim) =>
           claimMatchesServiceDateRange(claim, filters.serviceDateFrom, filters.serviceDateTo)
         )
       : matched.claims;
+    const matching = await keepPlanTypes(inDateRange);
     const claimIds = matching.map((claim) => claim.id);
     const withinLimit = claimIds.slice(0, EXPORT_CLAIMS_MATCH_LIMIT);
 
@@ -193,9 +199,13 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
     if (claims.length === 0) break;
 
     await addPage(
-      filteringByServiceDate
-        ? claims.filter((claim) => claimMatchesServiceDateRange(claim, filters.serviceDateFrom, filters.serviceDateTo))
-        : claims,
+      await keepPlanTypes(
+        filteringByServiceDate
+          ? claims.filter((claim) =>
+              claimMatchesServiceDateRange(claim, filters.serviceDateFrom, filters.serviceDateTo)
+            )
+          : claims
+      ),
       includedResources
     );
     offset += claims.length;

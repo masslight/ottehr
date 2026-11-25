@@ -44,7 +44,6 @@ import {
 import { AdminLayout } from './features/admin/AdminSidebar';
 import { EmployeeChatDrawer } from './features/employee-chat/EmployeeChatDrawer';
 import { EmployeeChatManager } from './features/employee-chat/EmployeeChatManager';
-import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
 import { FormTemplateDetailPage } from './features/form-templates/FormTemplateDetailPage';
@@ -342,7 +341,6 @@ function App(): ReactElement {
 
                 <Route path="/inbound-fax/:communicationId/match" element={<InboundFaxMatch />} />
 
-                <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
                 <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />
                 <Route path="/unsolicited-results/:diagnosticReportId/review" element={<UnsolicitedResultsReview />} />
 

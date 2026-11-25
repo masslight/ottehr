@@ -24,6 +24,7 @@ locals {
     MUI_X_LICENSE_KEY             = local.MUI_X_LICENSE_KEY.value
     PROJECT_API_ZAMBDA_URL        = var.is_local ? "http://localhost:3000/local" : "https://project-api.zapehr.com/v1"
     EHR_APP_URL                   = var.ehr_app_url
+    STRIPE_PUBLIC_KEY             = var.stripe_public_key
   }
 }
 

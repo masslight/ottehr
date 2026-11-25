@@ -12,7 +12,6 @@ import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef } from 'react';
 import { getPatientInstructionQuickPicks } from 'src/api/api';
 import { QUERY_STALE_TIME } from 'src/constants';
-import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { isErxPermissionDeniedError } from 'src/features/visits/shared/utils/erxErrors';
 import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -47,16 +46,12 @@ import {
   GetCreateLabOrderResources,
   GetUnsolicitedResultsDetailInput,
   GetUnsolicitedResultsDetailOutput,
-  GetUnsolicitedResultsIconStatusInput,
-  GetUnsolicitedResultsIconStatusOutput,
   GetUnsolicitedResultsMatchDataInput,
   GetUnsolicitedResultsMatchDataOutput,
   GetUnsolicitedResultsPatientListInput,
   GetUnsolicitedResultsPatientListOutput,
   GetUnsolicitedResultsRelatedRequestsInput,
   GetUnsolicitedResultsRelatedRequestsOutput,
-  GetUnsolicitedResultsTasksInput,
-  GetUnsolicitedResultsTasksOutput,
   LabOrderResourcesRes,
 } from 'utils/lib/types/data/labs/labs.types';
 import { MeetingData } from 'utils/lib/types/data/telemed/join-call.types';
@@ -305,49 +300,6 @@ export const useGetCreateInHouseLabResources = ({
     staleTime: QUERY_STALE_TIME,
   });
 };
-
-export function useDisplayUnsolicitedResultsIcon(
-  input: GetUnsolicitedResultsIconStatusInput
-): UseQueryResult<GetUnsolicitedResultsIconStatusOutput | null, Error> {
-  const apiClient = useOystehrAPIClient();
-  const { requestType } = input;
-
-  return useQuery({
-    queryKey: ['get unsolicited results resources', requestType],
-
-    queryFn: async () => {
-      const data = await apiClient?.getUnsolicitedResultsResources(input);
-      if (data && 'tasksAreReady' in data) {
-        return data;
-      }
-      return null;
-    },
-
-    enabled: Boolean(apiClient && FEATURE_FLAGS.LAB_ORDERS_ENABLED),
-    staleTime: 1000 * 15, // 15 seconds
-  });
-}
-
-export function useGetUnsolicitedResultsTasks(
-  input: GetUnsolicitedResultsTasksInput
-): UseQueryResult<GetUnsolicitedResultsTasksOutput | null, Error> {
-  const apiClient = useOystehrAPIClient();
-  const { requestType } = input;
-
-  return useQuery({
-    queryKey: ['get unsolicited results resources', requestType],
-
-    queryFn: async () => {
-      const data = await apiClient?.getUnsolicitedResultsResources(input);
-      if (data && 'unsolicitedResultsTasks' in data) {
-        return data;
-      }
-      return null;
-    },
-
-    enabled: Boolean(apiClient),
-  });
-}
 
 export function useGetUnsolicitedResultsMatchData(
   input: GetUnsolicitedResultsMatchDataInput
