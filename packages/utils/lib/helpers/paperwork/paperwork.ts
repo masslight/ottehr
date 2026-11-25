@@ -90,14 +90,10 @@ export async function getQuestionnaireAndValueSets(
   oystehr: Oystehr
 ): Promise<{ questionnaire: Questionnaire; valueSets: ValueSet[] }> {
   console.log(`searching for a questionnaire with canonical ${questionnaireUrl}`);
-  const questionnaire = await getCanonicalQuestionnaire(
-    { version: questionnaireVersion, url: questionnaireUrl },
-    oystehr
-  );
-
   console.log(`searching for value sets with reference ${valueSetRef}`);
-  const valueSets = (
-    await oystehr.fhir.search<ValueSet>({
+  const [questionnaire, valueSetBundle] = await Promise.all([
+    getCanonicalQuestionnaire({ version: questionnaireVersion, url: questionnaireUrl }, oystehr),
+    oystehr.fhir.search<ValueSet>({
       resourceType: 'ValueSet',
       params: [
         {
@@ -105,8 +101,9 @@ export async function getQuestionnaireAndValueSets(
           value: valueSetRef,
         },
       ],
-    })
-  ).unbundle();
+    }),
+  ]);
+  const valueSets = valueSetBundle.unbundle();
   console.log(`${valueSets.length} value sets found`);
   return { questionnaire, valueSets };
 }
