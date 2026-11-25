@@ -11,6 +11,7 @@ import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
   fetchClaimResponsesByClaimIds,
+  fetchNioPaidByClaimId,
   fetchPatientPaidByClaimId,
   summarizeClaimPayments,
   summarizePatientBalance,
@@ -106,17 +107,19 @@ async function fetchPatientClaims(
     return bundle;
   }, 100);
 
-  const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId, writeOffs] = await Promise.all([
+  const claimIds = claims.map((c) => c.id).filter(Boolean) as string[];
+  const [payersByRef, claimResponsesByClaimId, patientPaidByClaimId, writeOffs, nioPaidByClaimId] = await Promise.all([
     resolvePayersByRef(
       oystehr,
       claims.map((c) => c.insurer?.reference)
     ),
-    fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
+    fetchClaimResponsesByClaimIds(oystehr, claimIds),
     fetchPatientPaidByClaimId({
       oystehr,
       claims,
     }),
-    fetchWriteOffsByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
+    fetchWriteOffsByClaimIds(oystehr, claimIds),
+    fetchNioPaidByClaimId(oystehr, claimIds),
   ]);
 
   const summaries = claims.map((c) => {
@@ -125,7 +128,8 @@ async function fetchPatientClaims(
       claimResponsesByClaimId.get(c.id ?? '') ?? [],
       c.total?.value ?? 0,
       patientPaidByClaimId.get(c.id ?? '') ?? 0,
-      writeOffsTotal
+      writeOffsTotal,
+      nioPaidByClaimId.get(c.id ?? '') ?? 0
     );
   });
 

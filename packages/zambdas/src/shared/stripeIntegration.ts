@@ -96,7 +96,20 @@ export const STRIPE_METADATA_KEYS = {
   // set on charges the EHR takes: the EHR payment id, and the PaymentNotice it reserved for the charge
   ehrPaymentId: 'oystehr_ehr_payment_id',
   ehrPaymentNoticeId: 'oystehr_ehr_payment_notice_id',
+  // set with invoiceId on charges billing takes for a non-insurance payer invoice
+  invoicePaymentId: 'oystehr_invoice_payment_id',
 } as const;
+
+// Stripe refuses a key that another request is using, or used with other parameters: that request is
+// charging the payment, or charged the card with other parameters.
+export const isIdempotencyConflict = (error: unknown): boolean => {
+  const stripeError = error as { type?: string; rawType?: string; code?: string } | undefined;
+  return (
+    stripeError?.type === 'StripeIdempotencyError' ||
+    stripeError?.rawType === 'idempotency_error' ||
+    stripeError?.code === 'idempotency_key_in_use'
+  );
+};
 
 export const encounterIdFromStripeMetadata = (metadata: Stripe.Metadata | null | undefined): string | undefined =>
   metadata?.[STRIPE_METADATA_KEYS.encounterId] || metadata?.[STRIPE_METADATA_KEYS.legacyEncounterId] || undefined;
@@ -110,6 +123,19 @@ export const ehrPaymentIdFromStripeMetadata = (metadata: Stripe.Metadata | null 
 export const ehrPaymentNoticeIdFromStripeMetadata = (
   metadata: Stripe.Metadata | null | undefined
 ): string | undefined => metadata?.[STRIPE_METADATA_KEYS.ehrPaymentNoticeId] || undefined;
+
+export const invoicePaymentFromStripeMetadata = (
+  metadata: Stripe.Metadata | null | undefined
+): { invoiceId: string; paymentId: string } | undefined => {
+  const invoiceId = metadata?.[STRIPE_METADATA_KEYS.invoiceId];
+  const paymentId = metadata?.[STRIPE_METADATA_KEYS.invoicePaymentId];
+  return invoiceId && paymentId
+    ? {
+        invoiceId,
+        paymentId,
+      }
+    : undefined;
+};
 
 export const stripeEncounterMetadata = (params: { encounterId: string; patientId: string }): Stripe.MetadataParam => ({
   [STRIPE_METADATA_KEYS.patientId]: params.patientId,

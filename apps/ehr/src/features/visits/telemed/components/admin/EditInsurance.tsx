@@ -1,5 +1,4 @@
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Box,
@@ -8,7 +7,7 @@ import {
   Chip,
   FormControlLabel,
   FormLabel,
-  Grid,
+  GridLegacy as Grid,
   Paper,
   Skeleton,
   Switch,
@@ -480,7 +479,7 @@ export default function EditInsurance(): JSX.Element {
                     {error}
                   </Box>
                 )}
-                <LoadingButton
+                <Button
                   variant="contained"
                   color="primary"
                   loading={mutationPending}
@@ -495,7 +494,7 @@ export default function EditInsurance(): JSX.Element {
                   disabled={false}
                 >
                   Save changes
-                </LoadingButton>
+                </Button>
                 <Link to={`${BILLING_URL}/insurance`}>
                   <Button
                     variant="text"

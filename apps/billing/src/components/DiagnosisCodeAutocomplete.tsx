@@ -54,7 +54,7 @@ export function DiagnosisCodeAutocomplete({
       )}
       inputValue={value}
       onInputChange={(_, v, reason) => {
-        if (reason === 'reset') return; // option-selection reset is handled in onChange
+        if (reason !== 'input' && reason !== 'clear') return; // option selection is handled in onChange
         onInputChange(v);
         search(v);
       }}

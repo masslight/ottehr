@@ -1,5 +1,4 @@
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Box,
@@ -1050,7 +1049,7 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
         <Button variant="outlined" onClick={onCancel} size="medium" sx={buttonSx} disabled={isApplying}>
           Cancel
         </Button>
-        <LoadingButton
+        <Button
           variant="contained"
           onClick={handleApply}
           size="medium"
@@ -1065,7 +1064,7 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
           }
         >
           Apply Template
-        </LoadingButton>
+        </Button>
       </DialogActions>
     </Dialog>
   );

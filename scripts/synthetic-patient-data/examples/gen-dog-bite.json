@@ -246,7 +246,7 @@
   "modules": {
     "immunizations": [
       {
-        "vaccineName": "Tetanus, Diphtheria (Td)",
+        "vaccineName": "Td (adult), 5 Lf tetanus toxoid, preservative free, adsorbed",
         "dose": "0.5",
         "units": "mL",
         "route": "IM",

@@ -1,12 +1,11 @@
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
   Collapse,
   FormControl,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   MenuItem,
   Paper,
@@ -449,7 +448,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
                 Re-Print Label
               </Button>
 
-              <LoadingButton
+              <Button
                 data-testid={dataTestIds.collectSamplePage.markCollectedButton}
                 loading={loading}
                 variant="contained"
@@ -475,7 +474,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
                 }}
               >
                 Mark as Collected
-              </LoadingButton>
+              </Button>
             </Stack>
 
             {!!error && (

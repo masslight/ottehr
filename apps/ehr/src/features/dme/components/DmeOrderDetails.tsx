@@ -1,8 +1,7 @@
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
-import { LoadingButton } from '@mui/lab';
-import { Alert, Box, Button, Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
+import { Alert, Box, Button, GridLegacy as Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactNode, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
@@ -145,7 +144,7 @@ export const DmeOrderDetails: React.FC<DmeOrderDetailsProps> = ({ order, readOnl
               Edit
             </Button>
           )}
-          <LoadingButton
+          <Button
             variant="outlined"
             startIcon={<PrintOutlinedIcon />}
             loading={isPrinting}
@@ -154,7 +153,7 @@ export const DmeOrderDetails: React.FC<DmeOrderDetailsProps> = ({ order, readOnl
             data-testid={ids.printButton}
           >
             Print
-          </LoadingButton>
+          </Button>
           {order.external && (
             <SendFaxButton
               onSend={async (faxNumber) => {

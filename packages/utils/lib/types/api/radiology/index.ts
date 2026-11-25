@@ -210,6 +210,7 @@ export type SaveRadiologyReportZambdaInput = z.infer<typeof SaveRadiologyReportZ
  */
 export const SavePreliminaryRadiologyReportZambdaInputSchema = SaveRadiologyReportZambdaInputSchema.extend({
   performedById: z.string().min(1, 'performedById is required and must be a string').optional(),
+  markAsFinal: z.boolean().optional(),
 });
 export type SavePreliminaryRadiologyReportZambdaInput = z.infer<typeof SavePreliminaryRadiologyReportZambdaInputSchema>;
 

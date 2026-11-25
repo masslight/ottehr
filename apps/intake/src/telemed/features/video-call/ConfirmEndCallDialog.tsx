@@ -1,4 +1,3 @@
-import { LoadingButton } from '@mui/lab';
 import { Box, Button, Dialog, Paper, Typography } from '@mui/material';
 import { useMeetingManager } from 'amazon-chime-sdk-component-library-react';
 import { FC, useState } from 'react';
@@ -76,7 +75,7 @@ export const ConfirmEndCallDialog: FC<ConfirmEndCallDialogProps> = ({ openModal,
             flexDirection={{ xs: 'column', md: 'row' }}
             sx={{ justifyContent: 'space-between', mt: 4.125 }}
           >
-            <LoadingButton
+            <Button
               loading={confirmClicked && isFetching}
               variant="contained"
               onClick={async () => {
@@ -89,7 +88,7 @@ export const ConfirmEndCallDialog: FC<ConfirmEndCallDialogProps> = ({ openModal,
               type="submit"
             >
               Confirm
-            </LoadingButton>
+            </Button>
             <Button
               disabled={confirmClicked && isFetching}
               variant="outlined"

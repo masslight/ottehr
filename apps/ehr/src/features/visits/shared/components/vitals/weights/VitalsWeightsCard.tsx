@@ -1,5 +1,14 @@
 import ClearIcon from '@mui/icons-material/Clear';
-import { Box, Button, Checkbox, FormControlLabel, Grid, lighten, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  Button,
+  Checkbox,
+  FormControlLabel,
+  GridLegacy as Grid,
+  lighten,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import React, { JSX, useCallback, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';

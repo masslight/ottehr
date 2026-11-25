@@ -1,5 +1,4 @@
-import { LoadingButton } from '@mui/lab';
-import { Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
+import { Button, GridLegacy as Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FieldValues, FormProvider, useForm } from 'react-hook-form';
@@ -332,7 +331,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                     )}
                     {orderId && (
                       <>
-                        <LoadingButton
+                        <Button
                           variant="outlined"
                           color="error"
                           size="large"
@@ -344,7 +343,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                           }}
                         >
                           Delete Order
-                        </LoadingButton>
+                        </Button>
                         <CustomDialog
                           open={isDeleteDialogOpen}
                           handleClose={() => setIsDeleteDialogOpen(false)}
@@ -359,7 +358,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                       </>
                     )}
                   </Stack>
-                  <LoadingButton
+                  <Button
                     type="submit"
                     disabled={isOrderLoading || isOrderSaved}
                     loading={isOrderSaving}
@@ -373,7 +372,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                     data-testid={dataTestIds.orderVaccinePage.orderVaccineButton}
                   >
                     {orderId ? 'Save changes' : 'Order Immunization'}
-                  </LoadingButton>
+                  </Button>
                 </Stack>
               </Grid>
             </Grid>

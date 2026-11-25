@@ -4,7 +4,6 @@ import {
   DiagnosticReport,
   Encounter,
   FhirResource,
-  Organization,
   Patient,
   Practitioner,
   ServiceRequest,
@@ -15,15 +14,11 @@ import { DR_CONTAINED_PRACTITIONER_REF, LAB_ORDER_TASK } from 'utils/lib/types/d
 import {
   DiagnosticReportLabDetailPageDTO,
   GetUnsolicitedResultsDetailOutput,
-  GetUnsolicitedResultsIconStatusOutput,
   GetUnsolicitedResultsMatchDataOutput,
   GetUnsolicitedResultsPatientListOutput,
   GetUnsolicitedResultsRelatedRequestsOutput,
-  GetUnsolicitedResultsTasksOutput,
   UnsolicitedLabDTO,
   UnsolicitedLabListPageDTO,
-  UnsolicitedResultTaskRowDTO,
-  UR_TASK_ACTION,
 } from 'utils/lib/types/data/labs/labs.types';
 import { EXTERNAL_LAB_UNSOLICITED_RESULTS_ALREADY_MATCHED } from 'utils/lib/types/errors';
 import { compareDates } from 'utils/lib/utils/dateUtils';
@@ -58,31 +53,6 @@ export const getUnsolicitedResultResourcesResourcesByDR = async (
   ).unbundle();
 
   return resourceSearch;
-};
-
-export const handleIconResourceRequest = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsIconStatusOutput> => {
-  const resources = await getUnsolicitedResultResourcesResourcesByDR(oystehr, [
-    { name: '_has:Task:based-on:status', value: 'ready,in-progress' },
-    { name: '_revinclude', value: 'Task:based-on' },
-  ]);
-  return {
-    tasksAreReady: resources.length > 0,
-  };
-};
-
-export const handleGetTasks = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsTasksOutput> => {
-  const resources = await getUnsolicitedResultResourcesResourcesByDR(oystehr, [
-    { name: '_has:Task:based-on:status', value: 'ready,in-progress' },
-    { name: '_revinclude', value: 'Task:based-on' },
-    { name: '_include', value: 'DiagnosticReport:subject' }, // patient
-    { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
-  ]);
-  console.log('grouping the resources returned by diagnostic report', resources.length);
-  const groupedResources = groupResourcesByDr(resources);
-  console.log('formatting the resources for response');
-  const rows = formatResourcesForTaskTableResponse(groupedResources);
-  console.log('returning formatted rows', rows.length);
-  return { unsolicitedResultsTasks: rows };
 };
 
 export const handleUnsolicitedRequestMatch = async (
@@ -176,93 +146,6 @@ export const handleUnsolicitedResultPatientListRequest = async (
   );
 
   return { unsolicitedLabListDTOs: sortedLabs };
-};
-
-const formatResourcesForTaskTableResponse = (resources: ResourcesByDr): UnsolicitedResultTaskRowDTO[] => {
-  const rows = Object.values(resources).flatMap((relatedResources) => {
-    const taskDetails: UnsolicitedResultTaskRowDTO[] = [];
-    relatedResources.readyTasks.forEach((task) => {
-      const taskCode = task.code?.coding?.find((c) => c.system === LAB_ORDER_TASK.system)?.code;
-      if (taskCode && taskIsLabRelated(taskCode)) {
-        const { diagnosticReport, patient, labOrg } = relatedResources;
-        const taskRowDescription = getURDescriptionText(taskCode, diagnosticReport, patient, labOrg);
-        const { actionText, actionUrl } = getURActionTextAndUrl(taskCode, diagnosticReport);
-
-        const row: UnsolicitedResultTaskRowDTO = {
-          diagnosticReportId: diagnosticReport.id || 'unknown',
-          actionText,
-          actionUrl,
-          taskRowDescription,
-          resultsReceivedDateTime: diagnosticReport.effectiveDateTime || 'unknown',
-        };
-        taskDetails.push(row);
-      }
-    });
-    return taskDetails;
-  });
-  return rows;
-};
-
-const getURDescriptionText = (
-  code: string,
-  diagnosticReport: DiagnosticReport,
-  patient?: Patient,
-  labOrg?: Organization
-): string => {
-  const testDescription = getTestNameOrCodeFromDr(diagnosticReport);
-  const labName = labOrg?.name || 'Source lab not specified';
-
-  // only matched results will have patient linked
-  const patientName = patient ? getFullestAvailableName(patient, true) : undefined;
-
-  switch (code) {
-    case LAB_ORDER_TASK.code.matchUnsolicitedResult: {
-      return 'Match unsolicited test results';
-    }
-    case LAB_ORDER_TASK.code.reviewCancelledResult:
-    case LAB_ORDER_TASK.code.reviewCorrectedResult:
-    case LAB_ORDER_TASK.code.reviewFinalResult:
-    case LAB_ORDER_TASK.code.reviewPreliminaryResult: {
-      if (!patientName) {
-        throw Error(`Cannot parse patient name for this matched unsolicited result ${diagnosticReport.id}`);
-      }
-      return `Review unsolicited test results for "${testDescription} / ${labName}" for ${patientName}`;
-    }
-    default: {
-      throw Error(`Task code passed to getURDescriptionText does not match expected input: ${code}`);
-    }
-  }
-};
-
-const getURActionTextAndUrl = (
-  code: string,
-  diagnosticReport: DiagnosticReport
-): { actionText: UR_TASK_ACTION; actionUrl: string } => {
-  switch (code) {
-    case LAB_ORDER_TASK.code.matchUnsolicitedResult: {
-      return { actionText: 'Match', actionUrl: `/unsolicited-results/${diagnosticReport.id}/match` };
-    }
-    case LAB_ORDER_TASK.code.reviewCancelledResult:
-    case LAB_ORDER_TASK.code.reviewCorrectedResult:
-    case LAB_ORDER_TASK.code.reviewFinalResult:
-    case LAB_ORDER_TASK.code.reviewPreliminaryResult: {
-      return { actionText: 'Go to Lab Results', actionUrl: `/unsolicited-results/${diagnosticReport.id}/review` };
-    }
-    default: {
-      throw Error(`Task code passed to getURActionText does not match expected input: ${code}`);
-    }
-  }
-};
-
-const taskIsLabRelated = (code: string): boolean => {
-  const relevantLabCodes: string[] = [
-    LAB_ORDER_TASK.code.matchUnsolicitedResult,
-    LAB_ORDER_TASK.code.reviewCancelledResult,
-    LAB_ORDER_TASK.code.reviewCorrectedResult,
-    LAB_ORDER_TASK.code.reviewFinalResult,
-    LAB_ORDER_TASK.code.reviewPreliminaryResult,
-  ];
-  return relevantLabCodes.includes(code);
 };
 
 const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnsolicitedResultsMatchDataOutput => {

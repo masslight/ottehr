@@ -162,7 +162,7 @@ describe('CreateExternalLabOrder — draft store behavior', () => {
 
       render(<CreateExternalLabOrder />);
 
-      expect(screen.getByRole('checkbox', { name: /psc hold/i })).toBeChecked();
+      expect(screen.getByRole('switch', { name: /psc hold/i })).toBeChecked();
     });
   });
 
@@ -182,11 +182,11 @@ describe('CreateExternalLabOrder — draft store behavior', () => {
       const user = userEvent.setup();
 
       render(<CreateExternalLabOrder />);
-      expect(screen.getByRole('checkbox', { name: /psc hold/i })).toBeChecked();
+      expect(screen.getByRole('switch', { name: /psc hold/i })).toBeChecked();
 
       await user.click(screen.getByRole('button', { name: /clear form/i }));
 
-      expect(screen.getByRole('checkbox', { name: /psc hold/i })).not.toBeChecked();
+      expect(screen.getByRole('switch', { name: /psc hold/i })).not.toBeChecked();
     });
   });
 });

@@ -1,5 +1,5 @@
-import { Grid } from '@mui/material';
-import { TypographyOptions } from '@mui/material/styles/createTypography';
+import { GridLegacy as Grid } from '@mui/material';
+import { TypographyVariantsOptions } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { styled } from '@mui/system';
 import { ReactElement, ReactNode, useState } from 'react';
@@ -14,7 +14,7 @@ interface PageTitleProps {
 }
 
 export const PageTitleStyled = styled(Typography)(({ theme }) => ({
-  ...(theme?.typography as TypographyOptions).h4,
+  ...(theme?.typography as TypographyVariantsOptions).h4,
   textAlign: 'left',
   color: theme.palette.primary.dark,
 }));

@@ -1,5 +1,4 @@
 import CloseIcon from '@mui/icons-material/Close';
-import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Button,
@@ -91,16 +90,9 @@ export default function RemoveCardOnFileDialog({
           {confirming ? 'Back' : 'Close'}
         </Button>
         {confirming ? (
-          <LoadingButton
-            variant="contained"
-            color="error"
-            size="medium"
-            sx={buttonSx}
-            loading={loading}
-            onClick={onRemove}
-          >
+          <Button variant="contained" color="error" size="medium" sx={buttonSx} loading={loading} onClick={onRemove}>
             Yes, Remove Card
-          </LoadingButton>
+          </Button>
         ) : (
           <Tooltip title={canRemove ? '' : 'Only users with the Billing Admin role can remove the card on file'}>
             <span>

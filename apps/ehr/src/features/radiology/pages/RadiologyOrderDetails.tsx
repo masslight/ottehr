@@ -1,10 +1,10 @@
 import CheckIcon from '@mui/icons-material/Check';
-import { LoadingButton } from '@mui/lab';
 import {
   Button,
   Checkbox,
   Chip,
   CircularProgress,
+  FormControlLabel,
   IconButton,
   MenuItem,
   TextField,
@@ -24,7 +24,7 @@ import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks
 import { useAppointmentData, useSaveChartData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { LATERALITY_SELECTORS } from 'utils/lib/fhir/radiology';
+import { decodeRadiologyReportText, LATERALITY_SELECTORS } from 'utils/lib/fhir/radiology';
 import { appendToPreliminaryRead } from 'utils/lib/helpers/radiology/preliminaryReadSuggestions';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { RadiologyOrderStatus } from 'utils/lib/types/api/radiology';
@@ -75,6 +75,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
   const [missingPreliminaryReportDx, setMissingPreliminaryReportDx] = useState(false);
   const [performedById, setPerformedById] = useState('');
   const [missingPerformedBy, setMissingPerformedBy] = useState(false);
+  const [markAsFinal, setMarkAsFinal] = useState(false);
   const [finalReport, setFinalReport] = useState<string | undefined>();
   const [missingFinalReport, setMissingFinalReport] = useState(false);
 
@@ -187,10 +188,11 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
     }
     await handleSaveReport(
       serviceRequestId,
-      preliminaryReport || '',
+      preliminaryReport?.trim() || '',
       'preliminary',
       preliminaryReportDx.map((d) => d.code),
-      performedById
+      performedById,
+      markAsFinal
     );
   };
   // Correctable for as long as the reads are: the order is the record of who did what until it is signed
@@ -235,6 +237,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
   useEffect(() => {
     setPerformedById('');
     setMissingPerformedBy(false);
+    setMarkAsFinal(false);
     setFinalReport(undefined);
     setMissingFinalReport(false);
   }, [serviceRequestId]);
@@ -257,7 +260,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
     disabledReason?: string
   ): JSX.Element => {
     const btn = (
-      <LoadingButton
+      <Button
         loading={loading}
         variant="contained"
         color="primary"
@@ -266,7 +269,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
         disabled={isReadOnly || disabled || !!disabledReason}
       >
         {label}
-      </LoadingButton>
+      </Button>
     );
 
     const tooltip = isReadOnly ? `Please unlock the progress note to use "${label}"` : disabledReason;
@@ -288,6 +291,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
   }
 
   const trimmedFinalReport = finalReport?.trim();
+  const preliminaryReportText = order.preliminaryReport ? decodeRadiologyReportText(order.preliminaryReport) : '';
 
   const content = (
     <>
@@ -453,6 +457,12 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
                       disabled={isReadOnly}
                     />
                   </Box>
+                  <FormControlLabel
+                    sx={{ mt: 1 }}
+                    control={<Checkbox checked={markAsFinal} onChange={(_, checked) => setMarkAsFinal(checked)} />}
+                    label="Mark as final reading"
+                    disabled={isReadOnly}
+                  />
                 </>
               )}
 
@@ -507,6 +517,22 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
 
               {order.status === 'preliminary' && (
                 <>
+                  {preliminaryReportText && (
+                    <FormControlLabel
+                      sx={{ mt: 1 }}
+                      control={
+                        <Checkbox
+                          checked={finalReport === preliminaryReportText}
+                          onChange={(_, checked) => {
+                            setMissingFinalReport(false);
+                            setFinalReport(checked ? preliminaryReportText : '');
+                          }}
+                        />
+                      }
+                      label="Same as Preliminary"
+                      disabled={isReadOnly}
+                    />
+                  )}
                   <Box sx={{ mt: 2 }}>
                     <TextField
                       id="final-report-field"
@@ -556,7 +582,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
 
               {order.task && (
                 <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                  <LoadingButton
+                  <Button
                     data-testid={dataTestIds.radiologyPage.markAsReviewedButton}
                     loading={isMarkingAsReviewed}
                     variant="contained"
@@ -565,7 +591,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
                     onClick={() => void handleMarkAsReviewed()}
                   >
                     Mark as Reviewed
-                  </LoadingButton>
+                  </Button>
                 </Box>
               )}
             </Box>
@@ -589,7 +615,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
 
             {order.status === 'performed' &&
               !order.preliminaryReport &&
-              saveReportButton('Save Preliminary Report', isSavingReport, () => {
+              saveReportButton(markAsFinal ? 'Save as Final' : 'Save Preliminary Report', isSavingReport, () => {
                 if (preliminaryReportDx.length === 0) {
                   setMissingPreliminaryReportDx(true);
                   return;

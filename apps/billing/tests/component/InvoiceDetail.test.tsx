@@ -9,16 +9,21 @@ import InvoiceDetail from '../../src/pages/InvoiceDetail';
 
 const mocks = vi.hoisted(() => ({
   getInvoice: vi.fn(),
+  listCards: vi.fn(),
   downloadUrl: vi.fn(),
   client: {},
 }));
 vi.mock('../../src/api/api', () => ({
   getBillingInvoice: mocks.getInvoice,
+  listBillingNioInvoicePaymentMethods: mocks.listCards,
 }));
 vi.mock('../../src/hooks/useAppClients', () => ({
   useApiClients: () => ({
     oystehrZambda: mocks.client,
   }),
+}));
+vi.mock('../../src/components/DateInput', async () => ({
+  DateInput: (await import('./inputStub')).InputStub,
 }));
 vi.mock('../../src/utils/downloadFile', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/utils/downloadFile')>()),
@@ -52,7 +57,7 @@ const invoice: BillingInvoiceDetail = {
   ],
   payments: [
     {
-      paymentNoticeId: 'notice-1',
+      paymentId: 'payment-1',
       paymentDate: '2026-09-19',
       amount: 180,
       method: 'check',
@@ -60,6 +65,12 @@ const invoice: BillingInvoiceDetail = {
     },
   ],
   pdfUrl: 'https://z3.example/INV-00042.pdf',
+};
+
+const unpaidInvoice: BillingInvoiceDetail = {
+  ...invoice,
+  balance: 320,
+  payments: [],
 };
 
 function renderPage(): void {
@@ -155,7 +166,18 @@ describe('InvoiceDetail', () => {
     expect(balanceLabel.parentElement).toHaveTextContent('Balance-');
   });
 
-  it('keeps the payment actions disabled', async () => {
+  it('offers to record a payment or collect a card payment on an unpaid invoice', async () => {
+    mocks.getInvoice.mockResolvedValue(unpaidInvoice);
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'INV-00042' });
+    const recordPayment = screen.getByRole('button', { name: 'Record payment' });
+    const collectCardPayment = screen.getByRole('button', { name: 'Collect card payment' });
+    expect(recordPayment).toBeEnabled();
+    expect(collectCardPayment).toBeEnabled();
+  });
+
+  it('takes no payment on a partially paid invoice, since only full payments are taken', async () => {
     renderPage();
 
     await screen.findByRole('heading', { name: 'INV-00042' });
@@ -163,6 +185,53 @@ describe('InvoiceDetail', () => {
     const collectCardPayment = screen.getByRole('button', { name: 'Collect card payment' });
     expect(recordPayment).toBeDisabled();
     expect(collectCardPayment).toBeDisabled();
+  });
+
+  it('takes no payment on a paid invoice', async () => {
+    mocks.getInvoice.mockResolvedValue({
+      ...invoice,
+      status: 'balanced',
+      balance: 0,
+    });
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'INV-00042' });
+    const recordPayment = screen.getByRole('button', { name: 'Record payment' });
+    const collectCardPayment = screen.getByRole('button', { name: 'Collect card payment' });
+    expect(recordPayment).toBeDisabled();
+    expect(collectCardPayment).toBeDisabled();
+  });
+
+  it('opens the card payment dialog for the balance', async () => {
+    const user = userEvent.setup();
+    mocks.getInvoice.mockResolvedValue(unpaidInvoice);
+    mocks.listCards.mockResolvedValue({
+      cards: [],
+    });
+    renderPage();
+    await screen.findByRole('heading', { name: 'INV-00042' });
+
+    const collectCardPayment = screen.getByRole('button', { name: 'Collect card payment' });
+    await user.click(collectCardPayment);
+
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByRole('textbox', { name: 'Amount' })).toHaveValue('320.00');
+    expect(mocks.listCards).toHaveBeenCalledWith(mocks.client, {
+      invoiceId: 'invoice-1',
+    });
+  });
+
+  it('opens the record payment dialog for the balance', async () => {
+    const user = userEvent.setup();
+    mocks.getInvoice.mockResolvedValue(unpaidInvoice);
+    renderPage();
+    await screen.findByRole('heading', { name: 'INV-00042' });
+
+    const recordPayment = screen.getByRole('button', { name: 'Record payment' });
+    await user.click(recordPayment);
+
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByRole('textbox', { name: 'Amount' })).toHaveValue('320.00');
   });
 
   it('downloads the invoice PDF from a freshly presigned link', async () => {
@@ -178,6 +247,30 @@ describe('InvoiceDetail', () => {
     await user.click(download);
 
     expect(mocks.downloadUrl).toHaveBeenCalledWith('INV-00042.pdf', 'https://z3.example/INV-00042.pdf?fresh');
+  });
+
+  it("downloads a payment's attachment from a freshly presigned link", async () => {
+    const user = userEvent.setup();
+    const withAttachment = (url: string): BillingInvoiceDetail => ({
+      ...invoice,
+      payments: [
+        {
+          ...invoice.payments[0],
+          attachment: {
+            fileName: 'check-88123.pdf',
+            url,
+          },
+        },
+      ],
+    });
+    mocks.getInvoice.mockResolvedValue(withAttachment('https://z3.example/check-88123.pdf'));
+    renderPage();
+    const attachment = await screen.findByRole('button', { name: 'check-88123.pdf' });
+    mocks.getInvoice.mockResolvedValue(withAttachment('https://z3.example/check-88123.pdf?fresh'));
+
+    await user.click(attachment);
+
+    expect(mocks.downloadUrl).toHaveBeenCalledWith('check-88123.pdf', 'https://z3.example/check-88123.pdf?fresh');
   });
 
   it('shows an error when the PDF fails to download', async () => {

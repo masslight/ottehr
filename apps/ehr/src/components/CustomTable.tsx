@@ -1,7 +1,6 @@
 import { alpha, Box, useTheme } from '@mui/material';
 import {
   DataGridPro,
-  GridCellParams,
   GridColDef,
   GridFilterItem,
   GridFilterModel,
@@ -20,8 +19,8 @@ export const dateTimeEqualsOperator: GridFilterOperator = {
       return null;
     }
 
-    return (params: GridCellParams): boolean => {
-      return DateTime.fromISO(params.value as string).toISODate() === filterItem.value.toISODate();
+    return (value: unknown): boolean => {
+      return DateTime.fromISO(value as string).toISODate() === filterItem.value.toISODate();
     };
   },
   InputComponentProps: { type: DateTime },

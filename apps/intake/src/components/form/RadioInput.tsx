@@ -5,7 +5,7 @@ import {
   Box,
   FormControl,
   FormControlLabel,
-  Grid,
+  GridLegacy as Grid,
   Radio,
   RadioGroup,
   RadioGroupProps,
@@ -171,7 +171,7 @@ const RadioInput: FC<RadioInputProps> = ({
                             paddingBottom: '0.5rem',
                             [theme.breakpoints.down('md')]: {
                               paddingTop: '0.1rem',
-                              '&.MuiGrid-item': { marginTop: '0px' },
+                              '&.MuiGridLegacy-item': { marginTop: '0px' },
                             },
                           }}
                         >

@@ -1,6 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -412,14 +411,14 @@ export default function LocationConfigPage(): ReactElement {
             </Box>
 
             <Box sx={{ mt: 2 }}>
-              <LoadingButton
+              <Button
                 variant="contained"
                 onClick={handleSave}
                 loading={updateMutation.isPending}
                 disabled={noModeSelected}
               >
                 Save
-              </LoadingButton>
+              </Button>
             </Box>
 
             {canDeleteLocation && (
@@ -473,9 +472,9 @@ export default function LocationConfigPage(): ReactElement {
           <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleteMutation.isPending}>
             Cancel
           </Button>
-          <LoadingButton color="error" onClick={runDelete} loading={deleteMutation.isPending}>
+          <Button color="error" onClick={runDelete} loading={deleteMutation.isPending}>
             {deleteWarning ? 'Delete anyway' : 'Delete'}
-          </LoadingButton>
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

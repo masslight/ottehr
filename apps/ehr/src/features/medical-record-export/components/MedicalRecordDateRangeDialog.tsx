@@ -1,5 +1,4 @@
 import CloseIcon from '@mui/icons-material/Close';
-import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Box,
@@ -158,7 +157,7 @@ export const MedicalRecordDateRangeDialog: FC<MedicalRecordDateRangeDialogProps>
         >
           Cancel
         </Button>
-        <LoadingButton
+        <Button
           variant="contained"
           loading={submitting || (!initialized && !loadFailed)}
           disabled={!initialized || !isValid}
@@ -167,7 +166,7 @@ export const MedicalRecordDateRangeDialog: FC<MedicalRecordDateRangeDialogProps>
           data-testid={dataTestIds.medicalRecordDateRangeDialog.confirmButton}
         >
           {confirmText}
-        </LoadingButton>
+        </Button>
       </DialogActions>
     </Dialog>
   );

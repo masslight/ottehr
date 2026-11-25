@@ -42,7 +42,7 @@ export const BillingRulesBaseRowSchema = z.object({
     .array(z.string())
     .describe(
       'What the rule does: setField, applyTag, addServiceLine, updateServiceLines, removeServiceLines, ' +
-        'applyChargeMasterPrices.'
+        'applyChargeMasterPrices, copyMemberIdToGroupNumber.'
     ),
 });
 

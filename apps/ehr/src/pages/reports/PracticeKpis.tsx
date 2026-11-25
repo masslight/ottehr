@@ -194,11 +194,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: 'Arrived to Ready Average (min)',
         flex: 1,
         minWidth: 240,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return params.value.toFixed(2);
+          return value.toFixed(2);
         },
       },
       {
@@ -206,11 +206,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: 'Arrived to Ready Median (min)',
         flex: 1,
         minWidth: 240,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return params.value.toFixed(2);
+          return value.toFixed(2);
         },
       },
       {
@@ -218,11 +218,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: 'Arrived to Discharged Average (min)',
         flex: 1,
         minWidth: 270,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return params.value.toFixed(2);
+          return value.toFixed(2);
         },
       },
       {
@@ -230,11 +230,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: 'Arrived to Discharged Median (min)',
         flex: 1,
         minWidth: 270,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return params.value.toFixed(2);
+          return value.toFixed(2);
         },
       },
       {
@@ -242,11 +242,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: 'Arrived to Intake Average (min)',
         flex: 1,
         minWidth: 240,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return params.value.toFixed(2);
+          return value.toFixed(2);
         },
       },
       {
@@ -254,11 +254,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: 'Arrived to Intake Median (min)',
         flex: 1,
         minWidth: 240,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return params.value.toFixed(2);
+          return value.toFixed(2);
         },
       },
       {
@@ -266,11 +266,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: 'Arrived to Provider Average (min)',
         flex: 1,
         minWidth: 250,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return params.value.toFixed(2);
+          return value.toFixed(2);
         },
       },
       {
@@ -278,11 +278,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: 'Arrived to Provider Median (min)',
         flex: 1,
         minWidth: 250,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return params.value.toFixed(2);
+          return value.toFixed(2);
         },
       },
       {
@@ -290,11 +290,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: '% Arrived to Provider < 15 min',
         flex: 1,
         minWidth: 250,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return `${params.value.toFixed(1)}%`;
+          return `${value.toFixed(1)}%`;
         },
       },
       {
@@ -302,11 +302,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: '% Arrived to Provider < 45 min',
         flex: 1,
         minWidth: 250,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return `${params.value.toFixed(1)}%`;
+          return `${value.toFixed(1)}%`;
         },
       },
       {
@@ -314,11 +314,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: 'Ready to Intake Average (min)',
         flex: 1,
         minWidth: 230,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return params.value.toFixed(2);
+          return value.toFixed(2);
         },
       },
       {
@@ -326,11 +326,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: 'Ready to Intake Median (min)',
         flex: 1,
         minWidth: 230,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return params.value.toFixed(2);
+          return value.toFixed(2);
         },
       },
       {
@@ -338,11 +338,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: 'Intake to Provider Average (min)',
         flex: 1,
         minWidth: 240,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return params.value.toFixed(2);
+          return value.toFixed(2);
         },
       },
       {
@@ -350,11 +350,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: 'Intake to Provider Median (min)',
         flex: 1,
         minWidth: 240,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return params.value.toFixed(2);
+          return value.toFixed(2);
         },
       },
       {
@@ -362,11 +362,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: 'Provider to Discharged Average (min)',
         flex: 1,
         minWidth: 270,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return params.value.toFixed(2);
+          return value.toFixed(2);
         },
       },
       {
@@ -374,11 +374,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: 'Provider to Discharged Median (min)',
         flex: 1,
         minWidth: 270,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return params.value.toFixed(2);
+          return value.toFixed(2);
         },
       },
       {
@@ -386,11 +386,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: '% On-Time',
         flex: 1,
         minWidth: 150,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return `${params.value.toFixed(1)}%`;
+          return `${value.toFixed(1)}%`;
         },
       },
       {
@@ -398,11 +398,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: '% Book Ahead',
         flex: 1,
         minWidth: 150,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return `${params.value.toFixed(1)}%`;
+          return `${value.toFixed(1)}%`;
         },
       },
       {
@@ -410,11 +410,11 @@ export default function PracticeKpis(): React.ReactElement {
         headerName: '% Walk-In',
         flex: 1,
         minWidth: 150,
-        valueFormatter: (params) => {
-          if (params.value === null || params.value === undefined) {
+        valueFormatter: (value?: number | null) => {
+          if (value === null || value === undefined) {
             return '—';
           }
-          return `${params.value.toFixed(1)}%`;
+          return `${value.toFixed(1)}%`;
         },
       },
     ],

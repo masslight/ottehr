@@ -45,7 +45,8 @@ const columns: GridColDef[] = [
     headerName: 'Patient',
     flex: 1,
     minWidth: 200,
-    valueGetter: (params) => (params.row as CardOnFileReportRow).patientName || '—',
+    valueGetter: (_value, row: CardOnFileReportRow) => row.patientName || '—',
+    display: 'flex',
     renderCell: ({ row }) => {
       const cardRow = row as CardOnFileReportRow;
       if (!cardRow.patientName) return '—';
@@ -69,10 +70,10 @@ const columns: GridColDef[] = [
     headerName: 'Stripe Customer',
     flex: 1,
     minWidth: 220,
-    valueGetter: (params) => {
-      const row = params.row as CardOnFileReportRow;
+    valueGetter: (_value, row: CardOnFileReportRow) => {
       return row.customerName || row.stripeCustomerId;
     },
+    display: 'flex',
     renderCell: ({ row }) => {
       const cardRow = row as CardOnFileReportRow;
       return (
@@ -102,6 +103,7 @@ const columns: GridColDef[] = [
     flex: 1,
     minWidth: 240,
     sortable: false,
+    display: 'flex',
     renderCell: ({ row }) => {
       const cardRow = row as CardOnFileReportRow;
       if (!cardRow.cardId) {
@@ -124,7 +126,8 @@ const columns: GridColDef[] = [
     field: 'openInvoiceAmount',
     headerName: 'Invoices Due',
     width: 170,
-    valueGetter: (params) => (params.row as CardOnFileReportRow).openInvoiceAmount ?? 0,
+    valueGetter: (_value, row: CardOnFileReportRow) => row.openInvoiceAmount ?? 0,
+    display: 'flex',
     renderCell: ({ row }) => {
       const cardRow = row as CardOnFileReportRow;
       if (!cardRow.openInvoiceCount) return '—';
@@ -146,6 +149,7 @@ const columns: GridColDef[] = [
     field: 'lastVisitDate',
     headerName: 'Last Visit',
     width: 150,
+    display: 'flex',
     renderCell: ({ row }) => {
       const cardRow = row as CardOnFileReportRow;
       if (!cardRow.lastVisitDate) return '—';

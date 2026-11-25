@@ -1,5 +1,4 @@
 import { yupResolver } from '@hookform/resolvers/yup';
-import LoadingButton from '@mui/lab/LoadingButton';
 import {
   Box,
   Button,
@@ -11,7 +10,7 @@ import {
   FormControl,
   FormControlLabel,
   FormHelperText,
-  Grid,
+  GridLegacy as Grid,
   InputLabel,
   OutlinedInput,
   Radio,
@@ -334,7 +333,7 @@ export default function ({
           <Button variant="text" onClick={handleDialogClose} size="medium" sx={buttonSx}>
             Cancel
           </Button>
-          <LoadingButton
+          <Button
             data-testid={dataTestIds.visitDetailsPage.cancelVisitDialogue}
             loading={isSubmitting || isTerminalPaymentSubmitting}
             type="submit"
@@ -345,7 +344,7 @@ export default function ({
             disabled={shouldDisableSubmit}
           >
             {submitButtonLabel}
-          </LoadingButton>
+          </Button>
         </DialogActions>
       </form>
     </Dialog>

@@ -12,10 +12,6 @@ const { mockUseAppointmentAccessibility, mockUseMainEncounterChartData, mockUseC
   mockUseChartData: vi.fn(),
 }));
 
-vi.mock('src/features/visits/in-person/hooks/useImmunization', () => ({
-  useGetVaccines: () => ({ data: [], isLoading: false }),
-}));
-
 vi.mock('src/hooks/useAppClients', () => ({
   useApiClients: () => ({}),
 }));
@@ -32,15 +28,16 @@ vi.mock('src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: mockUseChartData,
 }));
 
+import { CVX_VACCINES } from 'utils/lib/types/data/immunization/cvx-vaccines.generated';
 import { OrderDetailsSection } from '../../src/features/immunization/components/OrderDetailsSection';
 
 const CURRENT_ENCOUNTER_DX = { resourceId: 'cond-current', code: 'J45.909', display: 'Asthma' };
 const MAIN_ENCOUNTER_DX = { resourceId: 'cond-main', code: 'O29.011', display: 'Anesthesia complication' };
 
-const renderWithForm = (): void => {
+const renderWithForm = (defaultValues?: Record<string, unknown>): void => {
   const queryClient = new QueryClient();
   const Wrapper: React.FC = () => {
-    const methods = useForm();
+    const methods = useForm({ defaultValues });
     return (
       <QueryClientProvider client={queryClient}>
         <FormProvider {...methods}>
@@ -82,5 +79,30 @@ describe('OrderDetailsSection — Associated Dx options', () => {
     await user.click(screen.getByLabelText('Associated Dx'));
 
     expect(await screen.findByText('O29.011 - Anesthesia complication')).toBeInTheDocument();
+  });
+});
+
+describe('OrderDetailsSection — Immunization options', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseAppointmentAccessibility.mockReturnValue({ visitType: 'in-person' });
+    mockUseChartData.mockReturnValue({ chartData: { diagnosis: [] } });
+    mockUseMainEncounterChartData.mockReturnValue({ data: undefined });
+  });
+
+  it('offers every vaccine in the CVX list', async () => {
+    renderWithForm();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByLabelText(/^Immunization/));
+
+    const options = await screen.findAllByRole('option');
+    expect(options.map((option) => option.textContent)).toEqual(CVX_VACCINES.map((vaccine) => vaccine.name));
+  });
+
+  it('shows the vaccine an older order was placed with, which is not in the list', async () => {
+    renderWithForm({ details: { medication: { id: 'config-medication-tdap', name: 'Tdap (Adacel/Boostrix)' } } });
+
+    expect(screen.getByLabelText(/^Immunization/)).toHaveValue('Tdap (Adacel/Boostrix)');
   });
 });

@@ -1,7 +1,6 @@
 import { Box, TableCell, TableRow } from '@mui/material';
-import TouchRipple from '@mui/material/ButtonBase/TouchRipple';
+import TouchRipple, { TouchRippleActions } from '@mui/material/ButtonBase/TouchRipple';
 import { alpha, styled, useTheme } from '@mui/material/styles';
-import useTouchRipple from '@mui/material/useTouchRipple';
 import { DateTime } from 'luxon';
 import React, { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -41,15 +40,27 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({
 }) => {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
-  const rippleRef = React.useRef(null);
+  const rippleRef = React.useRef<TouchRippleActions>(null);
   const theme = useTheme();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const { getRippleHandlers } = useTouchRipple({
-    disabled: false,
-    focusVisible: false,
-    rippleRef,
-  });
+  // Pointer handlers that drive the ripple directly. `@mui/material/useTouchRipple` did this in
+  // v5 but is not shipped from v6 on.
+  const rippleHandlers = useMemo(() => {
+    const start = (event: React.SyntheticEvent): void => rippleRef.current?.start(event);
+    const stop = (event: React.SyntheticEvent): void => rippleRef.current?.stop(event);
+    return {
+      onMouseDown: start,
+      onTouchStart: start,
+      onMouseUp: stop,
+      onMouseLeave: stop,
+      onContextMenu: stop,
+      onDragLeave: stop,
+      onTouchEnd: stop,
+      onTouchMove: stop,
+      onBlur: stop,
+    };
+  }, []);
 
   const isPending = medication.status === 'pending';
   const isCancelled = medication.status === 'cancelled';
@@ -123,7 +134,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({
           : {}),
       }}
       onClick={handleRowClick}
-      {...getRippleHandlers()}
+      {...rippleHandlers}
     >
       <TableCell sx={columnStyles.interactionsAlert}>
         <MedicationInteractionsAlertButton medication={medication} />

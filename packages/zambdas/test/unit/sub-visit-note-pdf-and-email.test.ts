@@ -1,4 +1,5 @@
-import { Task } from 'fhir/r4b';
+import { Encounter, Task } from 'fhir/r4b';
+import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
 import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM } from 'utils/lib/types/common';
 import { describe, expect, it } from 'vitest';
 import {
@@ -91,12 +92,42 @@ describe('resolveSkipEmail', () => {
 });
 
 describe('shouldGenerateVisitDetailsPdf', () => {
+  const mainEncounter: Encounter = {
+    resourceType: 'Encounter',
+    id: 'main-enc',
+    status: 'finished',
+    class: { code: 'AMB' },
+  };
+  const followUpEncounter = (subtype: 'scheduled' | 'annotation'): Encounter => ({
+    resourceType: 'Encounter',
+    id: `follow-up-enc-${subtype}`,
+    status: 'finished',
+    class: { code: 'ACUTE' },
+    partOf: { reference: 'Encounter/main-enc' },
+    type: [
+      {
+        coding: [
+          { system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code },
+          ...(subtype === 'scheduled' ? [{ system: FOLLOWUP_SUBTYPE_SYSTEM, code: 'scheduled' }] : []),
+        ],
+      },
+    ],
+  });
+
   it('generates on a fresh sign (no SKIP_EMAIL input)', () => {
-    expect(shouldGenerateVisitDetailsPdf(buildTask())).toBe(true);
+    expect(shouldGenerateVisitDetailsPdf(buildTask(), mainEncounter)).toBe(true);
   });
 
   it('skips on an addendum re-generation (SKIP_EMAIL input present)', () => {
-    expect(shouldGenerateVisitDetailsPdf(buildTask({ input: skipEmailInput }))).toBe(false);
+    expect(shouldGenerateVisitDetailsPdf(buildTask({ input: skipEmailInput }), mainEncounter)).toBe(false);
+  });
+
+  it("skips when a follow-up note on the visit is signed, keeping the visit's signing-time copy", () => {
+    expect(shouldGenerateVisitDetailsPdf(buildTask(), followUpEncounter('annotation'))).toBe(false);
+  });
+
+  it('generates when a scheduled follow-up visit is signed', () => {
+    expect(shouldGenerateVisitDetailsPdf(buildTask(), followUpEncounter('scheduled'))).toBe(true);
   });
 
   it('generates when a SKIP_EMAIL-shaped input is not actually set to "true"', () => {
@@ -108,6 +139,6 @@ describe('shouldGenerateVisitDetailsPdf', () => {
         },
       ],
     });
-    expect(shouldGenerateVisitDetailsPdf(task)).toBe(true);
+    expect(shouldGenerateVisitDetailsPdf(task, mainEncounter)).toBe(true);
   });
 });

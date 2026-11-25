@@ -67,6 +67,7 @@ async function searchClaims({
   const offset = params.offset ?? 0;
 
   const filteringByServiceDate = Boolean(params.serviceDateFrom || params.serviceDateTo);
+  const filteringByPlanType = Boolean(params.planType?.length);
 
   let pageClaims: Claim[];
   let includedResources: Resource[];
@@ -76,10 +77,10 @@ async function searchClaims({
   // Neither a search text nor a service date can be paginated by the server: FHIR ANDs separate
   // search parameters and only ORs within one, so searching several fields at once means several
   // searches whose union only exists here (_filter would express it as one paginated search, but
-  // Oystehr discards _filter), and Claim has no service-date search parameter at all. Neither sort
-  // field (service date, billed) has one either. All of these
+  // Oystehr discards _filter), and Claim has no service-date search parameter at all, nor one that
+  // reaches its coverage's plan type. Neither sort field (service date, billed) has one either. All of these
   // scan for matching ids, sort and page in memory, and hydrate only the page they settle on.
-  if (params.searchText || filteringByServiceDate || params.sort) {
+  if (params.searchText || filteringByServiceDate || filteringByPlanType || params.sort) {
     const matched = await scanMatchingClaims({
       oystehr,
       params,

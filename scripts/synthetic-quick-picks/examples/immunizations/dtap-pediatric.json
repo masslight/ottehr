@@ -1,8 +1,8 @@
 {
   "name": "DTaP (pediatric, <7 yo)",
   "vaccine": {
-    "id": "014ea623-7be2-49b4-ab77-68c00bbd75c3",
-    "name": "Dtap (Diptheria, Tetanus, Pertussis)"
+    "id": "20",
+    "name": "DTaP"
   },
   "dose": "0.5",
   "units": "ml",

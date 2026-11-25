@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Grid, Typography } from '@mui/material';
+import { Box, CircularProgress, GridLegacy as Grid, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { Encounter, Location } from 'fhir/r4b';
 import { useEffect, useState } from 'react';

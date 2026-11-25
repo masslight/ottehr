@@ -4,7 +4,7 @@ import {
   Autocomplete,
   Box,
   Button,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   InputAdornment,
   Pagination,

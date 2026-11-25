@@ -1,5 +1,4 @@
 import AddIcon from '@mui/icons-material/Add';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -181,14 +180,14 @@ export default function LocationsListPage(): ReactElement {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddOpen(false)}>Cancel</Button>
-          <LoadingButton
+          <Button
             variant="contained"
             onClick={handleCreate}
             loading={createMutation.isPending}
             disabled={!newName.trim()}
           >
             Create
-          </LoadingButton>
+          </Button>
         </DialogActions>
       </Dialog>
     </Paper>

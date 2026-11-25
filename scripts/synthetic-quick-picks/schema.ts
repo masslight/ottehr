@@ -151,8 +151,7 @@ const cptShape = z.object({ code: z.string(), display: z.string() });
 
 export const immunizationQuickPickSchema = z.object({
   name: z.string().min(1),
-  // vaccine.id is the FHIR Medication.id on the target project
-  // (resolved via bootstrap-immunization-examples.ts).
+  // vaccine.id is the CVX code of a vaccine in CVX_VACCINES
   vaccine: z.object({ id: z.string(), name: z.string() }).optional(),
   dose: z.string().optional(), // numeric as string per EHR convention
   units: z.string().optional(), // e.g., "mL"
