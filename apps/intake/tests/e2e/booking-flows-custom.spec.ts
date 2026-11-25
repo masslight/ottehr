@@ -64,19 +64,17 @@ test.describe('Complete paperwork rendered via Questionnaire.derivedFrom', () =>
     resourceHandler = new ResourceHandler();
     await Promise.all([testLocationManager.init(), flowManager.init(), resourceHandler.initApi()]);
 
-    group = await testLocationManager.ensurePrebookInPersonGroupWithSlots();
+    [group, flow] = await Promise.all([
+      testLocationManager.ensurePrebookInPersonGroupWithSlots(),
+      flowManager.createInPersonFlowForCustomService(),
+    ]);
     console.log(`✓ Using prebook in-person group: ${group.name} (slug: ${group.slug})`);
-
-    flow = await flowManager.createInPersonFlowForCustomService();
   });
 
   // Cleanup: Remove test resources after all tests
   test.afterAll(async () => {
-    if (flowManager) {
-      await flowManager.cleanup();
-    }
+    await Promise.all([flowManager && flowManager.cleanup(), testLocationManager && testLocationManager.cleanup()]);
     if (testLocationManager) {
-      await testLocationManager.cleanup();
       console.log('✓ Cleaned up custom-service flow test resources');
     }
   });

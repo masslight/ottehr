@@ -14,7 +14,10 @@ let page: Page;
 test.beforeAll(async ({ browser }) => {
   const context = await browser.newContext();
   page = await context.newPage();
-  await resourceHandler.setResources({ skipPaperwork: true });
+  await Promise.all([
+    resourceHandler.setResources({ skipPaperwork: true }),
+    resourceHandler.getTestsUserAndPractitioner(),
+  ]);
 });
 
 test.afterAll(async () => {

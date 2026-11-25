@@ -229,21 +229,23 @@ export class TestQuestionnaireManager {
 
     console.log(`Cleaning up ${this.createdQuestionnaires.size} test questionnaires`);
 
-    for (const [cacheKey, createdQuestionnaire] of this.createdQuestionnaires.entries()) {
-      const { questionnaire } = createdQuestionnaire;
+    await Promise.all(
+      Array.from(this.createdQuestionnaires.entries()).map(async ([cacheKey, createdQuestionnaire]) => {
+        const { questionnaire } = createdQuestionnaire;
 
-      if (questionnaire.id) {
-        try {
-          await oystehr.fhir.delete({
-            resourceType: 'Questionnaire',
-            id: questionnaire.id,
-          });
-          console.log(`Deleted test questionnaire: ${questionnaire.id} (${cacheKey})`);
-        } catch (error) {
-          console.warn(`Failed to delete test questionnaire ${questionnaire.id}:`, error);
+        if (questionnaire.id) {
+          try {
+            await oystehr.fhir.delete({
+              resourceType: 'Questionnaire',
+              id: questionnaire.id,
+            });
+            console.log(`Deleted test questionnaire: ${questionnaire.id} (${cacheKey})`);
+          } catch (error) {
+            console.warn(`Failed to delete test questionnaire ${questionnaire.id}:`, error);
+          }
         }
-      }
-    }
+      })
+    );
 
     this.createdQuestionnaires.clear();
   }

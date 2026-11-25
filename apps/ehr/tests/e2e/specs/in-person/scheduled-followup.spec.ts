@@ -1,4 +1,5 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
@@ -9,7 +10,8 @@ const LONG_TIMEOUT = { timeout: 35000 };
 
 let context: BrowserContext;
 let page: Page;
-const resourceHandler = new ResourceHandler('in-person');
+const PROCESS_ID = `scheduled-followup.spec.ts-${DateTime.now().toMillis()}`;
+const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();

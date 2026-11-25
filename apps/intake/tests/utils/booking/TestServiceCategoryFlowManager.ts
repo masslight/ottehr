@@ -8,6 +8,7 @@ import {
   SERVICE_CATEGORY_TAG,
 } from 'utils/lib/fhir/constants';
 import { serviceCategoryCharacteristics } from 'utils/lib/fhir/healthcareService';
+import { unbundleBatchPostOutput } from 'utils/lib/fhir/helpers';
 import { resolveEffectiveQuestionnaire } from 'utils/lib/fhir/questionnaires';
 import { CanonicalUrl, ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
 import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
@@ -134,8 +135,7 @@ export class TestServiceCategoryFlowManager {
     ];
 
     // 1. Custom forms.
-    const forms: CustomFlowForm[] = [];
-    for (const spec of formSpecs) {
+    const formInputs = formSpecs.map((spec) => {
       const url = `https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson-e2e-custom-${spec.slug}-${processId}`;
       const version = '1.0.0';
       const pageItem: QuestionnaireItem = {
@@ -162,8 +162,22 @@ export class TestServiceCategoryFlowManager {
           ],
         },
       };
-      const created = await oystehr.fhir.create(formInput);
-      if (!created.id) {
+      return { spec, url, version, formInput };
+    });
+    const createdForms = unbundleBatchPostOutput<Questionnaire>(
+      await oystehr.fhir.transaction<Questionnaire>({
+        requests: formInputs.map(({ formInput }) => ({
+          method: 'POST' as const,
+          url: '/Questionnaire',
+          resource: formInput,
+        })),
+      })
+    );
+
+    const forms: CustomFlowForm[] = [];
+    for (const { spec, url, version } of formInputs) {
+      const created = createdForms.find((form) => form.url === url);
+      if (!created?.id) {
         throw new Error(`Failed to create custom form "${spec.slug}"`);
       }
 
@@ -201,13 +215,6 @@ export class TestServiceCategoryFlowManager {
         ],
       },
     };
-    const flowQuestionnaire = await oystehr.fhir.create(flowInput);
-    if (!flowQuestionnaire.id) {
-      throw new Error('Failed to create paperwork flow Questionnaire');
-    }
-
-    const qCreatedId: CreatedId = ['Questionnaire', flowQuestionnaire.id];
-    this.createdIds.push(qCreatedId);
 
     // 3. Custom service-category HealthcareService, with the in-person flow extension baked in. The flow
     //    extension's valueCanonical is the flow's BARE url (the backend resolver matches
@@ -247,8 +254,28 @@ export class TestServiceCategoryFlowManager {
         ],
       },
     };
-    const healthcareService = await oystehr.fhir.create(healthcareServiceInput);
-    if (!healthcareService.id) {
+    const createdFlowResources = unbundleBatchPostOutput<Questionnaire | HealthcareService>(
+      await oystehr.fhir.transaction<Questionnaire | HealthcareService>({
+        requests: [
+          { method: 'POST', url: '/Questionnaire', resource: flowInput },
+          { method: 'POST', url: '/HealthcareService', resource: healthcareServiceInput },
+        ],
+      })
+    );
+    const flowQuestionnaire = createdFlowResources.find(
+      (resource): resource is Questionnaire => resource.resourceType === 'Questionnaire'
+    );
+    const healthcareService = createdFlowResources.find(
+      (resource): resource is HealthcareService => resource.resourceType === 'HealthcareService'
+    );
+    if (!flowQuestionnaire?.id) {
+      throw new Error('Failed to create paperwork flow Questionnaire');
+    }
+
+    const qCreatedId: CreatedId = ['Questionnaire', flowQuestionnaire.id];
+    this.createdIds.push(qCreatedId);
+
+    if (!healthcareService?.id) {
       throw new Error('Failed to create custom service-category HealthcareService');
     }
 
@@ -290,17 +317,19 @@ export class TestServiceCategoryFlowManager {
 
     const deletions = this.createdIds;
 
-    for (const [resourceType, id] of deletions) {
-      if (!id) {
-        continue;
-      }
-      try {
-        await oystehr.fhir.delete({ resourceType, id });
-        console.log(`Deleted ${resourceType}/${id}`);
-      } catch (err) {
-        console.warn(`Failed to delete ${resourceType}/${id}:`, err);
-      }
-    }
+    await Promise.all(
+      deletions.map(async ([resourceType, id]) => {
+        if (!id) {
+          return;
+        }
+        try {
+          await oystehr.fhir.delete({ resourceType, id });
+          console.log(`Deleted ${resourceType}/${id}`);
+        } catch (err) {
+          console.warn(`Failed to delete ${resourceType}/${id}:`, err);
+        }
+      })
+    );
 
     this.created = undefined;
   }

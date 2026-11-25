@@ -145,8 +145,10 @@ test.describe('In-person visit', async () => {
       insuranceCarrier1 = insuranceCarriersOptions.at(0);
       insuranceCarrier2 = insuranceCarriersOptions.at(1);
       await resourceHandler.setResources();
-      await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
-      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+      await Promise.all([
+        resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
+        resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
+      ]);
 
       context = await browser.newContext();
       page = await context.newPage();
@@ -299,10 +301,7 @@ test.describe('In-person visit', async () => {
       ];
     });
 
-    let page: Page;
-    let context: BrowserContext;
-
-    test.beforeAll(async ({ browser }) => {
+    test.beforeAll(async () => {
       const oystehr = await ResourceHandler.getOystehr();
       const insurancePlansResponse = await oystehr.fhir.search<InsurancePlan>({
         resourceType: 'InsurancePlan',
@@ -320,17 +319,14 @@ test.describe('In-person visit', async () => {
       insuranceCarrier2 = insuranceCarriersOptions.at(1);
 
       await resourceHandler.setResources();
-      await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
-      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-
-      context = await browser.newContext();
-      page = await context.newPage();
+      await Promise.all([
+        resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
+        resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
+      ]);
     });
 
     test.afterAll(async () => {
       await resourceHandler.cleanupResources();
-      await page.close();
-      await context.close();
     });
 
     test('Complete visit with supervisor approval required and verify PDF creation', async ({ page }) => {

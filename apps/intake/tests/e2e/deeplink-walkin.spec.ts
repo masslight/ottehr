@@ -35,13 +35,13 @@ test.describe('Walk-in deeplink flows', () => {
     testLocationManager = new TestLocationManager(workerUniqueId);
     await testLocationManager.init();
 
-    // Create always-open location (24/7 schedule)
-    const openResult = await testLocationManager.ensureDeeplinkOpenLocation();
+    const [openResult, closedResult] = await Promise.all([
+      testLocationManager.ensureDeeplinkOpenLocation(),
+      testLocationManager.ensureDeeplinkClosedLocation(),
+    ]);
     openLocationName = openResult.location.name!;
     console.log(`✓ Created always-open deeplink location: ${openLocationName}`);
 
-    // Create always-closed location (no working days)
-    const closedResult = await testLocationManager.ensureDeeplinkClosedLocation();
     closedLocationName = closedResult.location.name!;
     console.log(`✓ Created always-closed deeplink location: ${closedLocationName}`);
   });

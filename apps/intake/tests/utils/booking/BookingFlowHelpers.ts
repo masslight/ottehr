@@ -564,7 +564,7 @@ export class BookingFlowHelpers {
         let foundOption = null;
         for (let i = 0; i < allOptions.length; i++) {
           const option = allOptions[i];
-          const optionText = await option.textContent();
+          const optionText = optionTexts[i];
           const trimmedText = optionText?.trim();
           // Check both directions to handle truncation - either the option starts with our name,
           // or our name starts with the option (for when option text is truncated)
@@ -746,11 +746,8 @@ export class BookingFlowHelpers {
     const buttonCount = await timeButtons.count();
     console.log(`Found ${buttonCount} time slot buttons`);
 
-    const slotTexts: string[] = [];
-    for (let i = 0; i < buttonCount; i++) {
-      const text = await timeButtons.nth(i).textContent();
-      slotTexts.push(text || 'unknown');
-    }
+    const buttonTexts = (await timeButtons.allTextContents()).slice(0, buttonCount);
+    const slotTexts = buttonTexts.map((text) => text || 'unknown');
     console.log(`Available slots: ${slotTexts.join(', ')}`);
     if (buttonCount === 0) return { slotTexts };
 
@@ -762,7 +759,7 @@ export class BookingFlowHelpers {
 
     for (let i = startIndex; i < buttonCount; i++) {
       const button = timeButtons.nth(i);
-      const timeText = await button.textContent();
+      const timeText = buttonTexts[i];
       if (!timeText) continue;
 
       const slotTime = this.parseTimeSlotToDate(timeText.trim(), referenceDate, locationTimezone);

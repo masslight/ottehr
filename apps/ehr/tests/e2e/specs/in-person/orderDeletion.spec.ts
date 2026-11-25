@@ -69,13 +69,21 @@ const RADIOLOGY_STUDY_TYPE = RADIOLOGY_STUDY.display;
 const RADIOLOGY_CLINICAL_HISTORY = 'Test clinical history for radiology order';
 
 test.beforeAll(async () => {
-  const oystehr = await ResourceHandler.getOystehr();
-  const medications = (
-    await oystehr.fhir.search<Medication>({
-      resourceType: 'Medication',
-      params: [{ name: 'identifier', value: INVENTORY_MEDICATION_TYPE_CODE }],
-    })
-  ).unbundle();
+  const [medications] = await Promise.all([
+    (async () => {
+      const oystehr = await ResourceHandler.getOystehr();
+      return (
+        await oystehr.fhir.search<Medication>({
+          resourceType: 'Medication',
+          params: [{ name: 'identifier', value: INVENTORY_MEDICATION_TYPE_CODE }],
+        })
+      ).unbundle();
+    })(),
+    (async () => {
+      await resourceHandler.setResources({ skipPaperwork: true });
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+    })(),
+  ]);
 
   const firstMed = medications[0];
   if (!firstMed) {
@@ -87,9 +95,6 @@ test.beforeAll(async () => {
     }
     MEDICATION_NAME = nameIdentifier.value;
   }
-
-  await resourceHandler.setResources({ skipPaperwork: true });
-  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 });
 
 test.afterAll(async () => {

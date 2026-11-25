@@ -17,6 +17,7 @@ import { Location, Schedule } from 'fhir/r4b';
 import { isTelemedEnabled } from 'test-utils/lib/telemed-config';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { CanonicalUrl, ServiceMode } from 'utils/lib/types/common';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { executeBookingScenario, generateBookingTestScenarios } from '../utils/booking/BookingTestFactory';
 import {
   // P1: Critical User Journeys
@@ -38,6 +39,8 @@ import { CreatedGroupBookingResources, TestLocationManager } from '../utils/book
 import { TestQuestionnaireManager } from '../utils/booking/TestQuestionnaireManager';
 
 test.describe.configure({ mode: 'parallel' });
+
+const FIXTURE_SETUP_CONCURRENCY = 3;
 
 // Shared test resources
 let testLocationManager: TestLocationManager;
@@ -69,45 +72,77 @@ test.describe('Complete booking flows', () => {
 
     testLocationManager = new TestLocationManager(workerUniqueId);
     testQuestionnaireManager = new TestQuestionnaireManager(workerUniqueId);
-    await testLocationManager.init();
-    await testQuestionnaireManager.init();
+    await Promise.all([testLocationManager.init(), testQuestionnaireManager.init()]);
 
-    // Create walk-in in-person test location (24/7, high capacity)
-    const walkinResult = await testLocationManager.ensureAlwaysOpenLocation();
-    walkinLocation = walkinResult.location;
-    _walkinSchedule = walkinResult.schedule;
-    console.log(`✓ Created walk-in location: ${walkinLocation.name}`);
-
-    // Seed an occupational-medicine employer. In custom-organizations mode the picker lists
-    // billing-app NIOs (seeded per env by config/oystehr/env/<env>/nio-organizations.json), so a
-    // legacy clinical Organization would never appear in the dropdown.
-    if (FEATURE_FLAGS_CONFIG.customOrganizationsEnabled) {
-      console.log('⊘ Skipped legacy occupational-medicine employer - custom organizations are enabled');
-    } else {
-      const occMedEmployer = await testLocationManager.ensureOccMedEmployer();
-      console.log(`✓ Created occupational-medicine employer: ${occMedEmployer.name}`);
-    }
-
-    // Create prebook in-person test location (24/7, 8 slots per hour)
-    const prebookInPersonResult = await testLocationManager.ensurePrebookInPersonLocationWithSlots();
-    prebookInPersonLocation = prebookInPersonResult.location;
-    _prebookInPersonSchedule = prebookInPersonResult.schedule;
-    console.log(`✓ Created prebook in-person location: ${prebookInPersonLocation.name}`);
-
-    // Create prebook virtual test location (24/7, 8 slots per hour) only if telemed is configured
-    if (isTelemedEnabled) {
-      const prebookVirtualResult = await testLocationManager.ensurePrebookVirtualLocationWithSlots();
-      prebookVirtualLocation = prebookVirtualResult.location;
-      _prebookVirtualSchedule = prebookVirtualResult.schedule;
-      console.log(`✓ Created prebook virtual location: ${prebookVirtualLocation.name}`);
-    } else {
-      console.log('⊘ Skipped prebook virtual location - telemed not configured (no virtual locations)');
-    }
-
-    // Create prebook in-person group (HealthcareService with Location + Practitioner members)
-    // This tests the "group booking" pattern used by the core environment
-    prebookInPersonGroup = await testLocationManager.ensurePrebookInPersonGroupWithSlots();
-    console.log(`✓ Created prebook in-person group: ${prebookInPersonGroup.name}`);
+    const fixtureSetups: Array<() => Promise<void>> = [
+      async () => {
+        // Create walk-in in-person test location (24/7, high capacity)
+        const walkinResult = await testLocationManager.ensureAlwaysOpenLocation();
+        walkinLocation = walkinResult.location;
+        _walkinSchedule = walkinResult.schedule;
+        console.log(`✓ Created walk-in location: ${walkinLocation.name}`);
+      },
+      async () => {
+        // Seed an occupational-medicine employer. In custom-organizations mode the picker lists
+        // billing-app NIOs (seeded per env by config/oystehr/env/<env>/nio-organizations.json), so a
+        // legacy clinical Organization would never appear in the dropdown.
+        if (FEATURE_FLAGS_CONFIG.customOrganizationsEnabled) {
+          console.log('⊘ Skipped legacy occupational-medicine employer - custom organizations are enabled');
+        } else {
+          const occMedEmployer = await testLocationManager.ensureOccMedEmployer();
+          console.log(`✓ Created occupational-medicine employer: ${occMedEmployer.name}`);
+        }
+      },
+      async () => {
+        // Create prebook in-person test location (24/7, 8 slots per hour)
+        const prebookInPersonResult = await testLocationManager.ensurePrebookInPersonLocationWithSlots();
+        prebookInPersonLocation = prebookInPersonResult.location;
+        _prebookInPersonSchedule = prebookInPersonResult.schedule;
+        console.log(`✓ Created prebook in-person location: ${prebookInPersonLocation.name}`);
+      },
+      async () => {
+        // Create prebook virtual test location (24/7, 8 slots per hour) only if telemed is configured
+        if (isTelemedEnabled) {
+          const prebookVirtualResult = await testLocationManager.ensurePrebookVirtualLocationWithSlots();
+          prebookVirtualLocation = prebookVirtualResult.location;
+          _prebookVirtualSchedule = prebookVirtualResult.schedule;
+          console.log(`✓ Created prebook virtual location: ${prebookVirtualLocation.name}`);
+        } else {
+          console.log('⊘ Skipped prebook virtual location - telemed not configured (no virtual locations)');
+        }
+      },
+      async () => {
+        // Create prebook in-person group (HealthcareService with Location + Practitioner members)
+        // This tests the "group booking" pattern used by the core environment
+        prebookInPersonGroup = await testLocationManager.ensurePrebookInPersonGroupWithSlots();
+        console.log(`✓ Created prebook in-person group: ${prebookInPersonGroup.name}`);
+      },
+      async () => {
+        // Deploy isolated test questionnaires for baseline scenarios
+        // This ensures parallel CI runs don't interfere with each other
+        // Uses the pre-resolved instance config (has downstream overrides baked in)
+        const baselineInPersonResult = await testQuestionnaireManager.ensureTestQuestionnaire(
+          'baseline',
+          ServiceMode['in-person']
+        );
+        testQuestionnaireCanonicals.set('baseline-in-person', baselineInPersonResult.canonical);
+        console.log('✓ Deployed baseline in-person questionnaire');
+      },
+      async () => {
+        // Deploy virtual questionnaire only if telemed is configured
+        if (isTelemedEnabled) {
+          const baselineVirtualResult = await testQuestionnaireManager.ensureTestQuestionnaire(
+            'baseline',
+            ServiceMode['virtual']
+          );
+          testQuestionnaireCanonicals.set('baseline-virtual', baselineVirtualResult.canonical);
+          console.log('✓ Deployed baseline virtual questionnaire');
+        } else {
+          console.log('⊘ Skipped baseline virtual questionnaire - telemed not configured');
+        }
+      },
+    ];
+    await mapWithConcurrency(fixtureSetups, FIXTURE_SETUP_CONCURRENCY, (setup) => setup());
 
     // Configure urgent care prebook in-person scenario to use Group booking
     // This tests the "group booking" pattern used by the core environment
@@ -121,40 +156,24 @@ test.describe('Complete booking flows', () => {
         `✓ Configured scenario "${urgentCarePrebookInPerson.description}" to use Group booking (slug: ${prebookInPersonGroup.slug})`
       );
     }
-
-    // Deploy isolated test questionnaires for baseline scenarios
-    // This ensures parallel CI runs don't interfere with each other
-    // Uses the pre-resolved instance config (has downstream overrides baked in)
-    const baselineInPersonResult = await testQuestionnaireManager.ensureTestQuestionnaire(
-      'baseline',
-      ServiceMode['in-person']
-    );
-    testQuestionnaireCanonicals.set('baseline-in-person', baselineInPersonResult.canonical);
-    console.log('✓ Deployed baseline in-person questionnaire');
-
-    // Deploy virtual questionnaire only if telemed is configured
-    if (isTelemedEnabled) {
-      const baselineVirtualResult = await testQuestionnaireManager.ensureTestQuestionnaire(
-        'baseline',
-        ServiceMode['virtual']
-      );
-      testQuestionnaireCanonicals.set('baseline-virtual', baselineVirtualResult.canonical);
-      console.log('✓ Deployed baseline virtual questionnaire');
-    } else {
-      console.log('⊘ Skipped baseline virtual questionnaire - telemed not configured');
-    }
   });
 
   // Cleanup: Remove test resources after all tests
   test.afterAll(async () => {
-    if (testLocationManager) {
-      await testLocationManager.cleanup();
-      console.log('✓ Cleaned up test locations and schedules');
-    }
-    if (testQuestionnaireManager) {
-      await testQuestionnaireManager.cleanup();
-      console.log('✓ Cleaned up test questionnaires');
-    }
+    await Promise.all([
+      (async () => {
+        if (testLocationManager) {
+          await testLocationManager.cleanup();
+          console.log('✓ Cleaned up test locations and schedules');
+        }
+      })(),
+      (async () => {
+        if (testQuestionnaireManager) {
+          await testQuestionnaireManager.cleanup();
+          console.log('✓ Cleaned up test questionnaires');
+        }
+      })(),
+    ]);
   });
 
   // Generate tests for each scenario

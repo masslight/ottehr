@@ -40,7 +40,7 @@ export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Prom
         console.log(`Error deleting resources, chunk ${i + 1} of ${chunkedRequests.length}: ${e}`, JSON.stringify(e));
         console.log('Continuing with additional requests...');
       }
-      await sleep(250);
+      if (i < chunkedRequests.length - 1) await sleep(250);
     }
     return true;
   } catch (e) {
