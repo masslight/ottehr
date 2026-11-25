@@ -1,6 +1,6 @@
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
-import { Box, ButtonBase, IconButton, Tooltip } from '@mui/material';
+import { Box, Button, ButtonBase, Typography } from '@mui/material';
 import { UseMutationResult } from '@tanstack/react-query';
 import { Attachment } from 'fhir/r4b';
 import React, { ReactNode, useState } from 'react';
@@ -8,7 +8,7 @@ import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { SavedCardItem } from 'src/hooks/useVisitCards';
 import { UpdateVisitFilesInput } from 'utils/lib/types/api/update-visit-details.types';
 import FloatingCardPreview, { CardPreviewFace } from './FloatingCardPreview';
-import ImageUploader from './ImageUploader';
+import ImageUploader, { ImageUploaderLayout } from './ImageUploader';
 
 /** Standard aspect ratio for ID and insurance cards. */
 const ASPECT_RATIO = 1.57;
@@ -90,14 +90,18 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
     : null;
 
   // Reusable Upload/Scan affordance for one face's fileType — used both for the collapsed
-  // no-image-at-all state and, once delete is wired, as the in-preview reload slot for a face
-  // that was just removed (or never had an image in the first place).
-  const uploaderFor = (fileType: UpdateVisitFilesInput['fileType']): ReactNode => {
+  // no-image-at-all state (stacked, labelled with the card title) and, once delete is wired, as the
+  // in-preview reload slot for a face that was just removed or never had an image (inline pills).
+  const uploaderFor = (
+    fileType: UpdateVisitFilesInput['fileType'],
+    { layout, itemLabel = title }: { layout?: ImageUploaderLayout; itemLabel?: string } = {}
+  ): ReactNode => {
     if (!appointmentID) return null;
     return (
       <ImageUploader
         fileName={fileType}
-        itemLabel={title}
+        itemLabel={itemLabel}
+        layout={layout}
         appointmentId={appointmentID}
         disabled={imagesLoading}
         isUploading={uploadingFileType === fileType}
@@ -129,28 +133,34 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
       <>
         {previewHeaderActions?.(face)}
         {handleDeleteClick && docRefId && (
-          <Tooltip title={`Remove the ${face} image`}>
-            <span>
-              <IconButton
-                size="small"
-                aria-label={`Remove ${title} ${face}`}
-                disabled={deletingFileId === docRefId}
-                onClick={() => setConfirmDeleteFace(face)}
-              >
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
+          <Button
+            size="small"
+            color="error"
+            aria-label={`Remove ${title} ${face}`}
+            disabled={deletingFileId === docRefId}
+            onClick={() => setConfirmDeleteFace(face)}
+            startIcon={<DeleteOutlineIcon />}
+            sx={{ minWidth: 'auto', px: 1.5 }}
+          >
+            Remove
+          </Button>
         )}
       </>
     );
   };
 
   // Only offered once handleDeleteClick is wired: after a face is removed (or if it was never
-  // uploaded), toggling to it in the preview shows this instead of "No image available" so staff
-  // can reload it without leaving the preview.
+  // uploaded), toggling to it in the preview shows this inside the empty-card frame so staff can
+  // reload it without leaving the preview.
   const emptyStateSlot: ((face: CardPreviewFace) => ReactNode) | undefined = handleDeleteClick
-    ? (face) => uploaderFor(faceFileType(face))
+    ? (face) => (
+        <>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
+            Upload a photo or scan the card to add it.
+          </Typography>
+          {uploaderFor(faceFileType(face), { layout: 'inline', itemLabel: `${face} of ${title}` })}
+        </>
+      )
     : undefined;
 
   return (
@@ -202,7 +212,7 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
         </Box>
       </ButtonBase>
       {/* Non-modal enlarged preview: hosts the front/back toggle, the rotate control (headerActions),
-          and — when delete is wired — the remove button + reload uploader per face. */}
+          and — when delete is wired — the Remove button + reload uploader per face. */}
       <FloatingCardPreview
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}

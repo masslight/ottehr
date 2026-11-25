@@ -14,6 +14,13 @@ import { downscaleImageForUpload } from 'utils/lib/frontend/downscaleImageForUpl
 import { GetPresignedFileURLInput } from 'utils/lib/types/api/get-presigned-file-url/get-presigned-file-url.types';
 import { MIME_TYPES } from 'utils/lib/utils/file';
 
+/**
+ * 'stacked' (default): Upload and Scan buttons stacked full-width, each labelled with `itemLabel`.
+ * 'inline': compact side-by-side "Upload" / "Scan" buttons; `itemLabel` moves into their accessible
+ * names, for tight spots such as the empty face of the floating card preview.
+ */
+export type ImageUploaderLayout = 'stacked' | 'inline';
+
 interface UploadComponentProps {
   fileName: string;
   appointmentId: string;
@@ -25,6 +32,7 @@ interface UploadComponentProps {
   acceptedFileTypes?: string;
   /** What this uploader is for (e.g. "ID Card") — appended to the Upload/Scan button labels. */
   itemLabel?: string;
+  layout?: ImageUploaderLayout;
 }
 
 const FILE_TYPES_ACCEPTED = [
@@ -52,6 +60,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
   onScanClick,
   acceptedFileTypes = FILE_TYPES_ACCEPTED,
   itemLabel,
+  layout = 'stacked',
 }): JSX.Element => {
   const [pendingZ3Upload, setPendingZ3Upload] = useState<File | undefined>();
   const [z3UploadState, setZ3UploadState] = useState(UploadState.initial);
@@ -134,6 +143,11 @@ const UploadComponent: FC<UploadComponentProps> = ({
   }, [pendingZ3Upload, z3UploadState, fileName, appointmentId, oystehrZambda, submitAttachment]);
 
   const isLoading = z3UploadState === UploadState.pending || compressingImage || isUploading;
+  const isInline = layout === 'inline';
+  // Inline buttons show just the verb; the item goes into the accessible name instead.
+  const buttonText = (verb: string): string => (itemLabel && !isInline ? `${verb} ${itemLabel}` : verb);
+  const buttonAriaLabel = (verb: string): string | undefined =>
+    itemLabel && isInline ? `${verb} ${itemLabel}` : undefined;
 
   return (
     <Box
@@ -147,19 +161,28 @@ const UploadComponent: FC<UploadComponentProps> = ({
       {compressingImage || isLoading ? (
         <CircularProgress size={24} />
       ) : (
-        <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column', width: '100%' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1,
+            flexDirection: isInline ? 'row' : 'column',
+            justifyContent: 'center',
+            width: '100%',
+          }}
+        >
           <Button
             variant="outlined"
             size="medium"
             disabled={disabled}
             startIcon={<UploadFileIcon />}
             onClick={() => inputRef.current?.click()}
+            aria-label={buttonAriaLabel('Upload')}
             sx={{
               borderRadius: '20px',
               textTransform: 'none',
             }}
           >
-            {itemLabel ? `Upload ${itemLabel}` : 'Upload'}
+            {buttonText('Upload')}
           </Button>
           <Button
             variant="outlined"
@@ -167,12 +190,13 @@ const UploadComponent: FC<UploadComponentProps> = ({
             disabled={disabled}
             startIcon={<ScannerIcon />}
             onClick={onScanClick}
+            aria-label={buttonAriaLabel('Scan')}
             sx={{
               borderRadius: '20px',
               textTransform: 'none',
             }}
           >
-            {itemLabel ? `Scan ${itemLabel}` : 'Scan'}
+            {buttonText('Scan')}
           </Button>
         </Box>
       )}
