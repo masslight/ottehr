@@ -1,7 +1,6 @@
 import './ProfilePhotoImagePicker.css';
 import CloseIcon from '@mui/icons-material/Close';
 import PhotoLibraryOutlinedIcon from '@mui/icons-material/PhotoLibraryOutlined';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -10,7 +9,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   Stack,
   Typography,
@@ -263,9 +262,9 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
       photoProcessingState === PhotoProcessingState.uploading
     ) {
       return (
-        <LoadingButton loading={isSavingImage} variant="contained" onClick={handlePhotoSaveClicked} sx={pillButtonSx}>
+        <Button loading={isSavingImage} variant="contained" onClick={handlePhotoSaveClicked} sx={pillButtonSx}>
           Save
-        </LoadingButton>
+        </Button>
       );
     }
 

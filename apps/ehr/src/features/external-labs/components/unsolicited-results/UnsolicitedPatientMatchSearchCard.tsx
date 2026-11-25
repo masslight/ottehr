@@ -1,6 +1,5 @@
 import SearchIcon from '@mui/icons-material/Search';
-import { LoadingButton } from '@mui/lab';
-import { Box, FormControl, TextField } from '@mui/material';
+import { Box, Button, FormControl, TextField } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
 import DateSearch from 'src/components/DateSearch';
@@ -59,7 +58,7 @@ export const UnsolicitedPatientMatchSearchCard: FC<UnsolicitedPatientMatchSearch
       </Box>
 
       <Box sx={{ mb: 2, display: 'flex', justifyContent: 'end', gap: 3 }}>
-        <LoadingButton
+        <Button
           loading={arePatientsLoading}
           variant="contained"
           color="primary"
@@ -68,7 +67,7 @@ export const UnsolicitedPatientMatchSearchCard: FC<UnsolicitedPatientMatchSearch
           sx={{ mr: 1, borderRadius: 28 }}
         >
           Search
-        </LoadingButton>
+        </Button>
       </Box>
       <UnsolicitedPatientSearchResults
         search={search}

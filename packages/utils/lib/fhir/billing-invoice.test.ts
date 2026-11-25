@@ -10,12 +10,14 @@ import {
   getBillingInvoiceIdempotencyKey,
   getBillingInvoiceKind,
   getHostedInvoiceUrl,
+  getInvoiceCardPaymentReservation,
   getInvoiceNumber,
   getPaymentNoticeInvoiceId,
   getStripeInvoiceLink,
   INVOICE_NUMBER_IDENTIFIER_SYSTEM,
   INVOICE_UNCOLLECTIBLE_EXTENSION_URL,
   invoiceClaimTag,
+  invoiceExtensionsWithCardPaymentReservation,
   invoicePaymentExtension,
   invoiceStatusFromStripe,
   isInvoicePastDue,
@@ -318,6 +320,22 @@ describe('getPaymentNoticeInvoiceId', () => {
   it('is undefined for a notice without an invoice', () => {
     expect(getPaymentNoticeInvoiceId(notice)).toBeUndefined();
   });
+
+  it('is undefined when the extension references another resource type', () => {
+    expect(
+      getPaymentNoticeInvoiceId({
+        ...notice,
+        extension: [
+          {
+            url: invoicePaymentExtension('invoice-1').url,
+            valueReference: {
+              reference: 'Claim/claim-1',
+            },
+          },
+        ],
+      })
+    ).toBeUndefined();
+  });
 });
 
 describe('withStripeInvoiceLink', () => {
@@ -384,6 +402,63 @@ describe('withInvoiceUncollectible', () => {
     expect(getBillingInvoiceDueDate(marked)).toBe('2026-11-08');
     expect(getHostedInvoiceUrl(marked)).toBe('https://pay.test/in_1');
     expect(isInvoiceUncollectible(invoice)).toBe(false);
+  });
+});
+
+describe('invoiceExtensionsWithCardPaymentReservation', () => {
+  const invoice = buildBillingInvoice({
+    ...base,
+    recipient: {
+      reference: 'Organization/nio-1',
+    },
+    claims: [
+      {
+        claimId: 'claim-1',
+        amountCents: 5000,
+      },
+    ],
+  });
+  const reservation = {
+    paymentId: 'payment-1',
+    reservedAt: '2026-11-23T15:00:00.000Z',
+    renewedAt: '2026-11-23T15:05:00.000Z',
+  };
+
+  it('keeps one reservation next to the claims and due date', () => {
+    const reserved = {
+      ...invoice,
+      extension: invoiceExtensionsWithCardPaymentReservation(
+        {
+          ...invoice,
+          extension: invoiceExtensionsWithCardPaymentReservation(invoice, {
+            paymentId: 'payment-old',
+            reservedAt: '2026-11-23T14:00:00.000Z',
+            renewedAt: '2026-11-23T14:00:00.000Z',
+          }),
+        },
+        reservation
+      ),
+    };
+
+    expect(getInvoiceCardPaymentReservation(reserved)).toEqual(reservation);
+    expect(getBillingInvoiceClaims(reserved)).toEqual(getBillingInvoiceClaims(invoice));
+    expect(getBillingInvoiceDueDate(reserved)).toBe('2026-11-08');
+  });
+
+  it('releases the reservation', () => {
+    const released = {
+      ...invoice,
+      extension: invoiceExtensionsWithCardPaymentReservation(
+        {
+          ...invoice,
+          extension: invoiceExtensionsWithCardPaymentReservation(invoice, reservation),
+        },
+        undefined
+      ),
+    };
+
+    expect(getInvoiceCardPaymentReservation(released)).toBeUndefined();
+    expect(released.extension).toEqual(invoice.extension);
   });
 });
 

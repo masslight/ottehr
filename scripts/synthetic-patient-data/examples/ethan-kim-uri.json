@@ -103,7 +103,7 @@
   "modules": {
     "immunizations": [
       {
-        "vaccineName": "Influenza Vaccine",
+        "vaccineName": "Influenza, split virus, trivalent, PF",
         "dose": "0.5",
         "units": "mL",
         "route": "IM",

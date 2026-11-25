@@ -160,6 +160,7 @@ const lookupsFor = (resources: Resource[], patientPaid: Record<string, number> =
   claimResponsesByClaimId: new Map(),
   patientPaidByClaimId: new Map(Object.entries(patientPaid)),
   writeOffs: new Map(),
+  nioPaidByClaimId: new Map(),
 });
 
 const setup = ({

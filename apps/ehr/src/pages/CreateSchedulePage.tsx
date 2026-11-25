@@ -1,9 +1,9 @@
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Box,
+  Button,
   Checkbox,
   FormControl,
   FormControlLabel,
@@ -303,7 +303,7 @@ export default function CreateSchedulePage(): ReactElement {
                 onChange={(_e, v) => v && setProviderTimezone(v)}
                 renderInput={(params) => <TextField {...params} label="Timezone" />}
               />
-              <LoadingButton
+              <Button
                 type="submit"
                 loading={submitting}
                 variant="contained"
@@ -311,7 +311,7 @@ export default function CreateSchedulePage(): ReactElement {
                 disabled={!selectedProvider || !providerLocationId || !scheduleName.trim()}
               >
                 Create schedule
-              </LoadingButton>
+              </Button>
             </Box>
           ) : (
             <Box
@@ -344,7 +344,7 @@ export default function CreateSchedulePage(): ReactElement {
                 onChange={(_e, v) => v && setLocationTimezone(v)}
                 renderInput={(params) => <TextField {...params} label="Timezone" />}
               />
-              <LoadingButton
+              <Button
                 type="submit"
                 loading={submitting}
                 variant="contained"
@@ -352,7 +352,7 @@ export default function CreateSchedulePage(): ReactElement {
                 disabled={!ownerLocationId}
               >
                 Create schedule
-              </LoadingButton>
+              </Button>
             </Box>
           )}
         </Paper>

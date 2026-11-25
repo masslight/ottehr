@@ -1,4 +1,4 @@
-import { Box, Divider, Grid, Typography } from '@mui/material';
+import { Box, Divider, GridLegacy as Grid, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';

@@ -324,9 +324,9 @@ export default function DailyPayments(): React.ReactElement {
       field: 'createdDate',
       headerName: 'Date',
       width: 160,
-      valueFormatter: (params) => {
-        if (!params.value) return 'N/A';
-        return DateTime.fromISO(params.value as string).toFormat('MM/dd/yyyy HH:mm');
+      valueFormatter: (value?: string) => {
+        if (!value) return 'N/A';
+        return DateTime.fromISO(value).toFormat('MM/dd/yyyy HH:mm');
       },
     },
     {
@@ -335,12 +335,13 @@ export default function DailyPayments(): React.ReactElement {
       width: 120,
       align: 'right',
       headerAlign: 'right',
-      valueFormatter: (params) => formatCurrency(params.value as number),
+      valueFormatter: (value: number) => formatCurrency(value),
     },
     {
       field: 'paymentMethod',
       headerName: 'Payment Method',
       width: 200,
+      display: 'flex',
       renderCell: (params) => (
         <Chip label={params.value || 'Unknown'} size="small" variant="outlined" sx={{ maxWidth: '180px' }} />
       ),

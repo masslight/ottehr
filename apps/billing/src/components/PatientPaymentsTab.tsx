@@ -95,7 +95,7 @@ const columns: GridColDef<PaymentRow>[] = [
     field: 'dateISO',
     headerName: 'Payment Date',
     width: 150,
-    valueFormatter: (params: { value: string }) => formatDate(paymentDayOf(params.value)),
+    valueFormatter: (value: string) => formatDate(paymentDayOf(value)),
     // Sort by the displayed practice-local day, not the raw ISO string: date-only manual payments and
     // UTC timestamps would otherwise interleave across day boundaries.
     sortComparator: (a: string, b: string) => paymentDayOf(a).localeCompare(paymentDayOf(b)),
@@ -106,12 +106,14 @@ const columns: GridColDef<PaymentRow>[] = [
     width: 320,
     align: 'right',
     headerAlign: 'right',
+    display: 'flex',
     renderCell: ({ row }) => <AmountCell payment={row} />,
   },
   {
     field: 'visitDateISO',
     headerName: 'Encounter',
     width: 150,
+    display: 'flex',
     renderCell: ({ row }) => {
       const visitDate = formatDate(row.visitDateISO);
       if (!EHR_URL || !row.appointmentId) return visitDate || EMPTY_CELL;
@@ -131,6 +133,7 @@ const columns: GridColDef<PaymentRow>[] = [
     field: 'claimServiceDate',
     headerName: 'Claim',
     width: 150,
+    display: 'flex',
     renderCell: ({ row }) =>
       row.claimId ? (
         <Link component={RouterLink} to={`/claims/${row.claimId}`} onClick={stopRowClick}>
@@ -145,6 +148,7 @@ const columns: GridColDef<PaymentRow>[] = [
     headerName: 'Method',
     flex: 1,
     minWidth: 280,
+    display: 'flex',
     renderCell: ({ row }) => <MethodCell payment={row} />,
   },
 ];

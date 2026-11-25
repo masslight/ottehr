@@ -1,5 +1,4 @@
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { LoadingButton } from '@mui/lab';
 import {
   Button,
   Dialog,
@@ -194,23 +193,18 @@ export const UploadDocumentDialog: FC<UploadDocumentDialogProps> = ({
             Cancel
           </Button>
           {mode === 'upload' ? (
-            <LoadingButton
+            <Button
               variant="contained"
               loading={isUploading}
               disabled={!folder || !file || Boolean(fileNameError)}
               onClick={() => file && void upload(file)}
             >
               Upload
-            </LoadingButton>
+            </Button>
           ) : (
-            <LoadingButton
-              variant="contained"
-              loading={isUploading}
-              disabled={!folder}
-              onClick={() => setIsScannerOpen(true)}
-            >
+            <Button variant="contained" loading={isUploading} disabled={!folder} onClick={() => setIsScannerOpen(true)}>
               Scan
-            </LoadingButton>
+            </Button>
           )}
         </DialogActions>
       </Dialog>

@@ -33,11 +33,11 @@ const RANGE_CALENDAR_SX = {
   },
 } as const;
 
-const parseIsoDate = (value: string): DateTime | null => {
+const parseIsoDate = (value: string, timezone?: string): DateTime | null => {
   if (!value) {
     return null;
   }
-  const parsed = DateTime.fromISO(value);
+  const parsed = DateTime.fromISO(value, timezone ? { zone: timezone } : undefined);
   return parsed.isValid ? parsed : null;
 };
 
@@ -59,6 +59,8 @@ interface SharedWrapperProps {
 interface DateInputProps extends SharedWrapperProps {
   value: string;
   onChange: (value: string) => void;
+  // IANA zone whose day "Today" and the calendar use; the browser's when unset.
+  timezone?: string;
 }
 
 interface DateTimeInputProps extends SharedWrapperProps {
@@ -81,7 +83,7 @@ const DateInputWrapper = (props: DateInputProps | DateRangeInputProps): ReactEle
   let fromDateValue: DateTime | null = null;
   let toDateValue: DateTime | null = null;
   if ('value' in props) {
-    singleDateValue = parseIsoDate(props.value);
+    singleDateValue = parseIsoDate(props.value, props.timezone);
   } else {
     fromDateValue = parseIsoDate(props.valueFrom);
     toDateValue = parseIsoDate(props.valueTo);
@@ -151,6 +153,7 @@ const DateInputWrapper = (props: DateInputProps | DateRangeInputProps): ReactEle
           label={props.label}
           onChange={handleSingleChange}
           format={'MM/dd/yyyy'}
+          timezone={props.timezone ?? 'default'}
           slots={{ actionBar: DatePickerActionBar }}
           slotProps={{
             textField: {

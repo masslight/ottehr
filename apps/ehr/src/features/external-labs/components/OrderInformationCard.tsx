@@ -1,4 +1,4 @@
-import { Button, Grid } from '@mui/material';
+import { Button, GridLegacy as Grid } from '@mui/material';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { usePrintExternalLabLabel } from 'src/features/visits/shared/hooks/usePrintExternalLabLabel';

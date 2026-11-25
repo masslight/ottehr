@@ -6,7 +6,7 @@ import {
   Box,
   CircularProgress,
   Divider,
-  Grid,
+  GridLegacy as Grid,
   InputAdornment,
   Paper,
   TextField,

@@ -4,7 +4,7 @@ import {
   Button,
   FormControl,
   FormControlLabel,
-  Grid,
+  GridLegacy as Grid,
   MenuItem,
   Paper,
   Radio,
@@ -614,9 +614,9 @@ const AskThePatient = (): React.ReactElement => {
                         }}
                         slotProps={{
                           field: {
-                            // @ts-expect-error - this interface is correct
                             sx: { width: 300 },
                             readOnly: true,
+                            // @ts-expect-error - the slot is typed for the default multi input field, not the single input one set above
                             InputProps: {
                               endAdornment: (
                                 <CalendarTodayIcon

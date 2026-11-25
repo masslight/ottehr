@@ -207,9 +207,8 @@ export default function AppointmentsFilters(): ReactElement {
       return;
     }
 
-    // Defer seeding until AppointmentTabs has written `?tab=`. AppointmentsFilters is only
-    // mounted on the tracking board page alongside AppointmentTabs, which writes the tab on
-    // mount — this guard keeps the two siblings' URL writes deterministic.
+    // Defer seeding until AppointmentTabs, which renders these filters in its header, has written
+    // `?tab=` on mount, so the two URL writes stay deterministic.
     if (!searchParams.has('tab')) {
       return;
     }

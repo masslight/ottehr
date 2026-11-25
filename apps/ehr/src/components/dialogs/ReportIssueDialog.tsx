@@ -1,4 +1,3 @@
-import LoadingButton from '@mui/lab/LoadingButton';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material';
 import { AlertColor } from '@mui/material/Alert';
 import Oystehr from '@oystehr/sdk';
@@ -154,7 +153,7 @@ export default function ReportIssueDialog({
           </div>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'flex-start', marginLeft: 1 }}>
-          <LoadingButton
+          <Button
             loading={reportIssueLoading}
             disabled={issueDetails.trim() === ''}
             type="submit"
@@ -164,7 +163,7 @@ export default function ReportIssueDialog({
             sx={buttonSx}
           >
             Submit Issue
-          </LoadingButton>
+          </Button>
           <Button variant="text" onClick={handleDialogClose} size="medium" sx={buttonSx}>
             Cancel
           </Button>

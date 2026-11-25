@@ -102,6 +102,7 @@ module "billing_app" {
   billing_domain      = var.billing_domain
   billing_cert_domain = var.billing_cert_domain
   ehr_app_url         = var.ehr_domain == null ? "http://localhost:4002" : "https://${var.ehr_domain}"
+  stripe_public_key   = module.oystehr.stripe_public_key
 }
 
 module "ottehr_apps" {
@@ -165,6 +166,14 @@ module "apps_upload" {
   patient_portal_cdn_distribution_id = one(module.infra[*].patient_portal_cdn_distribution_id)
   ehr_hash                           = one(module.ottehr_apps[*].ehr_hash)
   patient_portal_hash                = one(module.ottehr_apps[*].patient_portal_hash)
+}
+
+# After the apps upload, so a failed migration can't hold back the new EHR.
+module "oystehr_migrations" {
+  source      = "./oystehr/migrations"
+  environment = var.environment
+
+  depends_on = [module.apps_upload]
 }
 
 output "sendgrid_config_present" {

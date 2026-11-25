@@ -1,8 +1,7 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { otherColors } from '@ehrTheme/colors';
 import { createDemoVisits } from '@ehrTheme/icons';
-import { LoadingButton } from '@mui/lab';
-import { Alert, Snackbar, TextField, Typography } from '@mui/material';
+import { Alert, Button, Snackbar, TextField, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { Location } from 'fhir/r4b';
 import React, { ReactElement, useState } from 'react';
@@ -175,7 +174,7 @@ const CreateDemoVisits = (): ReactElement => {
           error={inputError}
           helperText={inputError ? 'Please enter a valid phone number' : ''}
         />
-        <LoadingButton
+        <Button
           loading={loading}
           onClick={handleCreateSampleAppointments}
           size="small"
@@ -200,7 +199,7 @@ const CreateDemoVisits = (): ReactElement => {
           <Typography variant="button" sx={{ textTransform: 'none', textWrap: 'nowrap' }}>
             Create Demo Visits
           </Typography>
-        </LoadingButton>
+        </Button>
       </Box>
       <Snackbar
         open={snackbar.open}

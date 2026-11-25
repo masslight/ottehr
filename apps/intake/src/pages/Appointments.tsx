@@ -8,7 +8,7 @@ import {
   InfoOutlined,
   WatchLater,
 } from '@mui/icons-material';
-import { Box, CircularProgress, Divider, Grid, Typography } from '@mui/material';
+import { Box, CircularProgress, Divider, GridLegacy as Grid, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';

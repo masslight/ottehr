@@ -1,5 +1,4 @@
 import { Close } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
 import {
   Button,
   Dialog,
@@ -115,7 +114,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
       ) : (
         <DialogActions sx={{ justifyContent: 'start', px: 2 }}>
           {handleConfirm && (
-            <LoadingButton
+            <Button
               disabled={disabled}
               loading={confirmLoading}
               variant="contained"
@@ -129,7 +128,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
               data-testid={dataTestIds.dialog.proceedButton}
             >
               {confirmText}
-            </LoadingButton>
+            </Button>
           )}
           <Button
             variant={handleConfirm ? 'text' : 'contained'}

@@ -1,5 +1,4 @@
 import { otherColors } from '@ehrTheme/colors';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -9,7 +8,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
-  Grid,
+  GridLegacy as Grid,
   InputLabel,
   MenuItem,
   Select,
@@ -352,7 +351,7 @@ export default function ReceiveShipmentDialog({
               actionButtons={{ proceed: { text: receiveLabel, color: 'error', loading: saving }, reverse: true }}
             >
               {(showDialog) => (
-                <LoadingButton
+                <Button
                   type="button"
                   variant="contained"
                   loading={saving}
@@ -363,11 +362,11 @@ export default function ReceiveShipmentDialog({
                   }}
                 >
                   {receiveLabel}
-                </LoadingButton>
+                </Button>
               )}
             </ConfirmationDialog>
           ) : (
-            <LoadingButton
+            <Button
               type="submit"
               variant="contained"
               loading={saving}
@@ -376,7 +375,7 @@ export default function ReceiveShipmentDialog({
               data-testid={dataTestIds.receiveShipmentDialog.receiveButton}
             >
               {receiveLabel}
-            </LoadingButton>
+            </Button>
           )}
         </DialogActions>
       </form>
@@ -441,14 +440,9 @@ function ExpirationConflictDialog({
         <Stack spacing={2} sx={{ mt: 2 }}>
           {choices.map(({ choice, label, help }) => (
             <Box key={choice}>
-              <LoadingButton
-                variant="contained"
-                loading={saving}
-                sx={inventoryButtonSx}
-                onClick={() => onChoose(choice)}
-              >
+              <Button variant="contained" loading={saving} sx={inventoryButtonSx} onClick={() => onChoose(choice)}>
                 {label}
-              </LoadingButton>
+              </Button>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                 {help}
               </Typography>

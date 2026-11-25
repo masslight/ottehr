@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { randomUUID } from 'crypto';
 import { MedicationAdministration, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
@@ -12,14 +11,13 @@ import {
 
 // Happy path for administer-immunization-order: administer an existing immunization
 // order (type 'administered'), which requires the full administrationDetails
-// (mvx/cvx/ndc/lot/expDate/administeredDateTime/visGivenDate). Sets up a Medication
-// + order, removes them afterwards. FHIR-only.
+// (mvx/cvx/ndc/lot/expDate/administeredDateTime/visGivenDate). Sets up an order for
+// a vaccine from the CVX list and removes it afterwards. FHIR-only.
 describe('administer-immunization-order integration — happy path', () => {
   let oystehrAdmin: Oystehr;
   let oystehrProvider: Oystehr;
   let base: InsertFullAppointmentDataBaseResult;
   let practitionerId: string;
-  let medicationId: string;
   let orderId: string | undefined;
   let cleanup: () => Promise<void>;
 
@@ -31,18 +29,11 @@ describe('administer-immunization-order integration — happy path', () => {
     practitionerId = setup.testUserM2MProfile.replace('Practitioner/', '');
     base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
 
-    const med = await oystehrProvider.zambda.execute({
-      id: 'create-in-house-medication',
-      name: `IT Vaccine ${randomUUID().slice(0, 8)}`,
-      medispanID: `IT-${randomUUID().slice(0, 8)}`,
-    });
-    medicationId = (med.output as { id: string }).id;
-
     const order = await oystehrProvider.zambda.execute({
       id: 'create-update-immunization-order',
       encounterId: base.encounter.id,
       details: {
-        medication: { id: medicationId, name: 'IT Vaccine' },
+        medication: { id: '141', name: 'Influenza, split virus, trivalent, preservative' },
         dose: '0.5',
         units: 'mL',
         orderedProvider: { id: practitionerId, name: 'M2M Client' },
@@ -56,7 +47,6 @@ describe('administer-immunization-order integration — happy path', () => {
     if (orderId) {
       await oystehrAdmin.fhir.delete({ resourceType: 'MedicationAdministration', id: orderId }).catch(() => undefined);
     }
-    await oystehrAdmin.fhir.delete({ resourceType: 'Medication', id: medicationId }).catch(() => undefined);
     await cleanup();
   });
 
@@ -66,7 +56,7 @@ describe('administer-immunization-order integration — happy path', () => {
       orderId,
       type: 'administered',
       details: {
-        medication: { id: medicationId, name: 'IT Vaccine' },
+        medication: { id: '141', name: 'Influenza, split virus, trivalent, preservative' },
         dose: '0.5',
         units: 'mL',
         orderedProvider: { id: practitionerId, name: 'M2M Client' },
@@ -93,7 +83,7 @@ describe('administer-immunization-order integration — happy path', () => {
         orderId,
         type: 'administered',
         details: {
-          medication: { id: medicationId, name: 'IT Vaccine' },
+          medication: { id: '141', name: 'Influenza, split virus, trivalent, preservative' },
           dose: '0.5',
           units: 'mL',
           orderedProvider: { id: practitionerId, name: 'M2M Client' },
@@ -129,7 +119,7 @@ describe('administer-immunization-order integration — happy path', () => {
       orderId,
       type: 'administered',
       details: {
-        medication: { id: medicationId, name: 'IT Vaccine' },
+        medication: { id: '141', name: 'Influenza, split virus, trivalent, preservative' },
         dose: '0.5',
         units: 'mL',
         orderedProvider: { id: practitionerId, name: 'M2M Client' },

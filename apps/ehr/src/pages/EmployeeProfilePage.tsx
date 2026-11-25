@@ -1,5 +1,5 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, CircularProgress, Grid, Paper, Tab, TextField, Typography } from '@mui/material';
+import { Box, CircularProgress, GridLegacy as Grid, Paper, Tab, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PatternFormat } from 'react-number-format';

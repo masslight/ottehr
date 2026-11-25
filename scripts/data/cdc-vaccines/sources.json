@@ -1,0 +1,14 @@
+{
+  "cvx.txt": {
+    "url": "https://www2a.cdc.gov/vaccines/iis/iisstandards/downloads/cvx.txt",
+    "retrievedAt": "2026-11-25",
+    "bytes": 55005,
+    "sha256": "efd2a6770f0f648ce76e10ac2889602b2ea8fa8ca4b63deb33ca883e7d0d7413"
+  },
+  "mvx.txt": {
+    "url": "https://www2a.cdc.gov/vaccines/iis/iisstandards/downloads/mvx.txt",
+    "retrievedAt": "2026-11-25",
+    "bytes": 7688,
+    "sha256": "4c0c145b4609d0c687e51987effbe808af4e55b7dcebdaf947660d3915600ed8"
+  }
+}

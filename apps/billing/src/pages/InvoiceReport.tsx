@@ -84,10 +84,10 @@ const columns: GridColDef[] = [
     headerName: 'Patient',
     flex: 1,
     minWidth: 200,
-    valueGetter: (params) => {
-      const row = params.row as InvoiceReportRow;
+    valueGetter: (_value, row: InvoiceReportRow) => {
       return row.patientName || row.customerName || '—';
     },
+    display: 'flex',
     renderCell: ({ row }) => {
       const invoiceRow = row as InvoiceReportRow;
       const name = invoiceRow.patientName || invoiceRow.customerName;
@@ -110,6 +110,7 @@ const columns: GridColDef[] = [
     field: 'invoiceNumber',
     headerName: 'Invoice',
     width: 170,
+    display: 'flex',
     renderCell: ({ row }) => {
       const invoiceRow = row as InvoiceReportRow;
       const label = invoiceRow.invoiceNumber || invoiceRow.stripeInvoiceId;
@@ -124,6 +125,7 @@ const columns: GridColDef[] = [
     field: 'category',
     headerName: 'Status',
     width: 230,
+    display: 'flex',
     renderCell: ({ row }) => {
       const invoiceRow = row as InvoiceReportRow;
       const meta = CATEGORY_META[invoiceRow.category];
@@ -143,12 +145,13 @@ const columns: GridColDef[] = [
     width: 130,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: ({ value }) => formatCurrency(value as number),
+    valueFormatter: (value: number) => formatCurrency(value),
   },
   {
     field: 'visitDate',
     headerName: 'Visit',
     width: 120,
+    display: 'flex',
     renderCell: ({ row }) => {
       const invoiceRow = row as InvoiceReportRow;
       if (!invoiceRow.visitDate) return '—';
@@ -170,20 +173,20 @@ const columns: GridColDef[] = [
     field: 'createdDate',
     headerName: 'Issued',
     width: 120,
-    valueFormatter: ({ value }) => dayLabel(value as string),
+    valueFormatter: (value: string) => dayLabel(value),
   },
   {
     field: 'dueDate',
     headerName: 'Due',
     width: 120,
-    valueFormatter: ({ value }) => dayLabel(value as string),
+    valueFormatter: (value: string) => dayLabel(value),
   },
   {
     field: 'lastPaymentError',
     headerName: 'Last Payment Error',
     flex: 1,
     minWidth: 200,
-    valueGetter: (params) => (params.row as InvoiceReportRow).lastPaymentError || '—',
+    valueGetter: (_value, row: InvoiceReportRow) => row.lastPaymentError || '—',
   },
 ];
 
@@ -195,6 +198,7 @@ agingColumns.splice(2, 0, {
   field: 'agingBucket',
   headerName: 'Age',
   width: 130,
+  display: 'flex',
   renderCell: ({ row }) => {
     const bucket = AGING_BUCKETS.find((candidate) => candidate.key === row.agingBucket);
     if (!bucket) return '—';

@@ -1,6 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -75,7 +74,7 @@ export default function ScheduleOverridesDialog({
         </Box>
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'flex-start' }}>
-        <LoadingButton
+        <Button
           loading={loading}
           variant="contained"
           color="primary"
@@ -88,7 +87,7 @@ export default function ScheduleOverridesDialog({
           }}
         >
           Confirm schedule change
-        </LoadingButton>
+        </Button>
         <Button variant="text" onClick={handleClose} size="medium" sx={buttonSx}>
           Cancel
         </Button>
