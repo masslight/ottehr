@@ -26,6 +26,8 @@ import {
 } from '../../helpers/integration-test-seed-data-setup';
 import { InvokedZambdaResponse, invokeZambdaHandler } from '../../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const { stripe, candidApiClient, syncCandidPatientRefunds } = vi.hoisted(() => ({
   stripe: { refunds: { list: vi.fn(), create: vi.fn() } },
   candidApiClient: { name: 'candid-api-client' },

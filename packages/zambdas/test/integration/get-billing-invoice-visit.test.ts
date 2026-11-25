@@ -6,7 +6,7 @@ import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { GetBillingInvoiceRecipientResponse } from 'utils/lib/types/data/billing/billing.types';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { index } from '../../src/ehr/get-billing-invoice-visit/index';
 import { resolveTimezone } from '../../src/shared/helpers';
 import {
@@ -16,6 +16,8 @@ import {
   setupIntegrationTest,
 } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler, loadZambdaSecrets } from '../helpers/invoke-zambda-handler';
+
+vi.hoisted(() => vi.resetModules());
 
 describe('get-billing-invoice-visit integration', () => {
   let oystehrAdmin: Oystehr;

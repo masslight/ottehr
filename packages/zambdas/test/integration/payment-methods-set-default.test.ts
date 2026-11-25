@@ -15,6 +15,8 @@ import { index } from '../../src/patient/payment-methods/set-default/index';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler, loadZambdaSecrets } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const stripe = vi.hoisted(() => ({
   customers: { update: vi.fn() },
 }));

@@ -16,6 +16,8 @@ import {
 } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 interface TelemedRequest {
   url: string;
   method: string;

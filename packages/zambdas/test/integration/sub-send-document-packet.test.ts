@@ -30,6 +30,9 @@ import {
   setupIntegrationTest,
 } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler, loadZambdaSecrets } from '../helpers/invoke-zambda-handler';
+import { ligatureFreeSuffix } from '../helpers/ligature-free-suffix';
+
+vi.hoisted(() => vi.resetModules());
 
 const { sendLetterFaxMock } = vi.hoisted(() => ({
   sendLetterFaxMock: vi.fn(async (_input: SendLetterFaxInput) => ({
@@ -89,7 +92,7 @@ describe('sub-send-document-packet', () => {
   let task: Task;
   let organization: Organization;
   let sender: Practitioner;
-  const suffix = randomUUID().slice(0, 8);
+  const suffix = ligatureFreeSuffix();
   const sourceText = `Integration packet source ${suffix}`;
   const recipients = [
     { name: `Alice Packet ${suffix}`, organization: 'First Clinic', faxNumber: '+15555550101' },

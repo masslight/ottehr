@@ -6,11 +6,13 @@ import { buildBillingInvoice } from 'utils/lib/fhir/billing-invoice';
 import { BILLING_OUTREACH_TASK_CODE_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { ListBillingOutreachTasksResponse } from 'utils/lib/types/data/billing/billing.types';
 import { AR_STAGE, claimStatusValuesToTags } from 'utils/lib/types/data/billing/claim-status';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { index } from '../../../src/billing/list-billing-outreach-tasks/index';
 import { OUTREACH_TASK_TAG_SYSTEM } from '../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler, loadZambdaSecrets } from '../../helpers/invoke-zambda-handler';
+
+vi.hoisted(() => vi.resetModules());
 
 describe('list-billing-outreach-tasks', () => {
   let oystehrBilling: Oystehr;

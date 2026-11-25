@@ -19,6 +19,8 @@ import {
 } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const external = vi.hoisted(() => ({
   stripe: {
     customers: { retrieve: vi.fn(), create: vi.fn() },

@@ -18,6 +18,8 @@ import {
 } from '../../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 vi.mock('../../../src/billing/patient-payments', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/billing/patient-payments')>();
   return { ...actual, ensurePaymentTaskForNotice: vi.fn() };

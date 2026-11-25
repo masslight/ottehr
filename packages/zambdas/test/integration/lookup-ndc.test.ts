@@ -14,6 +14,8 @@ import { index } from '../../src/ehr/configuration/in-house-medications/lookup-n
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const { fetchNdcProduct } = vi.hoisted(() => ({ fetchNdcProduct: vi.fn() }));
 
 vi.mock('../../src/ehr/configuration/in-house-medications/lookup-ndc/helpers', async (importOriginal) => ({

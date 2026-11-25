@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, Consent, Encounter, FhirResource, Patient, QuestionnaireResponse, Task } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM, TaskIndicator } from 'utils/lib/types/common';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { index } from '../../src/subscriptions/task/sub-merge-patients/index';
 import { INTEGRATION_TEST_PROCESS_ID_SYSTEM } from '../helpers/integration-tags';
 import {
@@ -12,6 +12,8 @@ import {
   setupIntegrationTest,
 } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../helpers/invoke-zambda-handler';
+
+vi.hoisted(() => vi.resetModules());
 
 const deleteTaggedResources = async (
   oystehr: Oystehr,

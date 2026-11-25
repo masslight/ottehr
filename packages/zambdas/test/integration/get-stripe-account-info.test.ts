@@ -5,6 +5,8 @@ import { GetStripeAccountInfoResponse, index } from '../../src/rcm/payments/get-
 import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const stripe = vi.hoisted(() => ({
   accounts: { retrieve: vi.fn() },
   terminal: { locations: { list: vi.fn() } },

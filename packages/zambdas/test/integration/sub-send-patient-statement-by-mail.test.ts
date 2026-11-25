@@ -29,6 +29,8 @@ import { INTEGRATION_TEST_PROCESS_ID_SYSTEM } from '../helpers/integration-tags'
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler, loadZambdaSecrets } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const postGrid = vi.hoisted(() => ({
   letter: {
     id: 'letter_integration_test',

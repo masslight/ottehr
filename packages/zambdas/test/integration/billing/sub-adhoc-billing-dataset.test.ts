@@ -28,7 +28,7 @@ import {
   CUSTOM_INSURANCE_ORG_KIND_CODE,
 } from 'utils/lib/types/data/billing/custom-insurance-org.types';
 import { NIO_ORGANIZATION_KIND_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { OYSTEHR_ADJUDICATION_SYSTEM, X12_ADJUSTMENT_GROUP_SYSTEM } from '../../../src/billing/claim-amounts';
 import {
   buildPaymentNotice,
@@ -38,6 +38,8 @@ import {
 import { index } from '../../../src/subscriptions/task/sub-adhoc-billing-dataset/index';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../../helpers/integration-test-seed-data-setup';
 import { InvokedZambdaResponse, invokeZambdaHandler, loadZambdaSecrets } from '../../helpers/invoke-zambda-handler';
+
+vi.hoisted(() => vi.resetModules());
 
 const outputValue = (task: Task, code: string): string | undefined =>
   task.output?.find((output) => output.type.coding?.some((coding) => coding.code === code))?.valueString;

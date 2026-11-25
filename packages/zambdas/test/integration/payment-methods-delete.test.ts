@@ -15,6 +15,8 @@ import { index } from '../../src/patient/payment-methods/delete/index';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler, loadZambdaSecrets } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const stripe = vi.hoisted(() => ({
   paymentMethods: { retrieve: vi.fn(), detach: vi.fn() },
 }));

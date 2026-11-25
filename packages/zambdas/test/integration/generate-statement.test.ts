@@ -34,6 +34,8 @@ import { INTEGRATION_TEST_PROCESS_ID_SYSTEM } from '../helpers/integration-tags'
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler, loadZambdaSecrets } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 vi.mock('../../src/shared/statements/get-statement-details', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/shared/statements/get-statement-details')>();
   return { ...actual, getStatementDetails: vi.fn(actual.getStatementDetails) };

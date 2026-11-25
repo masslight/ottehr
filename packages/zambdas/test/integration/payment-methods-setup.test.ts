@@ -17,6 +17,8 @@ import { STRIPE_METADATA_KEYS } from '../../src/shared/stripeIntegration';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 import { invokeZambdaHandler, loadZambdaSecrets } from '../helpers/invoke-zambda-handler';
 
+vi.hoisted(() => vi.resetModules());
+
 const stripe = vi.hoisted(() => ({
   customers: { create: vi.fn() },
   setupIntents: { create: vi.fn() },
