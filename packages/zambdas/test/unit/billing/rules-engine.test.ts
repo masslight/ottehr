@@ -18,7 +18,7 @@ import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { CLAIM_TAG_SYSTEM, X12_ADJUSTMENT_GROUP_CODE } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
 import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billing.types';
 import { CUSTOM_INSURANCE_ORG_KIND_CODE } from 'utils/lib/types/data/billing/custom-insurance-org.types';
@@ -30,14 +30,22 @@ import {
 import { RULES_ENGINE_TYPES } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   collectSetPayerIds,
+  ERA_CARC_PROPERTY_CATALOG,
+  ERA_SERVICE_LINE_PROPERTY_CATALOG,
   RULE_FIELD_CATALOG,
   SERVICE_LINE_PROPERTY_CATALOG,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { describe, expect, it } from 'vitest';
+import { OYSTEHR_ADJUDICATION_SYSTEM, X12_ADJUSTMENT_GROUP_SYSTEM } from '../../../src/billing/claim-amounts';
+import { CARC_REASON_SYSTEM } from '../../../src/billing/manual-era';
 import {
+  ERA_CARC_READABLE_PROPERTY_IDS,
+  ERA_SERVICE_LINE_READABLE_PROPERTY_IDS,
   READABLE_FIELD_IDS,
+  readEraCarcProperty,
+  readEraServiceLineProperty,
   readField,
   readServiceLineProperty,
   resolveDateValue,
@@ -75,6 +83,7 @@ import {
   BILLING_WORKING_COPY_TAG,
   buildNoCoverageStub,
   CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
+  ERA_ITEM_PROCEDURE_CODE_EXTENSION,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_FACILITY_TYPE_CODE,
   EXTENSION_CLAIM_FREQUENCY_CODE,
@@ -186,6 +195,91 @@ const makeModel = (): RulesEngineClaimModel => ({
       gender: 'male',
     },
   ],
+  claimResponses: [
+    {
+      resourceType: 'ClaimResponse',
+      id: 'cr-1',
+      insurer: { reference: getPayerUrl('222222') },
+      created: '2026-01-02',
+      status: 'active',
+      outcome: 'complete',
+      patient: { reference: 'Patient/p1' },
+      use: 'claim',
+      type: { coding: [] },
+      total: [
+        {
+          category: { coding: [{ system: OYSTEHR_ADJUDICATION_SYSTEM, code: 'paid' }] },
+          amount: {
+            value: 25,
+            currency: 'USD',
+          },
+        },
+      ],
+      item: [
+        {
+          itemSequence: 1,
+          adjudication: [
+            {
+              category: { coding: [{ system: OYSTEHR_ADJUDICATION_SYSTEM, code: 'paid' }] },
+              amount: {
+                value: 25,
+                currency: 'USD',
+              },
+            },
+            {
+              category: { coding: [{ system: OYSTEHR_ADJUDICATION_SYSTEM, code: 'allowed' }] },
+              amount: {
+                value: 100,
+                currency: 'USD',
+              },
+            },
+            {
+              // allowed
+              category: {
+                coding: [
+                  { system: X12_ADJUSTMENT_GROUP_SYSTEM, code: X12_ADJUSTMENT_GROUP_CODE.contractualObligation },
+                ],
+              },
+              reason: { coding: [{ system: CARC_REASON_SYSTEM, code: 'B6' }] },
+              amount: {
+                value: 100,
+                currency: 'USD',
+              },
+            },
+          ],
+          extension: [{ url: ERA_ITEM_PROCEDURE_CODE_EXTENSION, valueString: '99213' }],
+        },
+      ],
+      addItem: [
+        {
+          productOrService: {
+            coding: [{ system: X12_ADJUSTMENT_GROUP_SYSTEM, code: X12_ADJUSTMENT_GROUP_CODE.contractualObligation }],
+          },
+          adjudication: [
+            {
+              // allowed
+              category: {
+                coding: [
+                  { system: X12_ADJUSTMENT_GROUP_SYSTEM, code: X12_ADJUSTMENT_GROUP_CODE.contractualObligation },
+                ],
+              },
+              reason: { coding: [{ system: CARC_REASON_SYSTEM, code: 'B6' }] },
+              amount: {
+                value: 100,
+                currency: 'USD',
+              },
+            },
+          ],
+        },
+      ],
+      extension: [
+        {
+          url: 'https://extensions.fhir.oystehr.com/era-outpatient-remark-code-1',
+          valueString: 'M1',
+        },
+      ],
+    },
+  ],
 });
 
 const claimTags = (model: RulesEngineClaimModel): string[] =>
@@ -195,7 +289,7 @@ describe('field catalog / claim-model pairing', () => {
   // The catalog (utils) drives the rule-builder UI; the readers/writers live here. Guard the pairing
   // so adding a field to one side without the other fails fast.
   it('every catalog field has a reader, and exactly the settable fields have writers', () => {
-    const catalogIds = RULE_FIELD_CATALOG.map((f) => f.id);
+    const catalogIds = RULE_FIELD_CATALOG.filter((f) => !f.itemCatalog).map((f) => f.id);
     expect([...READABLE_FIELD_IDS].sort()).toEqual([...catalogIds].sort());
     const settableIds = RULE_FIELD_CATALOG.filter((f) => f.settable).map((f) => f.id);
     expect([...WRITABLE_FIELD_IDS].sort()).toEqual([...settableIds].sort());
@@ -206,6 +300,20 @@ describe('field catalog / claim-model pairing', () => {
     expect([...SERVICE_LINE_READABLE_PROPERTY_IDS].sort()).toEqual([...propertyIds].sort());
     const settableIds = SERVICE_LINE_PROPERTY_CATALOG.filter((p) => p.settable).map((p) => p.id);
     expect([...SERVICE_LINE_WRITABLE_PROPERTY_IDS].sort()).toEqual([...settableIds].sort());
+  });
+
+  it('every ERA CARC property has a reader, and exactly the settable ones have writers', () => {
+    const propertyIds = ERA_CARC_PROPERTY_CATALOG.map((p) => p.id);
+    expect([...ERA_CARC_READABLE_PROPERTY_IDS].sort()).toEqual([...propertyIds].sort());
+    const settableIds = ERA_CARC_PROPERTY_CATALOG.filter((p) => p.settable).map((p) => p.id);
+    expect([]).toEqual([...settableIds].sort());
+  });
+
+  it('every ERA service line property has a reader, and exactly the settable ones have writers', () => {
+    const propertyIds = ERA_SERVICE_LINE_PROPERTY_CATALOG.map((p) => p.id);
+    expect([...ERA_SERVICE_LINE_READABLE_PROPERTY_IDS].sort()).toEqual([...propertyIds].sort());
+    const settableIds = ERA_SERVICE_LINE_PROPERTY_CATALOG.filter((p) => p.settable).map((p) => p.id);
+    expect([]).toEqual([...settableIds].sort());
   });
 });
 
@@ -311,13 +419,13 @@ describe('rules-engine evaluator', () => {
   it('evaluates the canonical "a CPT code in the 9938x range" condition', () => {
     const m = makeModel();
     expect(
-      evaluateCondition({ type: 'field', field: 'cptCodes', operator: 'matches', value: '^992[01][0-9]$' }, m)
+      evaluateCondition({ type: 'field', field: 'cptCodes', operator: 'matches', value: '^992[01][0-9]$' }, 'claim', m)
     ).toBe(true);
-    expect(evaluateCondition({ type: 'field', field: 'cptCodes', operator: 'matches', value: '^9938[1-7]$' }, m)).toBe(
-      false
-    );
     expect(
-      evaluateCondition({ type: 'field', field: 'cptCodes', operator: 'notMatches', value: '^9938[1-7]$' }, m)
+      evaluateCondition({ type: 'field', field: 'cptCodes', operator: 'matches', value: '^9938[1-7]$' }, 'claim', m)
+    ).toBe(false);
+    expect(
+      evaluateCondition({ type: 'field', field: 'cptCodes', operator: 'notMatches', value: '^9938[1-7]$' }, 'claim', m)
     ).toBe(true);
   });
 
@@ -325,10 +433,18 @@ describe('rules-engine evaluator', () => {
     const m = makeModel();
     m.coverages[0].subscriberId = 'XKD-889-12';
     expect(
-      evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'startsWith', value: 'XKD' }, m)
+      evaluateCondition(
+        { type: 'field', field: 'insurance.memberId', operator: 'startsWith', value: 'XKD' },
+        'claim',
+        m
+      )
     ).toBe(true);
     expect(
-      evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'startsWith', value: 'ZZZ' }, m)
+      evaluateCondition(
+        { type: 'field', field: 'insurance.memberId', operator: 'startsWith', value: 'ZZZ' },
+        'claim',
+        m
+      )
     ).toBe(false);
   });
 
@@ -366,93 +482,95 @@ describe('rules-engine evaluator', () => {
 
     // End to end: evaluateCondition passes the flag for the number-typed billed amount.
     const m = makeModel();
-    expect(readField(m, 'billed')).toBe('125.5');
-    expect(evaluateCondition({ type: 'field', field: 'billed', operator: 'eq', value: '125.50' }, m)).toBe(true);
-    expect(evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'eq', value: 'MEM-123' }, m)).toBe(
+    expect(readField([m], 'billed', 'claim')).toBe('125.5');
+    expect(evaluateCondition({ type: 'field', field: 'billed', operator: 'eq', value: '125.50' }, 'claim', m)).toBe(
       true
     );
+    expect(
+      evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'eq', value: 'MEM-123' }, 'claim', m)
+    ).toBe(true);
   });
 
   it('reads logical fields that span resources', () => {
     const m = makeModel();
-    expect(readField(m, 'payerId')).toBe('123456');
-    expect(readField(m, 'patient.birthDate')).toBe('1990-01-01');
-    expect(readField(m, 'serviceFacility.state')).toBe('CA');
-    expect(readField(m, 'renderingProvider.npi')).toBe('1234567890');
-    expect(readField(m, 'tags')).toEqual([]);
+    expect(readField([m], 'payerId', 'claim')).toBe('123456');
+    expect(readField([m], 'patient.birthDate', 'claim')).toBe('1990-01-01');
+    expect(readField([m], 'serviceFacility.state', 'claim')).toBe('CA');
+    expect(readField([m], 'renderingProvider.npi', 'claim')).toBe('1234567890');
+    expect(readField([m], 'tags', 'claim')).toEqual([]);
   });
 
   it('reads the claim-level fields (type, dates, amounts, code lists, billing type)', () => {
     const m = makeModel();
-    expect(readField(m, 'type')).toBe('professional');
-    expect(readField(m, 'created')).toBe('2026-01-01');
-    expect(readField(m, 'serviceDate')).toBe('2026-01-05');
-    expect(readField(m, 'billed')).toBe('125.5');
-    expect(readField(m, 'billingType')).toBe('Insurance Pay');
-    expect(readField(m, 'diagnosisCodes')).toEqual(['J06.9']);
-    expect(readField(m, 'cptCodes')).toEqual(['99213']);
-    expect(readField(m, 'placeOfServiceCodes')).toEqual(['20']);
-    expect(readField(m, 'billType')).toBe('0791');
-    expect(readField(m, 'patientDischargeStatusCode')).toBe('12');
-    expect(readField(m, 'admissionType')).toBe('3');
-    expect(readField(m, 'admissionSource')).toBe('4');
+    expect(readField([m], 'type', 'claim')).toBe('professional');
+    expect(readField([m], 'created', 'claim')).toBe('2026-01-01');
+    expect(readField([m], 'serviceDate', 'claim')).toBe('2026-01-05');
+    expect(readField([m], 'billed', 'claim')).toBe('125.5');
+    expect(readField([m], 'billingType', 'claim')).toBe('Insurance Pay');
+    expect(readField([m], 'diagnosisCodes', 'claim')).toEqual(['J06.9']);
+    expect(readField([m], 'cptCodes', 'claim')).toEqual(['99213']);
+    expect(readField([m], 'placeOfServiceCodes', 'claim')).toEqual(['20']);
+    expect(readField([m], 'billType', 'claim')).toBe('0791');
+    expect(readField([m], 'patientDischargeStatusCode', 'claim')).toBe('12');
+    expect(readField([m], 'admissionType', 'claim')).toBe('3');
+    expect(readField([m], 'admissionSource', 'claim')).toBe('4');
   });
 
   it('reads insurance, policy holder, secondary insurance, and billing provider fields', () => {
     const m = makeModel();
-    expect(readField(m, 'insurance.memberId')).toBe('MEM-123');
-    expect(readField(m, 'policyHolder.firstName')).toBe('Pat');
-    expect(readField(m, 'policyHolder.birthDate')).toBe('1980-05-05');
-    expect(readField(m, 'secondaryInsurance.payerId')).toBe('222222');
-    expect(readField(m, 'secondaryInsurance.memberId')).toBe('MEM-456');
-    expect(readField(m, 'billingProvider.lastName')).toBe('Acme Medical Group');
-    expect(readField(m, 'billingProvider.npi')).toBe('8888888888');
-    expect(readField(m, 'patient.city')).toBe('Oakland');
-    expect(readField(m, 'patient.addressLine1')).toBe('1 Main St');
+    expect(readField([m], 'insurance.memberId', 'claim')).toBe('MEM-123');
+    expect(readField([m], 'policyHolder.firstName', 'claim')).toBe('Pat');
+    expect(readField([m], 'policyHolder.birthDate', 'claim')).toBe('1980-05-05');
+    expect(readField([m], 'secondaryInsurance.payerId', 'claim')).toBe('222222');
+    expect(readField([m], 'secondaryInsurance.memberId', 'claim')).toBe('MEM-456');
+    expect(readField([m], 'billingProvider.lastName', 'claim')).toBe('Acme Medical Group');
+    expect(readField([m], 'billingProvider.npi', 'claim')).toBe('8888888888');
+    expect(readField([m], 'patient.city', 'claim')).toBe('Oakland');
+    expect(readField([m], 'patient.addressLine1', 'claim')).toBe('1 Main St');
   });
 
   it('writes claim status fields with validation and AR-stage initialization', () => {
     const m = makeModel();
-    expect(readField(m, 'status.arStage')).toBeUndefined();
+    expect(readField([m], 'status.arStage', 'claim')).toBeUndefined();
     expect(writeField(m, 'status.arStage', 'insurance-payer-ar')).toBe(true);
-    expect(readField(m, 'status.arStage')).toBe('insurance-payer-ar');
+    expect(readField([m], 'status.arStage', 'claim')).toBe('insurance-payer-ar');
     // Entering an AR stage initializes that stage's progress status, like the claim screens do.
-    expect(readField(m, 'status.insuranceArStatus')).toBe('created');
+    expect(readField([m], 'status.insuranceArStatus', 'claim')).toBe('created');
     // Invalid codes are rejected (the engine will hold the claim).
     expect(writeField(m, 'status.adjudicationStatus', 'not-a-real-code')).toBe(false);
     expect(writeField(m, 'status.adjudicationStatus', 'denied')).toBe(true);
     // Clearing back to None removes the tag.
     expect(writeField(m, 'status.adjudicationStatus', null)).toBe(true);
-    expect(readField(m, 'status.adjudicationStatus')).toBeUndefined();
+    expect(readField([m], 'status.adjudicationStatus', 'claim')).toBeUndefined();
   });
 
   it('writes claim type, service category, service date and other properties', () => {
     const m = makeModel();
     expect(writeField(m, 'type', 'institutional')).toBe(true);
-    expect(readField(m, 'type')).toBe('institutional');
+    expect(readField([m], 'type', 'claim')).toBe('institutional');
     expect(writeField(m, 'type', 'dental')).toBe(false);
 
     expect(writeField(m, 'service', 'urgent-care')).toBe(true);
-    expect(readField(m, 'service')).toBe('urgent-care');
+    expect(readField([m], 'service', 'claim')).toBe('urgent-care');
 
     expect(writeField(m, 'serviceDate', '2026-02-02')).toBe(true);
-    expect(readField(m, 'serviceDate')).toBe('2026-02-02');
+    expect(readField([m], 'serviceDate', 'claim')).toBe('2026-02-02');
     expect(m.claim.item?.[0]?.servicedPeriod?.start).toBe('2026-02-02');
     // A claim with no service lines has nothing to date — the write must fail, not no-op.
     m.claim.item = [];
     expect(writeField(m, 'serviceDate', '2026-02-02')).toBe(false);
 
     expect(writeField(m, 'billType', '0782')).toBe(true);
-    expect(readField(m, 'billType')).toBe('0782');
+    expect(readField([m], 'billType', 'claim')).toBe('0782');
 
     expect(writeField(m, 'patientDischargeStatusCode', '56')).toBe(true);
-    expect(readField(m, 'patientDischargeStatusCode')).toBe('56');
+    expect(readField([m], 'patientDischargeStatusCode', 'claim')).toBe('56');
 
     expect(writeField(m, 'admissionType', '7')).toBe(true);
-    expect(readField(m, 'admissionType')).toBe('7');
+    expect(readField([m], 'admissionType', 'claim')).toBe('7');
 
     expect(writeField(m, 'admissionSource', '8')).toBe(true);
-    expect(readField(m, 'admissionSource')).toBe('8');
+    expect(readField([m], 'admissionSource', 'claim')).toBe('8');
   });
 
   it('writes coverage fields (member id, plan type) and the secondary payer', () => {
@@ -460,13 +578,13 @@ describe('rules-engine evaluator', () => {
     expect(writeField(m, 'insurance.memberId', 'NEW-MEM')).toBe(true);
     expect(m.coverages[0].subscriberId).toBe('NEW-MEM');
     expect(writeField(m, 'insurance.planType', '12')).toBe(true);
-    expect(readField(m, 'insurance.planType')).toBe('12');
+    expect(readField([m], 'insurance.planType', 'claim')).toBe('12');
     expect(writeField(m, 'insurance.planType', 'not-a-plan-type')).toBe(false);
 
     expect(writeField(m, 'secondaryInsurance.payerId', '333333')).toBe(true);
     expect(m.coverages[1].payor?.[0]?.reference).toContain('333333');
     // The primary payer and the claim's insurer are untouched by a secondary payer change.
-    expect(readField(m, 'payerId')).toBe('123456');
+    expect(readField([m], 'payerId', 'claim')).toBe('123456');
   });
 
   it('writes each coverage slot to its own coverage, leaving the other slots untouched', () => {
@@ -502,7 +620,7 @@ describe('rules-engine evaluator', () => {
         expect(coverage.id).toBe(before[i].id);
         if (i === index) {
           expect(coverage.subscriberId).toBe(`NEW-${index}`);
-          expect(readField(m, `${prefix}.payerId`)).toBe(`99999${index}`);
+          expect(readField([m], `${prefix}.payerId`, 'claim')).toBe(`99999${index}`);
           expect(getCoveragePlanType(coverage)).toBe('MC');
         } else {
           expect(coverage.subscriberId).toBe(before[i].subscriberId);
@@ -518,7 +636,7 @@ describe('rules-engine evaluator', () => {
     expect(writeField(m, 'policyHolder.lastName', 'Newname')).toBe(true);
     expect(m.subscribers[0].name?.[0]?.family).toBe('Newname');
     expect(writeField(m, 'policyHolder.addressLine1', '2 Elm St')).toBe(true);
-    expect(readField(m, 'policyHolder.addressLine1')).toBe('2 Elm St');
+    expect(readField([m], 'policyHolder.addressLine1', 'claim')).toBe('2 Elm St');
 
     // Self-subscribed coverage (no RelatedPerson): the target is missing, so the write fails.
     m.coverages[0].subscriber = { reference: 'Patient/p1' };
@@ -528,14 +646,14 @@ describe('rules-engine evaluator', () => {
   it('sets the relationship to Self, making the patient the subscriber and dropping the policy holder', () => {
     const m = makeModel();
     m.coverages[0].relationship = { coding: [{ code: 'child', display: 'Child' }] };
-    expect(readField(m, 'policyHolder.lastName')).toBe('Holder');
+    expect(readField([m], 'policyHolder.lastName', 'claim')).toBe('Holder');
 
     expect(writeField(m, 'insurance.relationship', 'Self')).toBe(true);
-    expect(readField(m, 'insurance.relationship')).toBe('Self');
+    expect(readField([m], 'insurance.relationship', 'claim')).toBe('Self');
     expect(m.coverages[0].relationship?.coding?.[0]?.code).toBe('self');
     expect(m.coverages[0].subscriber?.reference).toBe('Patient/p1');
     expect(m.subscribers).toEqual([]);
-    expect(readField(m, 'policyHolder.lastName')).toBeUndefined();
+    expect(readField([m], 'policyHolder.lastName', 'claim')).toBeUndefined();
     // Idempotent on an already-Self coverage.
     expect(writeField(m, 'insurance.relationship', 'Self')).toBe(true);
   });
@@ -547,7 +665,7 @@ describe('rules-engine evaluator', () => {
     expect(m.coverages[0].subscriber?.reference).toBe('RelatedPerson/rp-1');
 
     expect(writeField(m, 'secondaryInsurance.relationship', 'Self')).toBe(true);
-    expect(readField(m, 'secondaryInsurance.relationship')).toBe('Self');
+    expect(readField([m], 'secondaryInsurance.relationship', 'claim')).toBe('Self');
     expect(m.coverages[1].subscriber?.reference).toBe('Patient/p1');
     // The primary coverage and its policy holder are untouched.
     expect(m.coverages[0].subscriber?.reference).toBe('RelatedPerson/rp-1');
@@ -560,8 +678,8 @@ describe('rules-engine evaluator', () => {
     const m = makeModel();
     m.coverages[1].subscriber = { reference: 'RelatedPerson/rp-1' };
     expect(writeField(m, 'insurance.relationship', 'Self')).toBe(true);
-    expect(readField(m, 'policyHolder.lastName')).toBeUndefined();
-    expect(readField(m, 'secondaryPolicyHolder.lastName')).toBe('Holder');
+    expect(readField([m], 'policyHolder.lastName', 'claim')).toBeUndefined();
+    expect(readField([m], 'secondaryPolicyHolder.lastName', 'claim')).toBe('Holder');
   });
 
   it('runs a "Medicaid means Self" rule end to end', () => {
@@ -591,7 +709,7 @@ describe('rules-engine evaluator', () => {
     const result = executeRule(rule, medicaid);
     expect(result.error).toBeUndefined();
     expect(result.appliedActions).toHaveLength(1);
-    expect(readField(medicaid, 'insurance.relationship')).toBe('Self');
+    expect(readField([medicaid], 'insurance.relationship', 'claim')).toBe('Self');
     expect(medicaid.coverages[0].subscriber?.reference).toBe('Patient/p1');
   });
 
@@ -599,39 +717,39 @@ describe('rules-engine evaluator', () => {
     const m = makeModel();
     // First name only applies to individual providers; the billing provider is an organization.
     expect(writeField(m, 'renderingProvider.firstName', 'Sam')).toBe(true);
-    expect(readField(m, 'renderingProvider.firstName')).toBe('Sam');
+    expect(readField([m], 'renderingProvider.firstName', 'claim')).toBe('Sam');
     expect(writeField(m, 'billingProvider.firstName', 'Sam')).toBe(false);
 
     expect(writeField(m, 'billingProvider.taxId', '123456789')).toBe(true);
-    expect(readField(m, 'billingProvider.taxId')).toBe('123456789');
+    expect(readField([m], 'billingProvider.taxId', 'claim')).toBe('123456789');
     expect(writeField(m, 'renderingProvider.taxonomy', '207Q00000X')).toBe(true);
-    expect(readField(m, 'renderingProvider.taxonomy')).toBe('207Q00000X');
+    expect(readField([m], 'renderingProvider.taxonomy', 'claim')).toBe('207Q00000X');
 
     expect(writeField(m, 'serviceFacility.posCode', '11')).toBe(true);
-    expect(readField(m, 'serviceFacility.posCode')).toBe('11');
+    expect(readField([m], 'serviceFacility.posCode', 'claim')).toBe('11');
     expect(writeField(m, 'serviceFacility.clia', '05D1234567')).toBe(true);
-    expect(readField(m, 'serviceFacility.clia')).toBe('05D1234567');
+    expect(readField([m], 'serviceFacility.clia', 'claim')).toBe('05D1234567');
     expect(writeField(m, 'serviceFacility.addressLine1', '500 Care Way')).toBe(true);
     expect(writeField(m, 'serviceFacility.zip', '94123')).toBe(true);
-    expect(readField(m, 'serviceFacility.addressLine1')).toBe('500 Care Way');
-    expect(readField(m, 'serviceFacility.zip')).toBe('94123');
+    expect(readField([m], 'serviceFacility.addressLine1', 'claim')).toBe('500 Care Way');
+    expect(readField([m], 'serviceFacility.zip', 'claim')).toBe('94123');
   });
 
   it('reads and writes accident details, removing them when cleared', () => {
     const m = makeModel();
-    expect(readField(m, 'accident.auto')).toBe('false');
-    expect(readField(m, 'accident.state')).toBeUndefined();
-    expect(readField(m, 'accident.date')).toBeUndefined();
+    expect(readField([m], 'accident.auto', 'claim')).toBe('false');
+    expect(readField([m], 'accident.state', 'claim')).toBeUndefined();
+    expect(readField([m], 'accident.date', 'claim')).toBeUndefined();
 
     expect(writeField(m, 'accident.auto', 'true')).toBe(true);
     expect(writeField(m, 'accident.other', 'true')).toBe(true);
     expect(writeField(m, 'accident.state', 'TX')).toBe(true);
     expect(writeField(m, 'accident.date', '2025-12-30')).toBe(true);
-    expect(readField(m, 'accident.auto')).toBe('true');
-    expect(readField(m, 'accident.employment')).toBe('false');
-    expect(readField(m, 'accident.other')).toBe('true');
-    expect(readField(m, 'accident.state')).toBe('TX');
-    expect(readField(m, 'accident.date')).toBe('2025-12-30');
+    expect(readField([m], 'accident.auto', 'claim')).toBe('true');
+    expect(readField([m], 'accident.employment', 'claim')).toBe('false');
+    expect(readField([m], 'accident.other', 'claim')).toBe('true');
+    expect(readField([m], 'accident.state', 'claim')).toBe('TX');
+    expect(readField([m], 'accident.date', 'claim')).toBe('2025-12-30');
     expect(m.claim.extension?.find((ext) => ext.url === CLAIM_ACCIDENT_TYPE_EXTENSION_URLS.auto)?.valueBoolean).toBe(
       true
     );
@@ -639,12 +757,12 @@ describe('rules-engine evaluator', () => {
     // Rewriting the date updates the one supportingInfo entry instead of adding another.
     expect(writeField(m, 'accident.date', '2025-12-31')).toBe(true);
     expect(m.claim.supportingInfo).toHaveLength(1);
-    expect(readField(m, 'accident.date')).toBe('2025-12-31');
+    expect(readField([m], 'accident.date', 'claim')).toBe('2025-12-31');
 
     expect(writeField(m, 'accident.auto', 'false')).toBe(true);
     expect(writeField(m, 'accident.state', '')).toBe(true);
     expect(writeField(m, 'accident.date', null)).toBe(true);
-    expect(readField(m, 'accident.auto')).toBe('false');
+    expect(readField([m], 'accident.auto', 'claim')).toBe('false');
     expect(m.claim.extension?.some((ext) => ext.url === CLAIM_ACCIDENT_TYPE_EXTENSION_URLS.auto)).toBe(false);
     expect(m.claim.extension?.some((ext) => ext.url === CLAIM_ACCIDENT_STATE_EXTENSION_URL)).toBe(false);
     expect(m.claim.supportingInfo).toBeUndefined();
@@ -658,36 +776,36 @@ describe('rules-engine evaluator', () => {
   it('reads and writes the rendering provider license, keeping its other parts', () => {
     const m = makeModel();
     const practitioner = m.renderingProvider as Practitioner;
-    expect(readField(m, 'renderingProvider.licenseNumber')).toBeUndefined();
+    expect(readField([m], 'renderingProvider.licenseNumber', 'claim')).toBeUndefined();
 
     // A number without a state can't be stored unambiguously, so it needs the state first.
     expect(writeField(m, 'renderingProvider.licenseNumber', 'A12345')).toBe(false);
     expect(practitioner.identifier).toEqual([{ system: FHIR_IDENTIFIER_NPI, value: '1234567890' }]);
     expect(writeField(m, 'renderingProvider.licenseState', 'TX')).toBe(true);
-    expect(readField(m, 'renderingProvider.licenseNumber')).toBeUndefined();
-    expect(readField(m, 'renderingProvider.licenseState')).toBe('TX');
+    expect(readField([m], 'renderingProvider.licenseNumber', 'claim')).toBeUndefined();
+    expect(readField([m], 'renderingProvider.licenseState', 'claim')).toBe('TX');
     expect(writeField(m, 'renderingProvider.licenseNumber', 'A12345')).toBe(true);
-    expect(readField(m, 'renderingProvider.licenseNumber')).toBe('A12345');
-    expect(readField(m, 'renderingProvider.licenseState')).toBe('TX');
+    expect(readField([m], 'renderingProvider.licenseNumber', 'claim')).toBe('A12345');
+    expect(readField([m], 'renderingProvider.licenseState', 'claim')).toBe('TX');
 
     // The license type (a meta tag) is preserved and still prefixes the identifier value.
     practitioner.meta = { tag: [{ system: LICENSE_TAG, code: 'MD' }] };
     expect(writeField(m, 'renderingProvider.licenseNumber', 'B999')).toBe(true);
     expect(practitioner.identifier?.find((id) => id.value?.startsWith('MD'))?.value).toBe('MDB999TX');
-    expect(readField(m, 'renderingProvider.licenseState')).toBe('TX');
+    expect(readField([m], 'renderingProvider.licenseState', 'claim')).toBe('TX');
 
     expect(writeField(m, 'renderingProvider.licenseState', 'ZZ')).toBe(false);
 
     // A number ending in a state code keeps its explicit state boundary.
     practitioner.meta = undefined;
     expect(writeField(m, 'renderingProvider.licenseNumber', 'ABCAL')).toBe(true);
-    expect(readField(m, 'renderingProvider.licenseNumber')).toBe('ABCAL');
-    expect(readField(m, 'renderingProvider.licenseState')).toBe('TX');
+    expect(readField([m], 'renderingProvider.licenseNumber', 'claim')).toBe('ABCAL');
+    expect(readField([m], 'renderingProvider.licenseState', 'claim')).toBe('TX');
 
     // Clearing the state while a number remains would make "AL" read back as the state.
     expect(writeField(m, 'renderingProvider.licenseState', '')).toBe(false);
-    expect(readField(m, 'renderingProvider.licenseNumber')).toBe('ABCAL');
-    expect(readField(m, 'renderingProvider.licenseState')).toBe('TX');
+    expect(readField([m], 'renderingProvider.licenseNumber', 'claim')).toBe('ABCAL');
+    expect(readField([m], 'renderingProvider.licenseState', 'claim')).toBe('TX');
 
     // Clearing number then state removes the license identifier; the NPI stays.
     expect(writeField(m, 'renderingProvider.licenseNumber', '')).toBe(true);
@@ -696,7 +814,7 @@ describe('rules-engine evaluator', () => {
 
     // Organizations carry no license.
     m.renderingProvider = m.billingProvider;
-    expect(readField(m, 'renderingProvider.licenseNumber')).toBeUndefined();
+    expect(readField([m], 'renderingProvider.licenseNumber', 'claim')).toBeUndefined();
     expect(writeField(m, 'renderingProvider.licenseNumber', 'A12345')).toBe(false);
   });
 
@@ -705,7 +823,7 @@ describe('rules-engine evaluator', () => {
     expect(writeField(m, 'patient.middleName', 'Q')).toBe(true);
     expect(writeField(m, 'patient.firstName', 'Janet')).toBe(true);
     expect(m.patient?.name?.[0]?.given).toEqual(['Janet', 'Q']);
-    expect(readField(m, 'patient.middleName')).toBe('Q');
+    expect(readField([m], 'patient.middleName', 'claim')).toBe('Q');
   });
 
   it('clears provider last name and facility name to undefined, never a literal empty string', () => {
@@ -786,6 +904,265 @@ describe('rules-engine evaluator', () => {
     expect(writeField(m, 'billingProvider.taxonomy', '207Q')).toBe(false);
     expect(writeField(m, 'billingProvider.taxId', '12-3456789')).toBe(false);
   });
+
+  it('reads era-level fields', () => {
+    const m = makeModel();
+    expect(readField([m], 'era.paid', 'claim')).toBe('25');
+    expect(readField([m], 'era.allowed', 'claim')).toBe('100');
+    expect(readField([m], 'era.rarcs', 'claim')).toEqual(['M1']);
+    expect(readField([m], 'era.payerId', 'claim')).toBe('222222');
+    expect(readField([m], 'era.insurance', 'claim')).toBe('secondary');
+  });
+
+  it('reads era CARC fields', () => {
+    const m = makeModel();
+    expect(readEraCarcProperty(m.claimResponses![0]!.addItem![0]!.adjudication![0], 'groupCode')).toBe('CO');
+    expect(readEraCarcProperty(m.claimResponses![0]!.addItem![0]!.adjudication![0], 'reasonCode')).toBe('B6');
+    expect(readEraCarcProperty(m.claimResponses![0]!.addItem![0]!.adjudication![0], 'amount')).toBe('100');
+  });
+
+  it('reads era line-level fields', () => {
+    const m = makeModel();
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'cptCode')).toBe('99213');
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'modifiers')).toEqual([]);
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'units')).toBeUndefined();
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'charges')).toBe('125.5');
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'placeOfService')).toBe('20');
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'serviceDate')).toBe('2026-01-05');
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'revenueCode')).toBeUndefined();
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'allowed')).toBe('100');
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'coinsurance')).toBeUndefined();
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'copay')).toBeUndefined();
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'deductible')).toBeUndefined();
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'paid')).toBe('25');
+    expect(
+      readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'patientResponsibility')
+    ).toBeUndefined();
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'rarc')).toBeUndefined();
+  });
+
+  it('reads era line-level CARC fields', () => {
+    const m = makeModel();
+    expect(readEraCarcProperty(m.claimResponses![0]!.item![0]!.adjudication![2], 'groupCode')).toBe('CO');
+    expect(readEraCarcProperty(m.claimResponses![0]!.item![0]!.adjudication![2], 'reasonCode')).toBe('B6');
+    expect(readEraCarcProperty(m.claimResponses![0]!.item![0]!.adjudication![2], 'amount')).toBe('100');
+  });
+
+  it('runs a nested service line itemMatches rule with multiple conditions', () => {
+    const rule: BillingRule = {
+      id: 'r-service-line-mult',
+      name: 'Service line with cpt code and modifier',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: {
+              type: 'field',
+              field: 'serviceLine',
+              operator: 'itemMatches',
+              itemCondition: {
+                type: 'group',
+                logic: 'and',
+                conditions: [
+                  {
+                    type: 'field',
+                    field: 'cptCode',
+                    operator: 'eq',
+                    value: '99213',
+                  },
+                  {
+                    type: 'field',
+                    field: 'modifiers',
+                    operator: 'contains',
+                    value: '25',
+                  },
+                ],
+              },
+            },
+            outcome: {
+              type: 'actions',
+              actions: [{ type: 'applyTag', tag: 'matched-service-line-multi' }],
+            },
+          },
+        ],
+      },
+    };
+
+    const noModifier = makeModel();
+    expect(executeRule(rule, noModifier).appliedActions).toHaveLength(0);
+    expect(((noModifier.claim.meta ?? {}).tag ?? []).some((tag) => tag.code === 'matched-service-line-multi')).toBe(
+      false
+    );
+
+    const hasModifier = makeModel();
+    hasModifier.claim.item![0].modifier = [
+      {
+        coding: [
+          { system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier', code: '25' },
+        ],
+      },
+    ];
+    expect(executeRule(rule, hasModifier).appliedActions).toHaveLength(1);
+    expect(hasModifier.claim.meta?.tag?.some((tag) => tag.code === 'matched-service-line-multi')).toBe(true);
+  });
+
+  it('runs a nested ERA service line itemMatches rule with multiple conditions', () => {
+    const rule: BillingRule = {
+      id: 'r-service-line-mult',
+      name: 'Service line with cpt code and modifier',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: {
+              type: 'field',
+              field: 'eraServiceLine',
+              operator: 'itemMatches',
+              itemCondition: {
+                type: 'group',
+                logic: 'and',
+                conditions: [
+                  {
+                    type: 'field',
+                    field: 'cptCode',
+                    operator: 'eq',
+                    value: '99213',
+                  },
+                  {
+                    type: 'field',
+                    field: 'modifiers',
+                    operator: 'contains',
+                    value: '25',
+                  },
+                  {
+                    type: 'field',
+                    field: 'patientResponsibility',
+                    operator: 'gt',
+                    value: '0',
+                  },
+                ],
+              },
+            },
+            outcome: {
+              type: 'actions',
+              actions: [{ type: 'applyTag', tag: 'matched-era-service-line-has-pr' }],
+            },
+          },
+        ],
+      },
+    };
+
+    const noEra = makeModel();
+    delete noEra.claimResponses;
+    expect(executeRule(rule, noEra).appliedActions).toHaveLength(0);
+    expect(((noEra.claim.meta ?? {}).tag ?? []).some((tag) => tag.code === 'matched-service-line-has-pr')).toBe(false);
+
+    const noModifier = makeModel();
+    expect(executeRule(rule, noModifier).appliedActions).toHaveLength(0);
+    expect(((noModifier.claim.meta ?? {}).tag ?? []).some((tag) => tag.code === 'matched-service-line-has-pr')).toBe(
+      false
+    );
+
+    // modifier but no PR
+    const hasModifier = makeModel();
+    hasModifier.claim.item![0].modifier = [
+      {
+        coding: [
+          { system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier', code: '25' },
+        ],
+      },
+    ];
+    expect(executeRule(rule, hasModifier).appliedActions).toHaveLength(0);
+    expect(((hasModifier.claim.meta ?? {}).tag ?? []).some((tag) => tag.code === 'matched-service-line-has-pr')).toBe(
+      false
+    );
+
+    const hasModifierAndPR = makeModel();
+    hasModifierAndPR.claim.item![0].modifier = [
+      {
+        coding: [
+          { system: 'https://terminology.fhir.oystehr.com/CodeSystem/rcm-claim-procedure-modifier', code: '25' },
+        ],
+      },
+    ];
+    hasModifierAndPR.claimResponses![0].item![0].adjudication.push({
+      category: {
+        coding: [{ system: X12_ADJUSTMENT_GROUP_SYSTEM, code: X12_ADJUSTMENT_GROUP_CODE.patientResponsibility }],
+      },
+      amount: { value: 20 },
+    });
+    expect(executeRule(rule, hasModifierAndPR).appliedActions).toHaveLength(1);
+    expect(hasModifierAndPR.claim.meta?.tag?.some((tag) => tag.code === 'matched-era-service-line-has-pr')).toBe(true);
+  });
+
+  it('runs a nested ERA CARC itemMatches rule with multiple conditions', () => {
+    const rule: BillingRule = {
+      id: 'r-service-line-mult',
+      name: 'Service line with cpt code and modifier',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: {
+              type: 'field',
+              field: 'eraCarc',
+              operator: 'itemMatches',
+              itemCondition: {
+                type: 'group',
+                logic: 'and',
+                conditions: [
+                  {
+                    type: 'field',
+                    field: 'groupCode',
+                    operator: 'eq',
+                    value: 'CO',
+                  },
+                  {
+                    type: 'field',
+                    field: 'reasonCode',
+                    operator: 'eq',
+                    value: 'B7',
+                  },
+                ],
+              },
+            },
+            outcome: {
+              type: 'actions',
+              actions: [{ type: 'applyTag', tag: 'matched-era-service-line-has-b7' }],
+            },
+          },
+        ],
+      },
+    };
+
+    const noEra = makeModel();
+    delete noEra.claimResponses;
+    expect(executeRule(rule, noEra).appliedActions).toHaveLength(0);
+    expect(((noEra.claim.meta ?? {}).tag ?? []).some((tag) => tag.code === 'matched-service-line-has-b7')).toBe(false);
+
+    const noAdj = makeModel();
+    delete noAdj.claimResponses![0].addItem;
+    expect(executeRule(rule, noAdj).appliedActions).toHaveLength(0);
+    expect(((noAdj.claim.meta ?? {}).tag ?? []).some((tag) => tag.code === 'matched-service-line-has-b7')).toBe(false);
+
+    const hasB7 = makeModel();
+    hasB7.claimResponses![0].addItem![0].adjudication.push({
+      // allowed
+      category: {
+        coding: [{ system: X12_ADJUSTMENT_GROUP_SYSTEM, code: X12_ADJUSTMENT_GROUP_CODE.contractualObligation }],
+      },
+      reason: { coding: [{ system: CARC_REASON_SYSTEM, code: 'B7' }] },
+      amount: {
+        value: 0,
+        currency: 'USD',
+      },
+    });
+    expect(executeRule(rule, hasB7).appliedActions).toHaveLength(1);
+    expect(hasB7.claim.meta?.tag?.some((tag) => tag.code === 'matched-era-service-line-has-b7')).toBe(true);
+  });
 });
 
 describe('service line actions', () => {
@@ -813,7 +1190,7 @@ describe('service line actions', () => {
       m
     );
     expect(error).toBeUndefined();
-    expect(readField(m, 'cptCodes')).toEqual(['99215', '99214']);
+    expect(readField([m], 'cptCodes', 'claim')).toEqual(['99215', '99214']);
   });
 
   it('treats zero matching lines as a no-op, not a failure', () => {
@@ -840,7 +1217,7 @@ describe('service line actions', () => {
     );
     expect(error).toBeUndefined();
     expect(m.claim.total?.value).toBe(100);
-    expect(readField(m, 'billed')).toBe('100');
+    expect(readField([m], 'billed', 'claim')).toBe('100');
   });
 
   it('stops the rule with an error when the value is invalid', () => {
@@ -868,7 +1245,7 @@ describe('service line actions', () => {
     const result = executeRule(rule, m);
     expect(result.error).toContain('units');
     // The run stops at the failed action; later actions must not apply.
-    expect(readField(m, 'patient.lastName')).toBe('Doe');
+    expect(readField([m], 'patient.lastName', 'claim')).toBe('Doe');
   });
 
   it('adds, removes, and replaces modifiers via the set operation', () => {
@@ -957,7 +1334,7 @@ describe('service line actions', () => {
       m
     );
     expect(error).toBeUndefined();
-    expect(readField(m, 'cptCodes')).toEqual(['99213', '99215']);
+    expect(readField([m], 'cptCodes', 'claim')).toEqual(['99213', '99215']);
     expect(m.claim.item?.map((line) => line.sequence)).toEqual([1, 2]);
     expect(m.claim.total?.value).toBe(425.5);
   });
@@ -974,7 +1351,7 @@ describe('service line actions', () => {
       m
     );
     expect(error).toBeUndefined();
-    expect(readField(m, 'cptCodes')).toEqual(['99213']);
+    expect(readField([m], 'cptCodes', 'claim')).toEqual(['99213']);
     expect(m.claim.total?.value).toBe(125.5);
   });
 
@@ -1022,8 +1399,8 @@ describe('service line actions', () => {
     expect(error).toBeUndefined();
     expect(m.claim.item).toBeUndefined();
     expect(m.claim.total?.value).toBe(0);
-    expect(readField(m, 'serviceLineCount')).toBe('0');
-    expect(readField(m, 'cptCodes')).toEqual([]);
+    expect(readField([m], 'serviceLineCount', 'claim')).toBe('0');
+    expect(readField([m], 'cptCodes', 'claim')).toEqual([]);
   });
 
   it('adds a service line with every field specified and recomputes the total', () => {
@@ -1057,7 +1434,7 @@ describe('service line actions', () => {
     expect(readServiceLineProperty(added, 'revenueCode')).toBe('12345');
     expect(added.diagnosisSequence).toEqual([1]);
     expect(m.claim.total?.value).toBe(170.75);
-    expect(readField(m, 'billed')).toBe('170.75');
+    expect(readField([m], 'billed', 'claim')).toBe('170.75');
   });
 
   it('points an added line at every claim diagnosis when diagnosisMode is "all"', () => {
@@ -1269,11 +1646,11 @@ describe('service line actions', () => {
 
   it('detects duplicate CPT codes and executes the canonical hold-on-duplicates rule', () => {
     const m = makeModel();
-    expect(readField(m, 'duplicateCptCodes')).toEqual([]);
+    expect(readField([m], 'duplicateCptCodes', 'claim')).toEqual([]);
     addLine(m, '99213'); // duplicates the fixture line's code
     addLine(m, '99214');
-    expect(readField(m, 'duplicateCptCodes')).toEqual(['99213']);
-    expect(readField(m, 'serviceLineCount')).toBe('3');
+    expect(readField([m], 'duplicateCptCodes', 'claim')).toEqual(['99213']);
+    expect(readField([m], 'serviceLineCount', 'claim')).toBe('3');
 
     const rule: BillingRule = {
       id: 'r-dup',
@@ -1590,13 +1967,13 @@ describe('copy member ID to group number action', () => {
 describe('provider/facility reference swap', () => {
   it("reads the working copy's source reference; copies without one read as absent", () => {
     const m = makeModel();
-    expect(readField(m, 'billingProvider.ref')).toBeUndefined();
+    expect(readField([m], 'billingProvider.ref', 'claim')).toBeUndefined();
     m.billingProvider!.extension = [
       { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Organization/org-src' } },
     ];
-    expect(readField(m, 'billingProvider.ref')).toBe('Organization/org-src');
-    expect(readField(m, 'renderingProvider.ref')).toBeUndefined();
-    expect(readField(m, 'serviceFacility.ref')).toBeUndefined();
+    expect(readField([m], 'billingProvider.ref', 'claim')).toBe('Organization/org-src');
+    expect(readField([m], 'renderingProvider.ref', 'claim')).toBeUndefined();
+    expect(readField([m], 'serviceFacility.ref', 'claim')).toBeUndefined();
   });
 
   it('swaps the billing provider to a fresh working copy of the picked reference resource', () => {
@@ -1627,7 +2004,7 @@ describe('provider/facility reference swap', () => {
     expect(m.claim.provider).toEqual({ reference: `urn:uuid:${copy.id}`, display: 'New Billing Group' });
 
     // Later rules see and edit the new copy — never the original reference resource.
-    expect(readField(m, 'billingProvider.ref')).toBe('Organization/org-new');
+    expect(readField([m], 'billingProvider.ref', 'claim')).toBe('Organization/org-new');
     expect(writeField(m, 'billingProvider.lastName', 'Renamed Group')).toBe(true);
     expect(copy.name).toBe('Renamed Group');
     expect(original.name).toBe('New Billing Group');
@@ -1704,7 +2081,7 @@ describe('non-insurance payer field', () => {
 
   it('reads the stamped extension as the organization id, absent when unstamped', () => {
     const m = makeModel();
-    expect(readField(m, 'nonInsurancePayerId')).toBeUndefined();
+    expect(readField([m], 'nonInsurancePayerId', 'claim')).toBeUndefined();
     m.claim.extension = [
       ...(m.claim.extension ?? []),
       {
@@ -1712,7 +2089,7 @@ describe('non-insurance payer field', () => {
         valueReference: { reference: 'Organization/nio-1', display: 'Acme Trucking' },
       },
     ];
-    expect(readField(m, 'nonInsurancePayerId')).toBe('nio-1');
+    expect(readField([m], 'nonInsurancePayerId', 'claim')).toBe('nio-1');
   });
 
   it('stamps the extension + searchable tag from the prefetched organization, replacing a previous payer', () => {
@@ -1728,7 +2105,7 @@ describe('non-insurance payer field', () => {
       valueReference: { reference: 'Organization/nio-1', display: 'Acme Trucking' },
     });
     expect(nioTags(m)).toEqual(['nio-1']);
-    expect(readField(m, 'nonInsurancePayerId')).toBe('nio-1');
+    expect(readField([m], 'nonInsurancePayerId', 'claim')).toBe('nio-1');
 
     expect(writeField(m, 'nonInsurancePayerId', 'nio-2')).toBe(true);
     const stamps = (m.claim.extension ?? []).filter((ext) => ext.url === CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL);
@@ -1754,7 +2131,7 @@ describe('non-insurance payer field', () => {
     m.nioOrganizations = undefined;
     expect(writeField(m, 'nonInsurancePayerId', '')).toBe(true);
     expect(m.claim.extension).toEqual(otherExtensions);
-    expect(readField(m, 'nonInsurancePayerId')).toBeUndefined();
+    expect(readField([m], 'nonInsurancePayerId', 'claim')).toBeUndefined();
     expect(nioTags(m)).toEqual([]);
     expect(claimTags(m)).toEqual(['VIP']);
 
@@ -1797,22 +2174,30 @@ describe('custom insurance organization payers', () => {
     const m = makeModel();
     m.coverages[0].payor = [{ reference: `Organization/${CUSTOM_ORG_ID}` }];
     m.coverages[1].payor = [{ reference: `Organization/${CUSTOM_ORG_ID}` }];
-    expect(readField(m, 'payerId')).toBe(CUSTOM_ORG_ID);
-    expect(readField(m, 'insurance.payerId')).toBe(CUSTOM_ORG_ID);
-    expect(readField(m, 'secondaryInsurance.payerId')).toBe(CUSTOM_ORG_ID);
+    expect(readField([m], 'payerId', 'claim')).toBe(CUSTOM_ORG_ID);
+    expect(readField([m], 'insurance.payerId', 'claim')).toBe(CUSTOM_ORG_ID);
+    expect(readField([m], 'secondaryInsurance.payerId', 'claim')).toBe(CUSTOM_ORG_ID);
   });
 
   it('matches conditions on a custom insurance organization id', () => {
     const m = makeModel();
     m.coverages[0].payor = [{ reference: `Organization/${CUSTOM_ORG_ID}` }];
-    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'eq', value: CUSTOM_ORG_ID }, m)).toBe(true);
     expect(
-      evaluateCondition({ type: 'field', field: 'payerId', operator: 'in', value: ['123456', CUSTOM_ORG_ID] }, m)
+      evaluateCondition({ type: 'field', field: 'payerId', operator: 'eq', value: CUSTOM_ORG_ID }, 'claim', m)
     ).toBe(true);
-    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'neq', value: CUSTOM_ORG_ID }, m)).toBe(
+    expect(
+      evaluateCondition(
+        { type: 'field', field: 'payerId', operator: 'in', value: ['123456', CUSTOM_ORG_ID] },
+        'claim',
+        m
+      )
+    ).toBe(true);
+    expect(
+      evaluateCondition({ type: 'field', field: 'payerId', operator: 'neq', value: CUSTOM_ORG_ID }, 'claim', m)
+    ).toBe(false);
+    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'eq', value: '123456' }, 'claim', m)).toBe(
       false
     );
-    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'eq', value: '123456' }, m)).toBe(false);
   });
 
   it('sets the primary payer to a prefetched custom insurance organization by direct reference', () => {
@@ -1820,7 +2205,7 @@ describe('custom insurance organization payers', () => {
     expect(writeField(m, 'payerId', CUSTOM_ORG_ID)).toBe(true);
     expect(m.coverages[0].payor).toEqual([{ reference: `Organization/${CUSTOM_ORG_ID}` }]);
     expect(m.claim.insurer).toEqual({ reference: `Organization/${CUSTOM_ORG_ID}` });
-    expect(readField(m, 'payerId')).toBe(CUSTOM_ORG_ID);
+    expect(readField([m], 'payerId', 'claim')).toBe(CUSTOM_ORG_ID);
   });
 
   it('sets a non-focal slot to a custom insurance organization without touching the insurer', () => {
@@ -1829,8 +2214,8 @@ describe('custom insurance organization payers', () => {
     expect(writeField(m, 'secondaryInsurance.payerId', CUSTOM_ORG_ID)).toBe(true);
     expect(m.coverages[1].payor).toEqual([{ reference: `Organization/${CUSTOM_ORG_ID}` }]);
     expect(m.claim.insurer).toEqual({ reference: getPayerUrl('123456') });
-    expect(readField(m, 'secondaryInsurance.payerId')).toBe(CUSTOM_ORG_ID);
-    expect(readField(m, 'payerId')).toBe('123456');
+    expect(readField([m], 'secondaryInsurance.payerId', 'claim')).toBe(CUSTOM_ORG_ID);
+    expect(readField([m], 'payerId', 'claim')).toBe('123456');
   });
 
   it('writes an id that is not a prefetched custom insurance organization as an RCM payer URL', () => {
@@ -1978,20 +2363,20 @@ describe('primary coverage from patient swap', () => {
     const m = makeModel();
     m.patientCoverageContext = makeCoverageContext();
     // The claim's primary coverage carries no source stamp yet.
-    expect(readField(m, 'insurance.coverageFromPatient')).toBeUndefined();
+    expect(readField([m], 'insurance.coverageFromPatient', 'claim')).toBeUndefined();
     m.coverages[0].extension = [
       { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Coverage/cov-src-wc' } },
     ];
-    expect(readField(m, 'insurance.coverageFromPatient')).toBe('workersComp');
+    expect(readField([m], 'insurance.coverageFromPatient', 'claim')).toBe('workersComp');
     // A source that no longer occupies a slot on the patient reads as absent.
     m.coverages[0].extension = [{ url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Coverage/cov-gone' } }];
-    expect(readField(m, 'insurance.coverageFromPatient')).toBeUndefined();
+    expect(readField([m], 'insurance.coverageFromPatient', 'claim')).toBeUndefined();
     // Without the prefetched context (no rule referenced the field, or no reference patient).
     m.coverages[0].extension = [
       { url: SOURCE_IDENTIFIER_SYSTEM, valueReference: { reference: 'Coverage/cov-src-wc' } },
     ];
     m.patientCoverageContext = undefined;
-    expect(readField(m, 'insurance.coverageFromPatient')).toBeUndefined();
+    expect(readField([m], 'insurance.coverageFromPatient', 'claim')).toBeUndefined();
   });
 
   it("swaps the primary coverage to a fresh working copy of the patient's coverage (self policy holder)", () => {
@@ -2035,8 +2420,8 @@ describe('primary coverage from patient swap', () => {
     expect(m.subscribers).toEqual([]);
 
     // Later rules read and edit the new copy — never the original.
-    expect(readField(m, 'insurance.coverageFromPatient')).toBe('workersComp');
-    expect(readField(m, 'insurance.memberId')).toBe('WC-789');
+    expect(readField([m], 'insurance.coverageFromPatient', 'claim')).toBe('workersComp');
+    expect(readField([m], 'insurance.memberId', 'claim')).toBe('WC-789');
     expect(writeField(m, 'insurance.memberId', 'WC-NEW')).toBe(true);
     expect(copy.subscriberId).toBe('WC-NEW');
     expect(original.subscriberId).toBe('WC-789');
@@ -2062,7 +2447,7 @@ describe('primary coverage from patient swap', () => {
     expect(m.createdCopyIds?.has(subscriberCopy.id!)).toBe(true);
 
     // policyHolder.* rules resolve the urn-referenced copy and edit it, not the original.
-    expect(readField(m, 'policyHolder.firstName')).toBe('Sam');
+    expect(readField([m], 'policyHolder.firstName', 'claim')).toBe('Sam');
     expect(writeField(m, 'policyHolder.firstName', 'Pat')).toBe(true);
     expect(subscriberCopy.name?.[0]?.given?.[0]).toBe('Pat');
     expect(rpOriginal.name?.[0]?.given?.[0]).toBe('Sam');
@@ -2074,13 +2459,13 @@ describe('primary coverage from patient swap', () => {
     m.coverages = [];
     m.subscribers = [];
     m.patientCoverageContext = makeCoverageContext();
-    expect(readField(m, 'billingType')).toBe('Self Pay');
+    expect(readField([m], 'billingType', 'claim')).toBe('Self Pay');
 
     expect(writeField(m, 'insurance.coverageFromPatient', 'workersComp')).toBe(true);
 
     expect(m.claim.insurance).toHaveLength(1);
     expect(m.claim.insurance?.[0]?.coverage?.reference).toBe(`urn:uuid:${m.coverages[0].id}`);
-    expect(readField(m, 'billingType')).toBe('Insurance Pay');
+    expect(readField([m], 'billingType', 'claim')).toBe('Insurance Pay');
   });
 
   it('keeps the primary insurer when a secondary coverage is attached behind an existing primary', () => {
@@ -2160,8 +2545,10 @@ describe('primary coverage from patient swap', () => {
 describe('rules-engine rule execution', () => {
   it('evaluateCondition handles all / field / and / or groups', () => {
     const m = makeModel();
-    expect(evaluateCondition({ type: 'all' }, m)).toBe(true);
-    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'eq', value: '123456' }, m)).toBe(true);
+    expect(evaluateCondition({ type: 'all' }, 'claim', m)).toBe(true);
+    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'eq', value: '123456' }, 'claim', m)).toBe(
+      true
+    );
     expect(
       evaluateCondition(
         {
@@ -2172,6 +2559,7 @@ describe('rules-engine rule execution', () => {
             { type: 'field', field: 'serviceFacility.state', operator: 'eq', value: 'CA' },
           ],
         },
+        'claim',
         m
       )
     ).toBe(true);
@@ -2185,6 +2573,7 @@ describe('rules-engine rule execution', () => {
             { type: 'field', field: 'serviceFacility.state', operator: 'eq', value: 'CA' },
           ],
         },
+        'claim',
         m
       )
     ).toBe(true);
@@ -2208,7 +2597,7 @@ describe('rules-engine rule execution', () => {
     };
     const result = executeRule(rule, m);
     expect(result.held).toBe(false);
-    expect(readField(m, 'payerId')).toBe('999999');
+    expect(readField([m], 'payerId', 'claim')).toBe('999999');
     // It re-points the claim's own working copies (Coverage.payor + Claim.insurer), not a display value.
     expect(m.coverages[0].payor?.[0]?.reference).toContain('999999');
     expect(m.claim.insurer?.reference).toContain('999999');
@@ -2246,7 +2635,7 @@ describe('rules-engine rule execution', () => {
       },
     };
     executeRule(rule, m);
-    expect(readField(m, 'patient.gender')).toBe('female'); // first branch not taken
+    expect(readField([m], 'patient.gender', 'claim')).toBe('female'); // first branch not taken
     expect(claimTags(m)).toContain('NeedsReview');
   });
 
@@ -2276,7 +2665,7 @@ describe('rules-engine rule execution', () => {
     expect(result.held).toBe(true);
     expect(claimTags(m)).toContain(HOLD_TAG_NAME);
     // The action after the Hold tag must not run.
-    expect(readField(m, 'patient.lastName')).toBe('Doe');
+    expect(readField([m], 'patient.lastName', 'claim')).toBe('Doe');
 
     const disabled: BillingRule = { ...holdRule, id: 'r-off', enabled: false };
     const m2 = makeModel();
@@ -2311,7 +2700,7 @@ describe('rules-engine rule execution', () => {
     expect(result.error).toContain('renderingProvider.npi');
     expect(result.held).toBe(false);
     // The run stops at the failed action; later actions must not apply.
-    expect(readField(m, 'patient.lastName')).toBe('Doe');
+    expect(readField([m], 'patient.lastName', 'claim')).toBe('Doe');
   });
 });
 

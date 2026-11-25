@@ -1,5 +1,6 @@
 import { ClaimResponse, ClaimResponseItemAdjudication } from 'fhir/r4b';
 import { OYSTEHR_ADJUDICATION_SYSTEM, X12_ADJUSTMENT_GROUP_SYSTEM } from '../../../src/billing/claim-amounts';
+import { CARC_REASON_SYSTEM } from '../../../src/billing/manual-era';
 import { ERA_ITEM_PROCEDURE_CODE_EXTENSION, ERA_ITEM_UNITS_EXTENSION } from '../../../src/billing/shared';
 
 export const adjudication = (
@@ -28,7 +29,7 @@ export const casAdjustment = (group: string, amount: number, reasonCode?: string
         reason: {
           coding: [
             {
-              system: 'https://x12.org/codes/claim-adjustment-reason-codes',
+              system: CARC_REASON_SYSTEM,
               code: reasonCode,
             },
           ],
