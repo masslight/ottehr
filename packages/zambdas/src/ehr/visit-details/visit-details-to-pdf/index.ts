@@ -17,8 +17,12 @@ import {
   getOccupationalMedicineEmployerName,
   getVisitEmployerOrganizationId,
 } from '../../../shared/occupational-medicine-employer';
-import { getPatientCoverageChecks } from '../../../shared/patient-coverage-checks';
+import { findLatestCoverageCheck } from '../../../shared/patient-coverage-checks';
 import { makeVisitDetailsPdfDocumentReference } from '../../../shared/pdf/make-visit-details-document-reference';
+import {
+  composeInsuranceData,
+  getDisplayedInsurancePayerAndMemberId,
+} from '../../../shared/pdf/sections/insuranceInfo';
 import { createVisitDetailsPdf } from '../../../shared/pdf/visit-details-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
 import { wrapHandler } from '../../../shared/sentry';
@@ -29,6 +33,7 @@ import { searchDocumentReferencesForVisit } from '../get-visit-files';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'visit-details-to-pdf';
+const ELIGIBILITY_SEARCH_BUDGET_MS = 5_000;
 
 let m2mToken: string;
 
@@ -95,14 +100,19 @@ export const performEffect = async (
     employerOrganization,
     occupationalMedicineEmployerOrganization,
   } = accountResources;
-  const coverageChecksPromise =
-    coverages.primary || coverages.secondary
-      ? getPatientCoverageChecks(patient.id, oystehr).catch((error) => {
+  const displayedInsurance = getDisplayedInsurancePayerAndMemberId(
+    coverages,
+    composeInsuranceData({ coverages, insuranceOrgs })
+  );
+  const coverageChecksPromise = displayedInsurance
+    ? findLatestCoverageCheck(patient.id, displayedInsurance, oystehr, Date.now() + ELIGIBILITY_SEARCH_BUDGET_MS)
+        .then((check) => (check ? [check] : []))
+        .catch((error) => {
           console.error('Failed to load eligibility checks for the Visit Details PDF:', error);
           captureException(error);
           return undefined;
         })
-      : Promise.resolve([]);
+    : Promise.resolve([]);
   const primaryCarePhysician = accountResources.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;

@@ -3,13 +3,18 @@ import { Coverage, CoverageEligibilityResponse, Organization } from 'fhir/r4b';
 import { join } from 'path';
 import { PDFPage } from 'pdf-lib';
 import { OYSTEHR_RCM_PAYER_ID_SYSTEM } from 'utils/lib/fhir/constants';
+import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
-import { describe, expect, it, vi } from 'vitest';
-import { getPatientCoverageChecks } from '../../src/shared/patient-coverage-checks';
-import { renderPdf } from '../../src/shared/pdf/pdf-common';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { findLatestCoverageCheck, getPatientCoverageChecks } from '../../src/shared/patient-coverage-checks';
+import { PdfRenderConfig, renderPdf } from '../../src/shared/pdf/pdf-common';
 import { PDF_CLIENT_STYLES } from '../../src/shared/pdf/pdf-consts';
-import { composeEligibilityData } from '../../src/shared/pdf/sections/eligibilityInfo';
-import { composeInsuranceData } from '../../src/shared/pdf/sections/insuranceInfo';
+import { composeEligibilityData, createEligibilitySection } from '../../src/shared/pdf/sections/eligibilityInfo';
+import {
+  composeInsuranceData,
+  createPrimaryInsuranceSection,
+  getDisplayedInsurancePayerAndMemberId,
+} from '../../src/shared/pdf/sections/insuranceInfo';
 import { EligibilityInfo, VisitDetailsData } from '../../src/shared/pdf/types';
 import { visitDetailsRenderConfig } from '../../src/shared/pdf/visit-details-pdf';
 
@@ -143,6 +148,9 @@ const makeResponse = (
 interface Store {
   responses: CoverageEligibilityResponse[];
   coverages: Coverage[];
+  unreadableResponseIds?: string[];
+  unreadableCoverageIds?: string[];
+  msPerSearch?: number;
 }
 
 const fakeOystehr = (store: Store, calls: string[] = []): Oystehr =>
@@ -158,21 +166,29 @@ const fakeOystehr = (store: Store, calls: string[] = []): Oystehr =>
         ) {
           throw new Error(`unexpected search ${resourceType}`);
         }
+        if (store.msPerSearch) vi.setSystemTime(Date.now() + store.msPerSearch);
+        const offset = Number(param('_offset') ?? 0);
         const ids = store.responses
           .filter((r) => r.patient.reference === `Patient/${param('patient._id')}`)
           .sort((a, b) => Date.parse(b.created) - Date.parse(a.created))
-          .slice(0, Number(param('_count')))
+          .slice(offset, offset + Number(param('_count')))
           .map((r) => ({ resourceType: r.resourceType, id: r.id }));
         return { unbundle: () => ids };
       },
       get: async ({ id }: { id: string }) => {
         calls.push(`get ${id}`);
+        if (store.unreadableResponseIds?.includes(id)) throw new Error('response-too-large');
         return structuredClone(store.responses.find((r) => r.id === id));
       },
       batch: async ({ requests }: { requests: { url: string }[] }) => {
         calls.push(`batch ${requests.map(({ url }) => url).join(',')}`);
         return {
-          entry: requests.map(({ url }) => ({ resource: store.coverages.find((c) => `Coverage/${c.id}` === url) })),
+          entry: requests.map(({ url }) => {
+            if (store.unreadableCoverageIds?.some((id) => url === `Coverage/${id}`))
+              return { response: { status: '500' } };
+            const resource = store.coverages.find((c) => `Coverage/${c.id}` === url);
+            return resource ? { resource, response: { status: '200' } } : { response: { status: '404' } };
+          }),
         };
       },
     },
@@ -182,13 +198,53 @@ const pdfEligibility = async (
   store: Store,
   coverages: OrderedCoveragesWithSubscribers,
   calls: string[] = []
-): Promise<EligibilityInfo> =>
-  composeEligibilityData({
+): Promise<EligibilityInfo> => {
+  const insurances = composeInsuranceData({ coverages, insuranceOrgs: INSURANCE_ORGS });
+  const displayed = getDisplayedInsurancePayerAndMemberId(coverages, insurances);
+  const check =
+    displayed && (await findLatestCoverageCheck(PATIENT_ID, displayed, fakeOystehr(store, calls), Date.now() + 60_000));
+  return composeEligibilityData({
     coverages,
-    insurances: composeInsuranceData({ coverages, insuranceOrgs: INSURANCE_ORGS }),
-    coverageChecks: await getPatientCoverageChecks(PATIENT_ID, fakeOystehr(store, calls)),
+    insurances,
+    coverageChecks: check ? [check] : [],
     timezone: TIMEZONE,
   });
+};
+
+const withInsuranceConfig = async <T>(
+  { hiddenFields = [], sectionHidden = false }: { hiddenFields?: string[]; sectionHidden?: boolean },
+  run: () => Promise<T>
+): Promise<T> => {
+  const insurance = PATIENT_RECORD_CONFIG.FormFields.insurance;
+  const originalHiddenFields = insurance.hiddenFields;
+  insurance.hiddenFields = hiddenFields;
+  if (sectionHidden) PATIENT_RECORD_CONFIG.hiddenFormSections.push('insurance-section');
+  try {
+    return await run();
+  } finally {
+    insurance.hiddenFields = originalHiddenFields;
+    if (sectionHidden) PATIENT_RECORD_CONFIG.hiddenFormSections.pop();
+  }
+};
+
+const daily = (count: number, prefix: string, coverageReference: string, lastDay = 28): CoverageEligibilityResponse[] =>
+  Array.from({ length: count }, (_, i) =>
+    makeResponse(
+      `${prefix}-${i}`,
+      new Date(Date.UTC(2026, 9, lastDay - i, 10)).toISOString(),
+      coverageReference,
+      'not-eligible'
+    )
+  );
+
+const AETNA_PAIR = { payerId: AETNA, memberId: 'A-123' };
+const find = (
+  store: Store,
+  calls: string[] = [],
+  deadline = Date.now() + 60_000
+): ReturnType<typeof findLatestCoverageCheck> =>
+  findLatestCoverageCheck(PATIENT_ID, AETNA_PAIR, fakeOystehr(store, calls), deadline);
+const searches = (calls: string[]): string[] => calls.filter((call) => call.startsWith('search'));
 
 const table = (info: EligibilityInfo): [string, string, string][] =>
   info.groups.flatMap((group) =>
@@ -287,6 +343,126 @@ describe('getPatientCoverageChecks (shared by get-patient-account and the Visit 
       []
     );
     expect(calls).toEqual(['search patient._id=patient-1&_sort=-created&_elements=id&_count=10']);
+  });
+});
+
+describe('findLatestCoverageCheck (Visit Details PDF only)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('finds a matching check older than the latest ten, which the account loader does not see', async () => {
+    const store = {
+      responses: [
+        ...daily(12, 'cigna', 'Coverage/cov-cigna'),
+        makeResponse('aetna', '2026-10-01T14:30:00.000Z', 'Coverage/cov-aetna'),
+      ],
+      coverages: [AETNA_COVERAGE, CIGNA_COVERAGE],
+    };
+    const calls: string[] = [];
+    expect((await find(store, calls))?.dateISO).toBe('2026-10-01T14:30:00.000Z');
+    expect(searches(calls)).toEqual([
+      'search patient._id=patient-1&_sort=-created&_elements=id&_count=10&_offset=0',
+      'search patient._id=patient-1&_sort=-created&_elements=id&_count=10&_offset=10',
+    ]);
+    const accountChecks = await getPatientCoverageChecks(PATIENT_ID, fakeOystehr(store));
+    expect(accountChecks).toHaveLength(10);
+    expect(accountChecks.some((check) => check.payerId === AETNA)).toBe(false);
+  });
+
+  it('reports no match only after reading every response', async () => {
+    const calls: string[] = [];
+    expect(
+      await find({ responses: daily(23, 'cigna', 'Coverage/cov-cigna'), coverages: [CIGNA_COVERAGE] }, calls)
+    ).toBeUndefined();
+    expect(searches(calls).map((call) => call.split('&').pop())).toEqual(['_offset=0', '_offset=10', '_offset=20']);
+    expect(calls.filter((call) => call.startsWith('get'))).toHaveLength(23);
+  });
+
+  it('returns the newest of several matching checks without reading further pages', async () => {
+    const calls: string[] = [];
+    const store = { responses: daily(15, 'aetna', 'Coverage/cov-aetna'), coverages: [AETNA_COVERAGE] };
+    store.responses[3] = makeResponse('aetna-newest', '2026-10-30T10:00:00.000Z', 'Coverage/cov-aetna');
+    expect((await find(store, calls))?.dateISO).toBe('2026-10-30T10:00:00.000Z');
+    expect(searches(calls)).toHaveLength(1);
+  });
+
+  it('matches a check whose coverage is a contained snapshot', async () => {
+    const contained = makeResponse('aetna-contained', '2026-11-20T14:30:00.000Z', '#snapshot');
+    contained.contained = [{ ...AETNA_COVERAGE, id: 'snapshot' }];
+    expect((await find({ responses: [contained], coverages: [] }))?.dateISO).toBe('2026-11-20T14:30:00.000Z');
+  });
+
+  it('returns the match when only an older response could not be read', async () => {
+    const store = {
+      responses: [
+        makeResponse('aetna', '2026-11-20T14:30:00.000Z', 'Coverage/cov-aetna'),
+        makeResponse('oversized', '2026-11-19T14:30:00.000Z', 'Coverage/cov-cigna'),
+      ],
+      coverages: [AETNA_COVERAGE, CIGNA_COVERAGE],
+      unreadableResponseIds: ['oversized'],
+    };
+    expect((await find(store))?.dateISO).toBe('2026-11-20T14:30:00.000Z');
+  });
+
+  it('fails instead of returning an older match when a newer response could not be read', async () => {
+    const store = {
+      responses: [
+        makeResponse('oversized', '2026-11-21T14:30:00.000Z', 'Coverage/cov-cigna'),
+        makeResponse('aetna', '2026-11-20T14:30:00.000Z', 'Coverage/cov-aetna'),
+      ],
+      coverages: [AETNA_COVERAGE, CIGNA_COVERAGE],
+      unreadableResponseIds: ['oversized'],
+    };
+    await expect(find(store)).rejects.toThrow(/newer responses could not be read.*oversized/);
+  });
+
+  it('fails instead of reporting no match when an unread response could have matched', async () => {
+    const store = {
+      responses: [
+        ...daily(12, 'cigna', 'Coverage/cov-cigna'),
+        makeResponse('oversized', '2026-09-01T10:00:00.000Z', 'Coverage/cov-aetna'),
+      ],
+      coverages: [AETNA_COVERAGE, CIGNA_COVERAGE],
+      unreadableResponseIds: ['oversized'],
+    };
+    await expect(find(store)).rejects.toThrow(/no readable response matched.*oversized/);
+  });
+
+  it('treats a coverage the batch could not read as unread, but skips one that no longer exists', async () => {
+    const responses = [
+      makeResponse('flaky', '2026-11-21T14:30:00.000Z', 'Coverage/cov-flaky'),
+      makeResponse('aetna', '2026-11-20T14:30:00.000Z', 'Coverage/cov-aetna'),
+    ];
+    await expect(
+      find({ responses, coverages: [AETNA_COVERAGE], unreadableCoverageIds: ['cov-flaky'] })
+    ).rejects.toThrow(/flaky/);
+    expect((await find({ responses, coverages: [AETNA_COVERAGE] }))?.dateISO).toBe('2026-11-20T14:30:00.000Z');
+  });
+
+  it('fails instead of reporting no match when its time budget runs out', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const calls: string[] = [];
+    const store = {
+      responses: daily(40, 'cigna', 'Coverage/cov-cigna'),
+      coverages: [CIGNA_COVERAGE],
+      msPerSearch: 2_000,
+    };
+    await expect(find(store, calls, Date.now() + 5_000)).rejects.toThrow(/time budget after 30 responses/);
+    expect(searches(calls)).toHaveLength(3);
+  });
+
+  it('still returns a match found on a page started within its time budget', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const store = {
+      responses: [
+        ...daily(12, 'cigna', 'Coverage/cov-cigna'),
+        makeResponse('aetna', '2026-09-01T10:00:00.000Z', 'Coverage/cov-aetna'),
+      ],
+      coverages: [AETNA_COVERAGE, CIGNA_COVERAGE],
+      msPerSearch: 4_000,
+    };
+    expect((await find(store, [], Date.now() + 5_000))?.dateISO).toBe('2026-09-01T10:00:00.000Z');
   });
 });
 
@@ -472,6 +648,62 @@ describe('Visit Details PDF "Eligibility Check Details" section', () => {
     }
   );
 
+  it.each([
+    ['the primary Member ID', ['insurance-member-id'], { primary: AETNA_COVERAGE, secondary: CIGNA_COVERAGE }],
+    ['the primary carrier', ['insurance-carrier'], { primary: AETNA_COVERAGE, secondary: CIGNA_COVERAGE }],
+    ['the Member ID of the only, secondary, insurance', ['insurance-member-id-2'], { secondary: AETNA_COVERAGE }],
+    ['the carrier of the only, secondary, insurance', ['insurance-carrier-2'], { secondary: AETNA_COVERAGE }],
+  ])(
+    'shows "-" in every field, without searching, when the printed insurance hides %s',
+    async (_, hiddenFields, coverages) => {
+      const calls: string[] = [];
+      const info = await withInsuranceConfig({ hiddenFields }, () =>
+        pdfEligibility(
+          {
+            responses: [
+              makeResponse('aetna', '2026-11-20T14:30:00.000Z', 'Coverage/cov-aetna'),
+              makeResponse('cigna', '2026-11-21T14:30:00.000Z', 'Coverage/cov-cigna'),
+            ],
+            coverages: [AETNA_COVERAGE, CIGNA_COVERAGE],
+          },
+          coverages,
+          calls
+        )
+      );
+      expect(table(info)).toEqual(ALL_DASHES);
+      expect(calls).toEqual([]);
+    }
+  );
+
+  it('keeps the primary insurance when only the secondary Member ID is hidden', async () => {
+    const info = await withInsuranceConfig({ hiddenFields: ['insurance-member-id-2'] }, () =>
+      pdfEligibility(
+        {
+          responses: [makeResponse('aetna', '2026-11-20T14:30:00.000Z', 'Coverage/cov-aetna')],
+          coverages: [AETNA_COVERAGE],
+        },
+        { primary: AETNA_COVERAGE, secondary: CIGNA_COVERAGE }
+      )
+    );
+    expect(table(info)).toEqual(FULL_SECTION);
+  });
+
+  it('shows "-" in every field, without searching, when the Insurance section is hidden', async () => {
+    const calls: string[] = [];
+    const info = await withInsuranceConfig({ sectionHidden: true }, () =>
+      pdfEligibility(
+        {
+          responses: [makeResponse('aetna', '2026-11-20T14:30:00.000Z', 'Coverage/cov-aetna')],
+          coverages: [AETNA_COVERAGE],
+        },
+        { primary: AETNA_COVERAGE },
+        calls
+      )
+    );
+    expect(table(info)).toEqual(ALL_DASHES);
+    expect(calls).toEqual([]);
+  });
+
   it('shows "-" for a matching check whose payer reports no subscriber DOB or address', async () => {
     const {
       ins_dob: _dob,
@@ -530,13 +762,22 @@ describe('Visit Details PDF "Eligibility Check Details" rendering', () => {
   const fromPackageRoot = (paths: Record<string, string> | undefined): Record<string, string> | undefined =>
     paths && Object.fromEntries(Object.entries(paths).map(([key, path]) => [key, join(__dirname, '..', '..', path)]));
 
-  const render = async (eligibility: EligibilityInfo): Promise<{ text: string; x: number; width: number }[]> => {
+  const render = async (
+    eligibility: EligibilityInfo,
+    {
+      insurances,
+      sections = visitDetailsRenderConfig.sections,
+    }: Partial<VisitDetailsData> & {
+      sections?: PdfRenderConfig<VisitDetailsData>['sections'];
+    } = {}
+  ): Promise<{ text: string; x: number; width: number }[]> => {
     const drawText = vi.spyOn(PDFPage.prototype, 'drawText');
     drawText.mockClear();
     await renderPdf(
-      { eligibility } as VisitDetailsData,
+      { eligibility, insurances } as VisitDetailsData,
       {
         ...visitDetailsRenderConfig,
+        sections,
         assetPaths: { fonts: fromPackageRoot(visitDetailsRenderConfig.assetPaths.fonts) as never },
       },
       ''
@@ -598,5 +839,39 @@ describe('Visit Details PDF "Eligibility Check Details" rendering', () => {
     const texts = (await render({ groups: allDashGroups(), unavailable: true })).map((item) => item.text);
     expect(texts).toContain('Eligibility information could not be retrieved.');
     expect(texts.filter((text) => text === '-')).toHaveLength(19);
+  });
+
+  it('prints neither the hidden member ID nor a check for it when the Insurance section hides it', async () => {
+    const store = {
+      responses: [makeResponse('aetna', '2026-11-20T14:30:00.000Z', 'Coverage/cov-aetna')],
+      coverages: [AETNA_COVERAGE],
+    };
+    const coverages = { primary: AETNA_COVERAGE };
+    const visible = (
+      await render(await pdfEligibility(store, coverages), {
+        insurances: composeInsuranceData({ coverages, insuranceOrgs: INSURANCE_ORGS }),
+        sections: [createPrimaryInsuranceSection(), createEligibilitySection()],
+      })
+    ).map((item) => item.text);
+    expect(visible.filter((text) => text === 'A-123')).toHaveLength(2);
+
+    const hidden = await withInsuranceConfig({ hiddenFields: ['insurance-member-id'] }, async () =>
+      (
+        await render(await pdfEligibility(store, coverages), {
+          insurances: composeInsuranceData({ coverages, insuranceOrgs: INSURANCE_ORGS }),
+          sections: [createPrimaryInsuranceSection(), createEligibilitySection()],
+        })
+      ).map((item) => item.text)
+    );
+    expect(hidden).toContain('Aetna');
+    expect(hidden).not.toContain('A-123');
+    expect(hidden).not.toContain('Eligible');
+    expect(hidden.slice(hidden.indexOf('Eligibility Check Details')).filter((text) => text === '-')).toHaveLength(19);
+  });
+
+  it('skips the section together with a hidden Insurance section', async () => {
+    const section = await withInsuranceConfig({ sectionHidden: true }, async () => createEligibilitySection());
+    expect(section.skip).toBe(true);
+    expect(createEligibilitySection().skip).toBe(false);
   });
 });

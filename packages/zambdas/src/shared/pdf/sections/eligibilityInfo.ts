@@ -5,9 +5,10 @@ import {
   mapEligibilityCheckResultToSimpleStatus,
 } from 'utils/lib/types/data/telemed/eligibility.types';
 import { DISPLAY_DATE_FORMAT } from 'utils/lib/utils/dateUtils';
+import { coverageCheckMatches } from '../../patient-coverage-checks';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { EligibilityDataInput, EligibilityInfo, EligibilityRowGroup, PdfSection } from '../types';
-import { isInsuranceSectionRendered } from './insuranceInfo';
+import { getDisplayedInsurancePayerAndMemberId } from './insuranceInfo';
 
 const NO_VALUE = '-';
 
@@ -86,18 +87,11 @@ export const composeEligibilityData: DataComposer<EligibilityDataInput, Eligibil
   coverageChecks,
   timezone,
 }) => {
-  const printed = (['primary', 'secondary'] as const).find((priority) =>
-    isInsuranceSectionRendered(insurances[priority])
-  );
-  const payerId = printed && coverages[printed]?.class?.[0]?.value;
-  const memberId = printed && insurances[printed].memberId;
-  const documentShowsPayerAndMemberId = Boolean(payerId && memberId);
-  if (documentShowsPayerAndMemberId && !coverageChecks) {
+  const displayed = getDisplayedInsurancePayerAndMemberId(coverages, insurances);
+  if (displayed && !coverageChecks) {
     return { groups: eligibilityGroups(undefined, timezone), unavailable: true };
   }
-  const check = documentShowsPayerAndMemberId
-    ? coverageChecks?.find((candidate) => candidate.payerId === payerId && candidate.subscriberId === memberId)
-    : undefined;
+  const check = displayed ? coverageChecks?.find((candidate) => coverageCheckMatches(candidate, displayed)) : undefined;
   return { groups: eligibilityGroups(check, timezone) };
 };
 

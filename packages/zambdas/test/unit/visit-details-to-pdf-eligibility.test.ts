@@ -1,14 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
-import { Coverage, Patient } from 'fhir/r4b';
+import { Coverage, Organization, Patient } from 'fhir/r4b';
 import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
+import { OYSTEHR_RCM_PAYER_ID_SYSTEM } from 'utils/lib/fhir/constants';
 import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
 import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAccountAndCoverageResourcesForPatient } from '../../src/ehr/shared/harvest';
 import { searchDocumentReferencesForVisit } from '../../src/ehr/visit-details/get-visit-files';
 import { performEffect } from '../../src/ehr/visit-details/visit-details-to-pdf';
-import { getPatientCoverageChecks } from '../../src/shared/patient-coverage-checks';
+import { findLatestCoverageCheck } from '../../src/shared/patient-coverage-checks';
 import { makeVisitDetailsPdfDocumentReference } from '../../src/shared/pdf/make-visit-details-document-reference';
 import { createVisitDetailsPdf } from '../../src/shared/pdf/visit-details-pdf';
 import { getAppointmentAndRelatedResources } from '../../src/shared/pdf/visit-details-pdf/get-video-resources';
@@ -29,7 +30,10 @@ vi.mock('../../src/ehr/visit-details/get-visit-files', async (importOriginal) =>
   ...(await importOriginal<typeof import('../../src/ehr/visit-details/get-visit-files')>()),
   searchDocumentReferencesForVisit: vi.fn(),
 }));
-vi.mock('../../src/shared/patient-coverage-checks', () => ({ getPatientCoverageChecks: vi.fn() }));
+vi.mock('../../src/shared/patient-coverage-checks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/shared/patient-coverage-checks')>()),
+  findLatestCoverageCheck: vi.fn(),
+}));
 vi.mock('../../src/shared/pdf/visit-details-pdf', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/shared/pdf/visit-details-pdf')>()),
   createVisitDetailsPdf: vi.fn(),
@@ -43,14 +47,33 @@ vi.mock('../../src/shared/pdf/visit-details-pdf/get-video-resources', async (imp
 }));
 
 const PATIENT: Patient = { resourceType: 'Patient', id: 'patient-1' };
-const COVERAGE: Coverage = {
-  resourceType: 'Coverage',
-  id: 'cov-1',
-  status: 'active',
-  beneficiary: { reference: 'Patient/patient-1' },
-  payor: [{ reference: 'Organization/payer' }],
+
+const payer = (payerId: string): Organization => ({
+  resourceType: 'Organization',
+  id: `org-${payerId}`,
+  name: `Payer ${payerId}`,
+  identifier: [{ system: OYSTEHR_RCM_PAYER_ID_SYSTEM, value: payerId }],
+});
+const INSURANCE_ORGS = [payer('60054'), payer('62308')];
+
+const coverage = (id: string, payerId: string, memberId?: string): Coverage => {
+  const payorRef = `https://rcm-api.zapehr.com/v1/payer/${payerId}`;
+  return {
+    resourceType: 'Coverage',
+    id,
+    status: 'active',
+    beneficiary: { reference: 'Patient/patient-1' },
+    subscriberId: memberId,
+    payor: [{ reference: payorRef }],
+    identifier: memberId
+      ? [{ type: { coding: [{ code: 'MB' }] }, value: memberId, assigner: { reference: payorRef } }]
+      : [],
+    class: [{ type: { coding: [{ code: 'plan' }] }, value: payerId }],
+  };
 };
-const CHECKS = [{ subscriberId: 'S-1' }] as CoverageCheckWithDetails[];
+const PRIMARY = coverage('cov-primary', '60054', 'A-123');
+const SECONDARY = coverage('cov-secondary', '62308', 'C-456');
+const CHECK = { subscriberId: 'A-123', payerId: '60054' } as CoverageCheckWithDetails;
 const oystehr = {} as Oystehr;
 
 beforeEach(() => {
@@ -73,13 +96,17 @@ beforeEach(() => {
   });
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 const generate = async (
   coverages: OrderedCoveragesWithSubscribers
 ): Promise<CoverageCheckWithDetails[] | undefined> => {
   vi.mocked(getAccountAndCoverageResourcesForPatient).mockResolvedValue({
     patient: PATIENT,
     coverages,
-    insuranceOrgs: [],
+    insuranceOrgs: INSURANCE_ORGS,
   });
   await performEffect(oystehr, 'appt-1', null, 'token');
   expect(makeVisitDetailsPdfDocumentReference).toHaveBeenCalledOnce();
@@ -87,20 +114,40 @@ const generate = async (
 };
 
 describe('visit-details-to-pdf eligibility loading', () => {
-  it('does not load eligibility checks for a visit without insurance', async () => {
+  it('does not search for eligibility checks for a visit without insurance', async () => {
     expect(await generate({})).toEqual([]);
-    expect(getPatientCoverageChecks).not.toHaveBeenCalled();
+    expect(findLatestCoverageCheck).not.toHaveBeenCalled();
   });
 
-  it.each(['primary', 'secondary'] as const)(
-    "loads the patient's eligibility checks once when the visit has %s insurance",
-    async (priority) => {
-      vi.mocked(getPatientCoverageChecks).mockResolvedValue(CHECKS);
-      expect(await generate({ [priority]: COVERAGE })).toBe(CHECKS);
-      expect(getPatientCoverageChecks).toHaveBeenCalledOnce();
-      expect(getPatientCoverageChecks).toHaveBeenCalledWith('patient-1', oystehr);
+  it('does not search when the printed insurance shows no member ID', async () => {
+    expect(await generate({ primary: coverage('cov-no-member', '60054') })).toEqual([]);
+    expect(findLatestCoverageCheck).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['primary', { primary: PRIMARY }, { payerId: '60054', memberId: 'A-123' }],
+    ['secondary', { secondary: SECONDARY }, { payerId: '62308', memberId: 'C-456' }],
+    [
+      'primary, with a secondary also printed,',
+      { primary: PRIMARY, secondary: SECONDARY },
+      { payerId: '60054', memberId: 'A-123' },
+    ],
+  ])(
+    'searches once, within a 5 second budget, for the payer and member ID of the %s insurance',
+    async (_, coverages, pair) => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(1_000_000);
+      vi.mocked(findLatestCoverageCheck).mockResolvedValue(CHECK);
+      expect(await generate(coverages)).toEqual([CHECK]);
+      expect(findLatestCoverageCheck).toHaveBeenCalledOnce();
+      expect(findLatestCoverageCheck).toHaveBeenCalledWith('patient-1', pair, oystehr, 1_005_000);
     }
   );
+
+  it('passes no check when the search finds none for the printed pair', async () => {
+    vi.mocked(findLatestCoverageCheck).mockResolvedValue(undefined);
+    expect(await generate({ primary: PRIMARY })).toEqual([]);
+  });
 
   it('saves the PDF exactly as createVisitDetailsPdf returned it, linked to the encounter', async () => {
     const pdfInfo = { uploadURL: 'https://z3/visit.pdf', title: 'Visit Details: 11-20-2026' };
@@ -119,10 +166,10 @@ describe('visit-details-to-pdf eligibility loading', () => {
     expect(pdfInfo).toEqual({ uploadURL: 'https://z3/visit.pdf', title: 'Visit Details: 11-20-2026' });
   });
 
-  it('still creates the PDF and reports the error when the checks cannot be loaded', async () => {
-    const error = new Error('FHIR unavailable');
-    vi.mocked(getPatientCoverageChecks).mockRejectedValue(error);
-    expect(await generate({ primary: COVERAGE })).toBeUndefined();
+  it('still creates the PDF and reports the error when the search could not be completed', async () => {
+    const error = new Error('Could not establish the latest eligibility check: no readable response matched');
+    vi.mocked(findLatestCoverageCheck).mockRejectedValue(error);
+    expect(await generate({ primary: PRIMARY })).toBeUndefined();
     expect(captureException).toHaveBeenCalledWith(error);
   });
 });

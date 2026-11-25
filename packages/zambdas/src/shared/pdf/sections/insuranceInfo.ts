@@ -9,8 +9,10 @@ import {
 } from 'utils/lib/helpers/helpers';
 import { insuranceTypeOptionsData } from 'utils/lib/ottehr-config/value-sets';
 import { COVERAGE_ADDITIONAL_INFORMATION_URL } from 'utils/lib/types/constants';
+import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
-import { createConfiguredSection, DataComposer } from '../pdf-common';
+import { PayerAndMemberId } from '../../patient-coverage-checks';
+import { createConfiguredSection, createSectionConfig, DataComposer, fieldFilter } from '../pdf-common';
 import { Insurance, InsuranceDataInput, InsuranceInfo, PdfSection } from '../types';
 
 // Mirrors EHR's `insurancePlanTypeOptions` label format (`${candidCode} - ${label}`)
@@ -141,6 +143,26 @@ export const composeInsuranceData: DataComposer<InsuranceDataInput, InsuranceInf
 };
 
 export const isInsuranceSectionRendered = (insurance: Insurance): boolean => !!insurance.insuranceCarrier;
+
+const INSURANCE_FIELD_KEY_SUFFIX = { primary: '', secondary: '-2' } as const;
+
+export const getDisplayedInsurancePayerAndMemberId = (
+  coverages: OrderedCoveragesWithSubscribers,
+  insurances: InsuranceInfo
+): PayerAndMemberId | undefined => {
+  const config = createSectionConfig('insurance');
+  if (config.isHidden) return undefined;
+  const priority = (['primary', 'secondary'] as const).find((candidate) =>
+    isInsuranceSectionRendered(insurances[candidate])
+  );
+  if (!priority) return undefined;
+  const shouldShow = fieldFilter(config);
+  const suffix = INSURANCE_FIELD_KEY_SUFFIX[priority];
+  if (!shouldShow(`insurance-carrier${suffix}`) || !shouldShow(`insurance-member-id${suffix}`)) return undefined;
+  const payerId = coverages[priority]?.class?.[0]?.value;
+  const memberId = insurances[priority].memberId;
+  return payerId && memberId ? { payerId, memberId } : undefined;
+};
 
 /**
  * `keySuffix` mirrors how the EHR resolves `hiddenFields`: each item in
@@ -299,9 +321,19 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
 export const createPrimaryInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(): PdfSection<
   TData,
   Insurance
-> => createInsuranceSection('Primary insurance information', (data) => data.insurances?.primary, '');
+> =>
+  createInsuranceSection(
+    'Primary insurance information',
+    (data) => data.insurances?.primary,
+    INSURANCE_FIELD_KEY_SUFFIX.primary
+  );
 
 export const createSecondaryInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(): PdfSection<
   TData,
   Insurance
-> => createInsuranceSection('Secondary insurance information', (data) => data.insurances?.secondary, '-2');
+> =>
+  createInsuranceSection(
+    'Secondary insurance information',
+    (data) => data.insurances?.secondary,
+    INSURANCE_FIELD_KEY_SUFFIX.secondary
+  );
