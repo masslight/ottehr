@@ -81,8 +81,9 @@ module "oystehr" {
   providers = {
     oystehr = oystehr
   }
+  sendgrid_enabled            = local.sendgrid_enabled
   sendgrid_template_ids       = local.sendgrid_enabled ? one(module.sendgrid[*].template_ids) : null
-  sendgrid_send_email_api_key = local.sendgrid_enabled ? var.sendgrid_api_key : null
+  sendgrid_send_email_api_key = local.sendgrid_enabled ? one(module.sendgrid[*].sendgrid_api_key) : null
   ehr_domain                  = var.ehr_domain == null ? var.aws_profile == null ? null : one(module.infra[*].ehr_domain) : var.ehr_domain
   patient_portal_domain       = var.patient_portal_domain == null ? var.aws_profile == null ? null : one(module.infra[*].patient_portal_domain) : var.patient_portal_domain
   environment                 = var.environment
@@ -164,6 +165,14 @@ module "apps_upload" {
   patient_portal_cdn_distribution_id = one(module.infra[*].patient_portal_cdn_distribution_id)
   ehr_hash                           = one(module.ottehr_apps[*].ehr_hash)
   patient_portal_hash                = one(module.ottehr_apps[*].patient_portal_hash)
+}
+
+# After the apps upload, so a failed migration can't hold back the new EHR.
+module "oystehr_migrations" {
+  source      = "./oystehr/migrations"
+  environment = var.environment
+
+  depends_on = [module.apps_upload]
 }
 
 output "sendgrid_config_present" {

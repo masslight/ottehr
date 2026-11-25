@@ -1,6 +1,6 @@
 {
   "name": "intake-ui",
-  "version": "1.47.19",
+  "version": "1.48.7",
   "private": true,
   "type": "module",
   "scripts": {
@@ -68,7 +68,7 @@
     "vitest": "^4.1.11"
   },
   "dependencies": {
-    "@mui/icons-material": "^5.11.16",
+    "@mui/icons-material": "^7.3.11",
     "@stripe/react-stripe-js": "^3.0.0",
     "@stripe/stripe-js": "^3.5.0",
     "react-markdown": "^9.0.0",

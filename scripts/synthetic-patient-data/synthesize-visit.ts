@@ -112,7 +112,6 @@ import type {
   CoverageEligibilityResponse,
   EpisodeOfCare,
   Location,
-  Medication,
   MedicationStatement,
   Organization,
   Patient,
@@ -128,6 +127,8 @@ import { DateTime } from 'luxon';
 import * as path from 'path';
 import { resolve } from 'path';
 import { SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { CVX_VACCINES } from 'utils/lib/types/data/immunization/cvx-vaccines.generated';
+import type { CvxVaccine } from 'utils/lib/types/data/immunization/vaccine-codes';
 import { createQuestionnaireItemsMap } from 'utils/lib/types/data/paperwork/createQuestionnaireItemsMap';
 import { finalizeInHouseLabs, finalizeRadiology, LAB_NAME_ALIASES, normalizeLabName } from './finalize-visit-orders';
 import { type History as ScenarioHistory, type VisitScenario, VisitScenarioSchema } from './schema';
@@ -237,7 +238,6 @@ interface SynthesisContext {
   attendingPractitionerId?: string;
   intakeStaffId?: string;
   payerOrganizationId?: string;
-  vaccineMedicationsByName?: Record<string, string>;
   // Resolved in Phase 0.5 (create-slot):
   slotId?: string;
   // Resolved in Phase 1:
@@ -570,37 +570,6 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
       logNote(`verified template "${s.template.name}" exists`);
     } else {
       logNote(`verify template "${s.template.name}" appears in the list`);
-    }
-  }
-
-  // Vaccine catalog (only if scenario has immunizations)
-  if (s.modules?.immunizations?.length) {
-    logFhir('search', `Medication catalog for vaccine names`);
-    if (ctx.mode === 'execute' && ctx.oystehr) {
-      ctx.vaccineMedicationsByName = {};
-      for (const imm of s.modules.immunizations) {
-        try {
-          const result = await ctx.oystehr.fhir.search<Medication>({
-            resourceType: 'Medication',
-            params: [{ name: 'code', value: imm.vaccineName }],
-          });
-          const med = result.unbundle()[0];
-          if (!med?.id) {
-            console.warn(
-              `  ⚠ vaccine Medication not found: "${imm.vaccineName}" — Phase 8 (immunization) will fail if enabled`
-            );
-            continue;
-          }
-          ctx.vaccineMedicationsByName[imm.vaccineName] = med.id;
-          logNote(`resolved Medication "${imm.vaccineName}" → ${med.id}`);
-        } catch (err) {
-          console.warn(
-            `  ⚠ vaccine Medication search failed for "${imm.vaccineName}" (${
-              err instanceof Error ? err.message : err
-            }) — Phase 8 will fail if enabled`
-          );
-        }
-      }
     }
   }
 }
@@ -2206,6 +2175,10 @@ async function resolveMedicationId(ctx: SynthesisContext, name: string): Promise
   }
 }
 
+function findVaccineByName(name: string): CvxVaccine | undefined {
+  return CVX_VACCINES.find((vaccine) => vaccine.name.toLowerCase() === name.toLowerCase());
+}
+
 async function phase7_inHouseMedications(ctx: SynthesisContext): Promise<void> {
   const s = ctx.scenario;
   if (!s.modules?.inHouseMedications?.length) return;
@@ -2296,12 +2269,12 @@ async function phase8_immunizations(ctx: SynthesisContext): Promise<void> {
   startPhase('Immunization orders');
 
   for (const imm of s.modules.immunizations) {
-    const medicationId = ctx.mode === 'execute' ? await resolveMedicationId(ctx, imm.vaccineName) : undefined;
+    const vaccine = findVaccineByName(imm.vaccineName);
 
     const orderBody = {
       encounterId: ctx.encounterId,
       details: {
-        medication: { id: medicationId ?? '<unresolved>', name: imm.vaccineName },
+        medication: { id: vaccine?.cvx ?? '<unresolved>', name: vaccine?.name ?? imm.vaccineName },
         dose: imm.dose,
         units: imm.units,
         orderedProvider: { id: ctx.attendingPractitionerId ?? '', name: 'Synthesizer' },
@@ -2312,8 +2285,8 @@ async function phase8_immunizations(ctx: SynthesisContext): Promise<void> {
     logCall('create-update-immunization-order', orderBody);
 
     if (ctx.mode === 'execute' && ctx.oystehr) {
-      if (!medicationId) {
-        console.warn(`  ⚠ vaccine "${imm.vaccineName}" not found in catalog — skipping immunization order`);
+      if (!vaccine) {
+        console.warn(`  ⚠ vaccine "${imm.vaccineName}" is not in the CVX list — skipping immunization order`);
         continue;
       }
       const res = await zambdaPost(ctx, 'create-update-immunization-order', orderBody);
@@ -3673,11 +3646,6 @@ async function main(): Promise<void> {
     if (ctx.attendingPractitionerId) console.log(`  Attending Practitioner:  ${ctx.attendingPractitionerId}`);
     if (ctx.intakeStaffId) console.log(`  Intake-staff Practitioner: ${ctx.intakeStaffId}`);
     if (ctx.payerOrganizationId) console.log(`  Payer Organization:      ${ctx.payerOrganizationId}`);
-    if (ctx.vaccineMedicationsByName) {
-      for (const [name, id] of Object.entries(ctx.vaccineMedicationsByName)) {
-        console.log(`  Vaccine "${name}": ${id}`);
-      }
-    }
     console.log('');
     console.log('Created (Phase 0.5 + Phase 1):');
     if (ctx.slotId) console.log(`  Slot:                    ${ctx.slotId}`);

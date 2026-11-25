@@ -17,9 +17,9 @@ import { formatCurrency } from 'utils/lib/utils/convert';
 import { cancelOutreachTask, listOutreachTasks, retryOutreachTask } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
-import { InvoiceStatusChip } from '../pages/InvoicesList';
 import { formatDate, formatDateTime } from '../utils/format';
 import { dataGridSlots, dataGridSx } from './BillingDataGrid';
+import { InvoiceStatusChip } from './InvoiceStatusChip';
 
 const ALL_STATUSES = Object.keys(OUTREACH_TASK_STATUS_LABELS).join(',');
 
@@ -134,6 +134,7 @@ export function OutreachTracker(): ReactElement {
       headerName: 'Patient',
       flex: 1,
       minWidth: 120,
+      display: 'flex',
       renderCell: ({ row }) => (
         <Link component={RouterLink} to={`/patients/${row.patientId}`} underline="hover">
           {row.patientName}
@@ -144,19 +145,21 @@ export function OutreachTracker(): ReactElement {
       field: 'invoice',
       headerName: 'Invoice',
       width: 145,
+      display: 'flex',
       renderCell: ({ row }) => row.invoice && <InvoiceCell invoice={row.invoice} />,
     },
-    { field: 'actionType', headerName: 'Action', width: 220, valueGetter: ({ row }) => actionLabel(row) },
+    { field: 'actionType', headerName: 'Action', width: 220, valueGetter: (_value, row) => actionLabel(row) },
     {
       field: 'triggerEvent',
       headerName: 'Trigger',
       width: 140,
-      valueFormatter: ({ value }) => TRIGGER_EVENT_LABELS[value as TriggerEvent] ?? value,
+      valueFormatter: (value: TriggerEvent) => TRIGGER_EVENT_LABELS[value] ?? value,
     },
     {
       field: 'status',
       headerName: 'Status',
       width: 110,
+      display: 'flex',
       renderCell: ({ row }) => (
         <Chip
           size="small"
@@ -169,14 +172,15 @@ export function OutreachTracker(): ReactElement {
       field: 'dueDateTime',
       headerName: 'Scheduled for',
       width: 175,
-      valueFormatter: ({ value }) => formatDateTime(value),
+      valueFormatter: (value: string) => formatDateTime(value),
     },
     {
       field: 'note',
       headerName: 'Note',
       flex: 1,
       minWidth: 120,
-      valueGetter: ({ row }) => taskNote(row),
+      valueGetter: (_value, row) => taskNote(row),
+      display: 'flex',
       renderCell: ({ value }) => (
         <Tooltip title={value}>
           <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -189,6 +193,7 @@ export function OutreachTracker(): ReactElement {
       field: 'actions',
       headerName: '',
       width: 90,
+      display: 'flex',
       renderCell: ({ row }) =>
         row.status === 'failed' ? (
           <Button

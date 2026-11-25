@@ -1,13 +1,12 @@
 import { otherColors } from '@ehrTheme/colors';
 import ClearIcon from '@mui/icons-material/Clear';
 import InfoIcon from '@mui/icons-material/InfoOutlined';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
   CircularProgress,
   FormControlLabel,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   Link,
   Paper,
@@ -306,7 +305,7 @@ export const UnsolicitedResultsMatch: React.FC = () => {
               )}
               <Stack>
                 <Grid container sx={{ justifyContent: 'end' }} gap={'12px'}>
-                  <LoadingButton
+                  <Button
                     loading={isCancelling}
                     variant="outlined"
                     sx={{
@@ -322,8 +321,8 @@ export const UnsolicitedResultsMatch: React.FC = () => {
                     onClick={handleReject}
                   >
                     Reject
-                  </LoadingButton>
-                  <LoadingButton
+                  </Button>
+                  <Button
                     loading={isMatching}
                     variant="contained"
                     sx={{ borderRadius: '50px', textTransform: 'none', py: 1, px: 5, textWrap: 'nowrap' }}
@@ -333,7 +332,7 @@ export const UnsolicitedResultsMatch: React.FC = () => {
                     disabled={!readyToSubmit}
                   >
                     Submit
-                  </LoadingButton>
+                  </Button>
                 </Grid>
               </Stack>
             </Stack>

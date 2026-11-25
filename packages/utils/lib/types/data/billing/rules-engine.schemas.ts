@@ -136,6 +136,7 @@ export const RULE_ACTION_TYPE = {
   updateServiceLines: 'updateServiceLines',
   removeServiceLines: 'removeServiceLines',
   applyChargeMasterPrices: 'applyChargeMasterPrices',
+  copyMemberIdToGroupNumber: 'copyMemberIdToGroupNumber',
   submitClaim: 'submitClaim',
   noop: 'noop',
 } as const;
@@ -282,6 +283,10 @@ export type RuleAction =
   // Re-prices the matching lines from the best applicable charge master (resolved by the engine at
   // apply time from the claim's billing type and date of service).
   | { type: 'applyChargeMasterPrices'; match: ServiceLineMatch }
+  // Copies the member ID of the claim's coverage at the given insurance position into that same
+  // coverage's group number. Worker's comp claims carry the WC claim number in the member ID field,
+  // while payers expect it as the group number.
+  | { type: 'copyMemberIdToGroupNumber'; insurance: RulesEngineInsurance }
   | {
       type: 'submitClaim';
       submissionType: RulesEngineSubmissionType;
@@ -317,6 +322,10 @@ export const RuleActionSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal(RULE_ACTION_TYPE.removeServiceLines), match: ServiceLineMatchSchema }),
   z.object({ type: z.literal(RULE_ACTION_TYPE.applyChargeMasterPrices), match: ServiceLineMatchSchema }),
+  z.object({
+    type: z.literal(RULE_ACTION_TYPE.copyMemberIdToGroupNumber),
+    insurance: z.enum(RULES_ENGINE_INSURANCES),
+  }),
   // maybe a wrapper schema that is also a discriminated union
   z.object({
     type: z.literal(RULE_ACTION_TYPE.submitClaim),

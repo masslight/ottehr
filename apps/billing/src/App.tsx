@@ -1,6 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { CssBaseline, ThemeProvider } from '@mui/material';
-import { LicenseInfo } from '@mui/x-data-grid-pro';
+import { LicenseInfo } from '@mui/x-license';
 import { SnackbarProvider } from 'notistack';
 import { ReactElement } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
@@ -26,6 +26,7 @@ import EraClaimDetail from './pages/EraClaimDetail';
 import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
 import { CustomInsuranceOrganizationDetail, InsuranceOrganizationsList } from './pages/InsuranceOrganizations';
+import InvoiceDetail from './pages/InvoiceDetail';
 import InvoiceReport from './pages/InvoiceReport';
 import InvoicesList from './pages/InvoicesList';
 import InvoicingConfiguration from './pages/InvoicingConfiguration';
@@ -99,6 +100,7 @@ export default function App(): ReactElement {
               <Route path="/claims/new" element={<CreateClaim />} />
               <Route path="/claims/:id" element={<ClaimDetail />} />
               {invoicingInBillingApp && <Route path="/invoices" element={<InvoicesList />} />}
+              {invoicingInBillingApp && <Route path="/invoices/:id" element={<InvoiceDetail />} />}
               <Route path="/patients" element={<PatientsList />} />
               <Route path="/patients/:id" element={<PatientDetail />} />
               <Route
@@ -143,7 +145,7 @@ export default function App(): ReactElement {
               <Route path="/rules" element={<Navigate to={`/rules/${DEFAULT_RULES_ENGINE}`} replace />} />
               <Route path="/rules/:engine" element={<Rules />} />
               <Route path="/rules/:engine/:id" element={<RuleDetail />} />
-              <Route path="*" element={<Navigate to="/" />} />
+              <Route path="*" element={invoicingInBillingApp === undefined ? <LoadingScreen /> : <Navigate to="/" />} />
             </Route>
           )}
         </Routes>

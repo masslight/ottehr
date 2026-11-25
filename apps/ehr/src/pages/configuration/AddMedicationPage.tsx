@@ -1,5 +1,4 @@
-import { LoadingButton } from '@mui/lab';
-import { Autocomplete, debounce, Grid, Paper, TextField, Typography } from '@mui/material';
+import { Autocomplete, Button, debounce, GridLegacy as Grid, Paper, TextField, Typography } from '@mui/material';
 import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { ReactElement, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -151,14 +150,14 @@ export default function AddMedicationPage(): ReactElement {
                   </Grid>
                 )}
                 <Grid item xs={12}>
-                  <LoadingButton
+                  <Button
                     type="submit"
                     variant="contained"
                     loading={loading}
                     sx={{ textTransform: 'none', borderRadius: 28, fontWeight: 'bold' }}
                   >
                     Create Medication
-                  </LoadingButton>
+                  </Button>
                 </Grid>
               </Grid>
             </form>

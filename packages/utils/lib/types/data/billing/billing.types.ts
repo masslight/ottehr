@@ -473,6 +473,16 @@ export interface ClaimPatientPayment {
   status: string;
 }
 
+export interface ClaimNioPayment {
+  paymentNoticeId: string;
+  invoiceId: string;
+  paymentDate: string;
+  amount: number;
+  method: string;
+  reference?: string;
+  status: string;
+}
+
 export interface ClaimWriteOff {
   id: string;
   date: string;
@@ -636,6 +646,7 @@ export interface ClaimDetailResponse {
   insurancePaid: number;
   patientResp: number | null;
   patientPaid: number;
+  nioPaid: number;
   writeOffsTotal: number;
   balance: number;
   adjudicated: boolean;
@@ -644,6 +655,7 @@ export interface ClaimDetailResponse {
   remits: ClaimRemit[];
   insurancePayments: ClaimInsurancePayment[];
   patientPayments: ClaimPatientPayment[];
+  nioPayments: ClaimNioPayment[];
   otherClaims: {
     id: string;
     status: string;
@@ -666,7 +678,7 @@ export interface ClaimDetailResponse {
   accidentDate: string;
   attachments: ClaimAttachment[];
   writeOffs: ClaimWriteOff[];
-  invoices: BillingInvoiceSummary[];
+  invoices: ClaimInvoiceSummary[];
 }
 
 interface Paginated {
@@ -1277,6 +1289,11 @@ export interface BillingInvoiceListItem extends BillingInvoiceSummary {
   pastDue?: boolean;
 }
 
+export interface ClaimInvoiceSummary extends BillingInvoiceSummary {
+  kind: BillingInvoiceKind;
+  pastDue: boolean;
+}
+
 export interface SearchBillingInvoicesResponse extends Paginated {
   invoices: BillingInvoiceListItem[];
 }
@@ -1308,11 +1325,24 @@ export interface BillingInvoiceClaimLine {
 }
 
 export interface BillingInvoicePayment {
-  paymentNoticeId: string;
+  paymentId: string;
   paymentDate: string;
   amount: number;
   method: string;
   reference?: string;
+  attachment?: {
+    fileName: string;
+    url: string;
+  };
+}
+
+export interface RecordBillingNioInvoicePaymentResponse {
+  paymentId: string;
+}
+
+export interface PresignBillingInvoicePaymentAttachmentResponse {
+  uploadUrl: string;
+  path: string;
 }
 
 export interface BillingInvoiceDetail extends BillingInvoiceListItem {

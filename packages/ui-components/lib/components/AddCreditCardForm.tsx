@@ -1,5 +1,4 @@
-import { LoadingButton } from '@mui/lab';
-import { Checkbox, CircularProgress, FormLabel } from '@mui/material';
+import { Button, Checkbox, CircularProgress, FormLabel } from '@mui/material';
 import { Box } from '@mui/system';
 import { CardElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
@@ -180,7 +179,7 @@ export const AddCreditCardForm = forwardRef<AddCreditCardFormHandle, CreditCardF
         </Box>
       )}
       {showAddButton && (
-        <LoadingButton
+        <Button
           loading={isSaving}
           disabled={disabled || !cardState.complete || Boolean(condition && !conditionAccepted)}
           variant="outlined"
@@ -188,7 +187,7 @@ export const AddCreditCardForm = forwardRef<AddCreditCardFormHandle, CreditCardF
           onClick={() => void saveCard()}
         >
           Add card
-        </LoadingButton>
+        </Button>
       )}
       {isSaving && !showAddButton && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

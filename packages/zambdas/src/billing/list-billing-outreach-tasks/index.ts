@@ -10,7 +10,7 @@ import { listOutreachTasks } from '../../rcm/scheduled-outreach/manage-outreach-
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { toBillingInvoiceSummary } from '../invoices';
+import { getInvoiceStatusDatesAndAmount } from '../invoices';
 import { createBillingClient, findById } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -32,7 +32,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return invoice
         ? {
             ...task,
-            invoice: { ...toBillingInvoiceSummary(invoice), claimId: getBillingInvoiceClaims(invoice)[0]?.claimId },
+            invoice: {
+              ...getInvoiceStatusDatesAndAmount(invoice),
+              claimId: getBillingInvoiceClaims(invoice)[0]?.claimId,
+            },
           }
         : task;
     }),

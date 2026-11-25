@@ -74,7 +74,7 @@ const createWrapper =
   );
 
 const getMdmSwitch = (): HTMLInputElement =>
-  screen.getByRole('checkbox', { name: 'MDM required for sign and close' }) as HTMLInputElement;
+  screen.getByRole('switch', { name: 'MDM required for sign and close' }) as HTMLInputElement;
 const getSaveButton = (): HTMLButtonElement => screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement;
 const getDiscardButton = (): HTMLButtonElement =>
   screen.getByRole('button', { name: 'Discard changes' }) as HTMLButtonElement;
@@ -149,7 +149,7 @@ describe('ProgressNoteAdminPage', () => {
     await waitFor(() =>
       expect(screen.getByText('Failed to load the current progress note settings.')).toBeInTheDocument()
     );
-    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
   });
 
   it('saves edited default text fields in the admin update payload', async () => {

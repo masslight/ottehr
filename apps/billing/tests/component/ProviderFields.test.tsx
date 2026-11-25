@@ -44,7 +44,7 @@ describe('ProviderFields', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Bills medical services' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Bills medical services' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findAllByText('This field is required')).toHaveLength(5);
@@ -69,7 +69,7 @@ describe('ProviderFields', () => {
     render(<TestForm onSubmit={vi.fn()} />);
     expect(screen.getByLabelText('License Number')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Renders medical services' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Renders medical services' }));
 
     expect(screen.queryByLabelText('License Number')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('License State')).not.toBeInTheDocument();

@@ -1,5 +1,4 @@
-import { LoadingButton } from '@mui/lab';
-import { Grid, Paper, Skeleton, Stack, Typography, useTheme } from '@mui/material';
+import { Button, GridLegacy as Grid, Paper, Skeleton, Stack, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useRef, useState } from 'react';
@@ -218,7 +217,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
                       <OrderStatusChip status={order.status} />
                       {order.status !== 'cancelled' && !isReadOnly && (
                         <>
-                          <LoadingButton
+                          <Button
                             variant="outlined"
                             color="error"
                             size="large"
@@ -230,7 +229,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
                             }}
                           >
                             Delete Order
-                          </LoadingButton>
+                          </Button>
                           <CustomDialog
                             open={isDeleteDialogOpen}
                             handleClose={() => setIsDeleteDialogOpen(false)}

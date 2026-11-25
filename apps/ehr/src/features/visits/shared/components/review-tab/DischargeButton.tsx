@@ -1,6 +1,5 @@
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import CheckIcon from '@mui/icons-material/Check';
-import { LoadingButton } from '@mui/lab';
 import { Box, Button, ButtonGroup, Skeleton, Tooltip } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
@@ -103,7 +102,7 @@ export const DischargeButton: FC = () => {
   if (isAlreadyDischarged) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'end' }}>
-        <LoadingButton
+        <Button
           disabled
           variant="contained"
           startIcon={<CheckIcon color="inherit" />}
@@ -111,7 +110,7 @@ export const DischargeButton: FC = () => {
           sx={{ borderRadius: 100, textTransform: 'none' }}
         >
           Discharged
-        </LoadingButton>
+        </Button>
       </Box>
     );
   }
@@ -120,7 +119,7 @@ export const DischargeButton: FC = () => {
     <>
       <Box sx={{ display: 'flex', justifyContent: 'end' }}>
         <ButtonGroup variant="contained" disabled={statusLoading || isAlreadyDischarged} sx={{ boxShadow: 'none' }}>
-          <LoadingButton
+          <Button
             variant="contained"
             loading={statusLoading}
             onClick={onDischargeClick}
@@ -128,7 +127,7 @@ export const DischargeButton: FC = () => {
             sx={{ borderRadius: '100px', textTransform: 'none' }}
           >
             Discharge
-          </LoadingButton>
+          </Button>
           <Tooltip title="Discharge & More">
             <Button
               variant="contained"

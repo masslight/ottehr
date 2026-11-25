@@ -1,5 +1,4 @@
-import LoadingButton from '@mui/lab/LoadingButton';
-import { Alert, Box, Snackbar, Typography } from '@mui/material';
+import { Alert, Box, Button, Snackbar, Typography } from '@mui/material';
 import { FC, useContext, useMemo, useState } from 'react';
 import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
 import { useCancelInviteMutation } from 'src/telemed/features/waiting-room/waiting-room.queries';
@@ -92,7 +91,7 @@ export const InvitedParticipantList: FC<InvitedParticipantListProps> = ({ items,
             }}
           >
             {(showDialog) => (
-              <LoadingButton
+              <Button
                 variant="text"
                 loading={cancelInviteMutation.isPending}
                 color="destructive"
@@ -100,7 +99,7 @@ export const InvitedParticipantList: FC<InvitedParticipantListProps> = ({ items,
                 onClick={showDialog}
               >
                 Cancel invite
-              </LoadingButton>
+              </Button>
             )}
           </ConfirmationDialog>
         </Box>

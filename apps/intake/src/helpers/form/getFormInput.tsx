@@ -1,4 +1,4 @@
-import { Box, Button, Grid, Typography } from '@mui/material';
+import { Box, Button, GridLegacy as Grid, Typography } from '@mui/material';
 import { ReactElement } from 'react';
 import { FieldValues } from 'react-hook-form';
 import ControlledCheckBox from 'src/components/form/ControlledCheckBox';

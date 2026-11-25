@@ -1,15 +1,15 @@
 import { Close, Search } from '@mui/icons-material';
 import SendIcon from '@mui/icons-material/Send';
-import { LoadingButton } from '@mui/lab';
 import {
   Avatar,
   Box,
+  Button,
   CircularProgress,
   Dialog,
   DialogContent,
   DialogTitle,
   Divider,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   InputAdornment,
   List,
@@ -368,15 +368,15 @@ const ChatModal = memo(
             </Grid>
 
             <Grid item xs={3} sx={{ alignSelf: 'center', textAlign: 'center', display: 'flex' }}>
-              <LoadingButton
+              <Button
                 sx={{ marginX: 1, borderRadius: '100px', textTransform: 'none', fontWeight: 500 }}
                 variant="outlined"
                 onClick={() => setQuickTextsOpen(true)}
                 disabled={pendingMessageSend !== undefined}
               >
                 Quick text
-              </LoadingButton>
-              <LoadingButton
+              </Button>
+              <Button
                 sx={{
                   background: theme.palette.primary.main,
                   borderRadius: '100px',
@@ -390,7 +390,7 @@ const ChatModal = memo(
                 type="submit"
               >
                 Send
-              </LoadingButton>
+              </Button>
             </Grid>
           </Grid>
           <Dialog

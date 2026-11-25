@@ -37,6 +37,7 @@ import {
   ExportClaimX12InputSchema,
   GetBillingClaimsExportStatusInputSchema,
   GetBillingCoverageInputSchema,
+  GetBillingInvoiceInputSchema,
   GetBillingInvoiceRecipientInputSchema,
   GetBillingPatientAccountPaymentInputSchema,
   GetBillingPatientBalanceInputSchema,
@@ -58,8 +59,10 @@ import {
   NetCollectionsDrilldownParamsSchema,
   PatientPaymentsDrilldownParamsSchema,
   PostBillingPatientPaymentInputSchema,
+  PresignBillingInvoicePaymentAttachmentInputSchema,
   PreviewBillingNioInvoiceInputSchema,
   RecordBillingManualPaymentInputSchema,
+  RecordBillingNioInvoicePaymentInputSchema,
   RefundBillingPatientPaymentInputSchema,
   RenameClaimAttachmentInputSchema,
   RenameEraAttachmentInputSchema,
@@ -98,6 +101,7 @@ import {
   BillingClaimsExportKickOffResponse,
   BillingClaimsExportStatusResponse,
   BillingCodeOption,
+  BillingInvoiceDetail,
   BillingProviderOption,
   CheckBillingNioInvoiceResponse,
   ClaimDetailResponse,
@@ -133,8 +137,10 @@ import {
   ListBillingPatientPaymentMethodsResponse,
   OkResponse,
   PatientDetailResponse,
+  PresignBillingInvoicePaymentAttachmentResponse,
   PreviewBillingNioInvoiceResponse,
   RecordBillingManualPaymentResponse,
+  RecordBillingNioInvoicePaymentResponse,
   SavedResourceResponse,
   SaveManualEraResponse,
   SearchBillingClaimsResponse,
@@ -267,6 +273,23 @@ export const searchBillingInvoices = (
   oystehr: Oystehr,
   parameters: z.input<typeof SearchBillingInvoicesInputSchema>
 ): Promise<SearchBillingInvoicesResponse> => executeBillingZambda(oystehr, 'search-billing-invoices', parameters);
+
+export const getBillingInvoice = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingInvoiceInputSchema>
+): Promise<BillingInvoiceDetail> => executeBillingZambda(oystehr, 'get-billing-invoice', parameters);
+
+export const recordBillingNioInvoicePayment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof RecordBillingNioInvoicePaymentInputSchema>
+): Promise<RecordBillingNioInvoicePaymentResponse> =>
+  executeBillingZambda(oystehr, 'record-billing-nio-invoice-payment', parameters);
+
+export const presignBillingInvoicePaymentAttachment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof PresignBillingInvoicePaymentAttachmentInputSchema>
+): Promise<PresignBillingInvoicePaymentAttachmentResponse> =>
+  executeBillingZambda(oystehr, 'presign-billing-invoice-payment-attachment', parameters);
 
 export const getBillingInvoiceStatement = (
   oystehr: Oystehr,

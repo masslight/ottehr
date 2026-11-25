@@ -1,9 +1,8 @@
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Button,
   FormControl,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   InputAdornment,
   InputLabel,
@@ -298,7 +297,7 @@ export const RadiologyOrderFormActions: React.FC<{
         </Stack>
       </Grid>
       <Grid item xs={6} display="flex" justifyContent="flex-end">
-        <LoadingButton
+        <Button
           data-testid={dataTestIds.radiologyPage.submitOrderButton}
           loading={submitting}
           type="submit"
@@ -306,7 +305,7 @@ export const RadiologyOrderFormActions: React.FC<{
           sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
         >
           {submitLabel}
-        </LoadingButton>
+        </Button>
       </Grid>
       {errors &&
         errors.length > 0 &&

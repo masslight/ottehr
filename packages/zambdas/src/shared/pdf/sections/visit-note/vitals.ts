@@ -1,4 +1,5 @@
 import { mapVitalsToDisplay } from 'utils/lib/helpers/visit-note/map-vitals-to-display.helper';
+import { withoutBMIUnder24Months } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { drawBlockHeader } from '../../helpers/render/blockHeader';
@@ -19,6 +20,7 @@ export const VITAL_LABELS: { [value in VitalFieldNames]: string } & { notes: str
   [VitalFieldNames.VitalOxygenSaturation]: 'Oxygen saturation',
   [VitalFieldNames.VitalWeight]: 'Weight',
   [VitalFieldNames.VitalHeight]: 'Height',
+  [VitalFieldNames.VitalHeadCircumference]: 'Head circumference',
   [VitalFieldNames.VitalBMI]: 'BMI',
   [VitalFieldNames.VitalVision]: 'Vision',
   [VitalFieldNames.VitalLastMenstrualPeriod]: 'Last Menstrual Period',
@@ -30,10 +32,19 @@ export const composeVitals: DataComposer<ProgressNoteVisitDataInput, Vitals> = (
   appointmentPackage,
 }) => {
   const { additionalChartData } = allChartData;
-  const { timezone } = appointmentPackage;
+  const { timezone, patient, appointment } = appointmentPackage;
 
   const vitalsData = additionalChartData?.vitalsObservations
-    ? mapVitalsToDisplay(additionalChartData.vitalsObservations, true, timezone)
+    ? mapVitalsToDisplay(
+        withoutBMIUnder24Months(
+          additionalChartData.vitalsObservations,
+          patient?.birthDate,
+          timezone,
+          appointment?.start
+        ),
+        true,
+        timezone
+      )
     : undefined;
 
   const vitalsNotes = additionalChartData?.notes

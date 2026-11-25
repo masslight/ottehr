@@ -8,8 +8,6 @@ import {
   GridToolbarDensitySelector,
   GridToolbarExport,
   GridToolbarFilterButton,
-  GridValueFormatterParams,
-  GridValueGetterParams,
 } from '@mui/x-data-grid-pro';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';
@@ -34,7 +32,7 @@ export function rawCellText(value: unknown): string {
   return String(value);
 }
 
-const formatNumber = ({ value }: GridValueFormatterParams<number | null | undefined>): string => exactNumberText(value);
+const formatNumber = (value: number | null | undefined): string => exactNumberText(value);
 
 export function RawDataGrid({ rows, schema, loading, fileName }: RawDataGridProps): React.ReactElement {
   const { columns, gridRows, extraFields } = useMemo(() => {
@@ -63,7 +61,7 @@ export function RawDataGrid({ rows, schema, loading, fileName }: RawDataGridProp
         type: numeric ? 'number' : 'string',
         ...(numeric
           ? { valueFormatter: formatNumber }
-          : { valueGetter: (params: GridValueGetterParams) => rawCellText(params.row[field]) }),
+          : { valueGetter: (_value: unknown, row: Record<string, unknown>) => rawCellText(row[field]) }),
       };
     };
 
@@ -104,14 +102,13 @@ export function RawDataGrid({ rows, schema, loading, fileName }: RawDataGridProp
     <Paper variant="outlined" sx={{ mb: 3, width: '100%' }}>
       <DataGridPro
         aria-label={`${schema.label} raw data`}
-        density="compact"
         loading={loading}
         getRowId={(r) => r[ROW_ID_KEY] as number}
         columns={columns}
         rows={gridRows}
         columnVisibilityModel={columnVisibilityModel}
         onColumnVisibilityModelChange={setColumnVisibilityModel}
-        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+        initialState={{ density: 'compact', pagination: { paginationModel: { pageSize: 25 } } }}
         pagination
         pageSizeOptions={[25, 50, 100]}
         slots={{ toolbar: Toolbar }}

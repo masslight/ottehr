@@ -3,8 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
-  ChipProps,
   FormControl,
   InputAdornment,
   InputLabel,
@@ -32,39 +30,32 @@ import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { DateRangeInput } from '../components/DateInput';
 import { FacilitySelect } from '../components/FacilitySelect';
 import { InvoiceStatementDialog } from '../components/InvoiceStatementDialog';
+import { getInvoiceStatusChip, INVOICE_STATUS_CHIPS, InvoiceStatusChip } from '../components/InvoiceStatusChip';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 import { downloadTextFile } from '../utils/downloadFile';
 import { formatDate } from '../utils/format';
-
-const STATUS_CHIPS: Record<BillingInvoiceListStatus, { label: string; color: ChipProps['color'] }> = {
-  issued: { label: 'Open', color: 'info' },
-  balanced: { label: 'Paid', color: 'success' },
-  cancelled: { label: 'Void', color: 'default' },
-};
-
-export function InvoiceStatusChip({ status }: { status: BillingInvoiceListStatus }): ReactElement {
-  return (
-    <Chip
-      label={STATUS_CHIPS[status].label}
-      color={STATUS_CHIPS[status].color}
-      variant="outlined"
-      size="small"
-      sx={{ borderRadius: '4px', fontSize: 12 }}
-    />
-  );
-}
 
 // Disable local sorting because only one page is loaded.
 const columns = (
   [
     {
       field: 'patientName',
-      headerName: 'Patient',
+      headerName: 'Billed to',
       flex: 1,
       minWidth: 180,
+      display: 'flex',
       renderCell: ({ row }) =>
-        row.patientId ? (
+        row.recipient ? (
+          <Link
+            component={RouterLink}
+            to={`/non-insurance-organizations/${row.recipient.id}`}
+            underline="hover"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {row.recipient.name || '-'}
+          </Link>
+        ) : row.patientId ? (
           <Link
             component={RouterLink}
             to={`/patients/${row.patientId}`}
@@ -81,7 +72,7 @@ const columns = (
       field: 'serviceDate',
       headerName: 'Date of Service',
       width: 130,
-      valueFormatter: (params: { value?: string }) => formatDate(params.value ?? ''),
+      valueFormatter: (value?: string) => formatDate(value ?? ''),
     },
     {
       field: 'amount',
@@ -89,32 +80,43 @@ const columns = (
       width: 120,
       align: 'right',
       headerAlign: 'right',
-      valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+      valueFormatter: (value: number) => formatCurrency(value),
     },
     {
       field: 'issueDate',
       headerName: 'Issued',
       width: 120,
-      valueFormatter: (params: { value: string }) => formatDate(params.value),
+      valueFormatter: (value: string) => formatDate(value),
     },
     {
       field: 'dueDate',
       headerName: 'Due',
       width: 120,
-      valueFormatter: (params: { value: string }) => formatDate(params.value),
+      valueFormatter: (value: string) => formatDate(value),
     },
     {
       field: 'status',
       headerName: 'Status',
       width: 110,
-      renderCell: ({ row }) => <InvoiceStatusChip status={row.status} />,
+      display: 'flex',
+      renderCell: ({ row }) => <InvoiceStatusChip status={row.status} pastDue={row.pastDue} />,
     },
     {
       field: 'hostedInvoiceUrl',
       headerName: 'Invoice',
       width: 100,
+      display: 'flex',
       renderCell: ({ row }) =>
-        row.hostedInvoiceUrl ? (
+        row.kind === 'nio' ? (
+          <Link
+            component={RouterLink}
+            to={`/invoices/${row.id}`}
+            underline="hover"
+            onClick={(event) => event.stopPropagation()}
+          >
+            View
+          </Link>
+        ) : row.hostedInvoiceUrl ? (
           <Link
             href={row.hostedInvoiceUrl}
             target="_blank"
@@ -175,18 +177,20 @@ export default function InvoicesList(): ReactElement {
         headerName: '',
         width: 120,
         sortable: false,
-        renderCell: ({ row }) => (
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={(event) => {
-              event.stopPropagation();
-              setStatementInvoice(row);
-            }}
-          >
-            Statement
-          </Button>
-        ),
+        display: 'flex',
+        renderCell: ({ row }) =>
+          row.kind !== 'nio' && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={(event) => {
+                event.stopPropagation();
+                setStatementInvoice(row);
+              }}
+            >
+              Statement
+            </Button>
+          ),
       },
     ],
     []
@@ -258,15 +262,25 @@ export default function InvoicesList(): ReactElement {
       downloadTextFile(
         'invoices.csv',
         toCsv(
-          ['Patient', 'Patient ID', 'Date of Service', 'Amount', 'Issued', 'Due', 'Status', 'Invoice URL', 'Claim ID'],
+          [
+            'Billed to',
+            'Patient ID',
+            'Date of Service',
+            'Amount',
+            'Issued',
+            'Due',
+            'Status',
+            'Invoice URL',
+            'Claim ID',
+          ],
           rows.map((row) => [
-            row.patientName ?? '',
+            row.recipient?.name ?? row.patientName ?? '',
             row.patientId ?? '',
             formatDate(row.serviceDate ?? ''),
             row.amount.toFixed(2),
             formatDate(row.issueDate),
             formatDate(row.dueDate),
-            STATUS_CHIPS[row.status].label,
+            getInvoiceStatusChip(row.status, row.pastDue).label,
             row.hostedInvoiceUrl ?? '',
             row.claimId ?? '',
           ])
@@ -314,7 +328,7 @@ export default function InvoicesList(): ReactElement {
             <MenuItem value="">All</MenuItem>
             {BILLING_INVOICE_LIST_STATUSES.map((status) => (
               <MenuItem key={status} value={status}>
-                {STATUS_CHIPS[status].label}
+                {INVOICE_STATUS_CHIPS[status].label}
               </MenuItem>
             ))}
           </Select>
@@ -354,7 +368,10 @@ export default function InvoicesList(): ReactElement {
           setPaginationModel(model);
           void fetchInvoices(filters, model);
         }}
-        onRowClick={({ row }) => row.claimId && navigate(`/claims/${row.claimId}`)}
+        onRowClick={({ row }) => {
+          if (row.kind === 'nio') navigate(`/invoices/${row.id}`);
+          else if (row.claimId) navigate(`/claims/${row.claimId}`);
+        }}
         disableRowSelectionOnClick
         disableColumnMenu
         pageSizeOptions={[25, 50, 100]}

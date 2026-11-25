@@ -1,10 +1,10 @@
 import { BarChart as BarChartIcon, Refresh as RefreshIcon, TableView as TableViewIcon } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
 import {
+  Button,
   Chip,
   CircularProgress,
   FormControl,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   InputLabel,
   MenuItem,
@@ -152,6 +152,7 @@ export default function TaskAdmin(): React.ReactElement {
       headerName: 'Status',
       width: 120,
       sortable: true,
+      display: 'flex',
       renderCell: (params: GridRenderCellParams) => (
         <Chip
           label={params.value}
@@ -181,6 +182,7 @@ export default function TaskAdmin(): React.ReactElement {
       headerName: 'System',
       width: 200,
       sortable: true,
+      display: 'flex',
       renderCell: (params: GridRenderCellParams) => (
         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{params.value}</div>
       ),
@@ -196,6 +198,7 @@ export default function TaskAdmin(): React.ReactElement {
       headerName: 'Authored On',
       width: 160,
       sortable: true,
+      display: 'flex',
       renderCell: (params: GridRenderCellParams) => params.value || 'N/A',
     },
     {
@@ -203,6 +206,7 @@ export default function TaskAdmin(): React.ReactElement {
       headerName: 'Status Reason',
       width: 150,
       sortable: true,
+      display: 'flex',
       renderCell: (params: GridRenderCellParams) => params.value || 'N/A',
     },
     {
@@ -210,6 +214,7 @@ export default function TaskAdmin(): React.ReactElement {
       headerName: 'Focus',
       width: 200,
       sortable: true,
+      display: 'flex',
       renderCell: (params: GridRenderCellParams) => (
         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {params.value || 'N/A'}
@@ -221,6 +226,7 @@ export default function TaskAdmin(): React.ReactElement {
       headerName: 'Actions',
       width: 100,
       sortable: false,
+      display: 'flex',
       renderCell: (params: GridRenderCellParams) => {
         const row = params.row as TaskDetailRow;
         if (row.canRetry) {
@@ -504,7 +510,7 @@ export default function TaskAdmin(): React.ReactElement {
                   </LocalizationProvider>
                 </Grid>
                 <Grid item md={1.5} xs={12}>
-                  <LoadingButton
+                  <Button
                     sx={{
                       borderRadius: 100,
                       textTransform: 'none',
@@ -517,7 +523,7 @@ export default function TaskAdmin(): React.ReactElement {
                     onClick={handleCustomTimeRange}
                   >
                     Apply Range
-                  </LoadingButton>
+                  </Button>
                 </Grid>
               </>
             )}

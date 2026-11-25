@@ -67,7 +67,7 @@ const currencyCol = (field: string, headerName: string, width = 130): GridColDef
   width,
   align: 'right',
   headerAlign: 'right',
-  valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+  valueFormatter: (value: number) => formatCurrency(value),
 });
 
 const payerColumns: GridColDef[] = [
@@ -80,15 +80,13 @@ const payerColumns: GridColDef[] = [
   currencyCol('insurancePaid', 'Insurance Paid', 140),
   {
     ...currencyCol('avgAllowedPerClaim', 'Avg Allowed / Claim', 160),
-    valueGetter: (params) => {
-      const row = params.row as PaymentsReportPayerRow;
+    valueGetter: (_value, row: PaymentsReportPayerRow) => {
       return row.claimCount > 0 ? row.allowed / row.claimCount : 0;
     },
   },
   {
     ...currencyCol('avgPaidPerClaim', 'Avg Paid / Claim', 150),
-    valueGetter: (params) => {
-      const row = params.row as PaymentsReportPayerRow;
+    valueGetter: (_value, row: PaymentsReportPayerRow) => {
       return row.claimCount > 0 ? row.insurancePaid / row.claimCount : 0;
     },
   },
@@ -457,7 +455,7 @@ const patientPaymentColumns: GridColDef[] = [
     field: 'paymentMethod',
     headerName: 'Payment Method',
     width: 160,
-    valueFormatter: (params: { value: string }) => methodLabel(params.value),
+    valueFormatter: (value: string) => methodLabel(value),
   },
   { field: 'paymentCount', headerName: 'Payments', width: 100, align: 'right', headerAlign: 'right' },
   currencyCol('collected', 'Collected'),

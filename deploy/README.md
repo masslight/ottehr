@@ -276,7 +276,6 @@ If you are migrating an environment to IaC, you will need to follow a couple ste
    - packages/zambdas/src/scripts/recreate-global-templates.ts
    - packages/zambdas/src/scripts/delete-in-house-medications-list.ts
    - packages/zambdas/src/scripts/retire-in-house-lab-activity-definitions.ts
-   - packages/zambdas/src/scripts/recreate-vaccines-list.ts
    - packages/zambdas/src/scripts/delete-subscriptions.ts
 
 ### AWS or GCP Resources

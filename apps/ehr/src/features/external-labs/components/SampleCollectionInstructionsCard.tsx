@@ -1,4 +1,4 @@
-import { Box, Grid, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Box, GridLegacy as Grid, Paper, Stack, TextField, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { useEffect, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';

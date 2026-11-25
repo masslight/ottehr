@@ -10,7 +10,11 @@ const { mockGetPresignedURL } = vi.hoisted(() => ({
   mockGetPresignedURL: vi.fn(async () => 'https://signed.test/statement.pdf'),
 }));
 
-vi.mock('utils/lib/helpers/presigned-file-url/helpers', () => ({ getPresignedURL: mockGetPresignedURL }));
+vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('utils/lib/helpers/presigned-file-url/helpers')>()),
+  getPresignedURL: mockGetPresignedURL,
+}));
+
 vi.mock('../../../src/shared/statements/get-statement-template', () => ({
   getHTMLStatementTemplate: () => ({ template: '<p>{{patient.firstName}}</p>' }),
 }));
@@ -44,7 +48,7 @@ const makeBillingClient = (
 
 describe('billing invoice statement', () => {
   it("previews the standard statement for the invoice's visit and links its current PDF", async () => {
-    const url = 'https://project-api.test/v1/z3/proj-statements/pat-1/statement.pdf';
+    const url = 'https://project-api.zapehr.com/v1/z3/proj-statements/pat-1/statement.pdf';
     const { oystehr, execute } = makeBillingClient({
       'get-statement-details': { patient: { firstName: 'Sam' }, service: [] },
       'get-statement-status': { generated: { generated: true, lastGenerated: '2026-10-29T16:00:00.000Z', url } },
@@ -52,7 +56,7 @@ describe('billing invoice statement', () => {
 
     const response = await getStatement(oystehr, 'token', {
       invoiceId: 'inv-1',
-      secrets: { PROJECT_API: 'https://project-api.test/v1', PROJECT_ID: 'proj' },
+      secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'proj' },
     });
 
     expect(response).toEqual({
@@ -78,7 +82,7 @@ describe('billing invoice statement', () => {
 
     const response = await getStatement(oystehr, 'token', {
       invoiceId: 'inv-1',
-      secrets: { PROJECT_API: 'https://project-api.test/v1', PROJECT_ID: 'proj' },
+      secrets: { PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'proj' },
     });
 
     expect(response).toEqual({ html: '<p>Sam</p>', generatedAt: undefined, pdfUrl: undefined });

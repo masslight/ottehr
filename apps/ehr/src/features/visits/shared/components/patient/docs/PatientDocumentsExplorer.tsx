@@ -2,7 +2,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import ScannerIcon from '@mui/icons-material/Scanner';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { Box, debounce, Grid, IconButton, Stack, TextField, Typography, useTheme } from '@mui/material';
+import { Box, debounce, GridLegacy as Grid, IconButton, Stack, TextField, Typography, useTheme } from '@mui/material';
 import { GridRowSelectionModel } from '@mui/x-data-grid-pro';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';

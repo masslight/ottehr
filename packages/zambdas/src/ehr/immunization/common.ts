@@ -8,20 +8,24 @@ import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import {
   CVX_CODE_SYSTEM_URL,
+  INVENTORY_VACCINE_TYPE_CODE,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
+  MEDICATION_IDENTIFIER_NAME_SYSTEM,
+  MEDICATION_TYPE_SYSTEM,
   MVX_CODE_SYSTEM_URL,
   PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
   VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils/lib/types/api/medication-administration.constants';
+import { findCvxVaccine } from 'utils/lib/types/data/immunization/cvx-vaccine-lookup';
 import {
   InputImmunizationOrderAdministrationDetails,
   InputImmunizationOrderDetails,
 } from 'utils/lib/types/data/immunization/types';
+import { CvxVaccine } from 'utils/lib/types/data/immunization/vaccine-codes';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { createMedicationCopy } from '../create-update-medication-order/helpers';
 
 export const CONTAINED_MEDICATION_ID = 'medication';
 export const CONTAINED_EMERGENCY_CONTACT_ID = 'emergencyContact';
@@ -50,25 +54,14 @@ export async function updateOrderDetails(
   )?.valueString;
 
   if (medication.id !== currentMedicationId) {
-    const medicationResource = await oystehr.fhir.get<Medication>({
-      resourceType: 'Medication',
-      id: medication.id,
-    });
-    const medicationLocalCopy = createMedicationCopy(medicationResource, {});
-    if (medicationLocalCopy.extension == null) {
-      medicationLocalCopy.extension = [];
+    const vaccine = findCvxVaccine(medication.id);
+    if (!vaccine) {
+      throw INVALID_INPUT_ERROR(
+        `"${medication.name || medication.id}" is not in the vaccine list, pick another vaccine`
+      );
     }
-    medicationLocalCopy.extension.push({
-      url: IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL,
-      valueString: medication.id,
-    });
     medicationAdministration.medicationReference = { reference: '#' + CONTAINED_MEDICATION_ID };
-    medicationAdministration.contained = [
-      {
-        ...medicationLocalCopy,
-        id: CONTAINED_MEDICATION_ID,
-      },
-    ];
+    medicationAdministration.contained = [makeVaccineMedication(vaccine)];
   }
 
   const containedMed = getContainedMedication(medicationAdministration);
@@ -160,6 +153,19 @@ export async function updateOrderDetails(
       },
     },
   ];
+}
+
+export function makeVaccineMedication(vaccine: CvxVaccine): Medication {
+  return {
+    resourceType: 'Medication',
+    id: CONTAINED_MEDICATION_ID,
+    identifier: [
+      { system: MEDICATION_TYPE_SYSTEM, value: INVENTORY_VACCINE_TYPE_CODE },
+      { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: vaccine.name },
+    ],
+    code: { coding: [{ system: CVX_CODE_SYSTEM_URL, code: vaccine.cvx, display: vaccine.fullName }] },
+    extension: [{ url: IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL, valueString: vaccine.cvx }],
+  };
 }
 
 export function updateVaccineMedicationDetails(

@@ -1,4 +1,4 @@
-import { Autocomplete, Box, Grid, TextField, Typography, useTheme } from '@mui/material';
+import { Autocomplete, Box, GridLegacy as Grid, TextField, Typography, useTheme } from '@mui/material';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';

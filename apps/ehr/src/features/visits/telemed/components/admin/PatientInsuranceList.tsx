@@ -4,7 +4,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
   Button,
-  Grid,
+  GridLegacy as Grid,
   Paper,
   Skeleton,
   Table,

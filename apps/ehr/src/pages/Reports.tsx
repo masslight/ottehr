@@ -23,7 +23,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   InputAdornment,
   Link,

@@ -7,12 +7,11 @@ import { chartableFollowUpDays, PlannableVitalField } from 'utils/lib/easy-chart
 import { chartKeyForNoteField, NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { fahrenheitToCelsius } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
-import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { lbsToKg } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { getRosFindingFieldKeys } from 'utils/lib/ottehr-config/review-of-systems';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { ExamObservationDTO, VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { examCommentTarget, normalizeExamComment } from './examComment';
 import { describeQuery, resolvePick } from './resolve';
 import {
@@ -133,7 +132,7 @@ async function writeExamComment(
 export function toStoredVitalValue(value: number, unit: string | undefined): number {
   switch (unit) {
     case 'lb':
-      return roundNumberToDecimalPlaces(value / LBS_IN_KG, 2);
+      return lbsToKg(value);
     case 'in':
       return HeightMeasurement.fromInches(value).getCm();
     case 'F':

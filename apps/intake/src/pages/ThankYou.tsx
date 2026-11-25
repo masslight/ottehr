@@ -1,7 +1,7 @@
 import { EditCalendarOutlined, EventBusyOutlined } from '@mui/icons-material';
 import CreateOutlinedIcon from '@mui/icons-material/CreateOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
-import { Box, Button, CircularProgress, Divider, Grid, Typography, useMediaQuery } from '@mui/material';
+import { Box, Button, CircularProgress, Divider, GridLegacy as Grid, Typography, useMediaQuery } from '@mui/material';
 import { ContactPoint } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';

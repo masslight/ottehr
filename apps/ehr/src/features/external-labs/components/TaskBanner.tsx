@@ -1,7 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import { LoadingButton } from '@mui/lab';
-import { Box, IconButton, Paper, Stack, Typography, useTheme } from '@mui/material';
+import { Box, Button, IconButton, Paper, Stack, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { useState } from 'react';
 
@@ -51,7 +50,7 @@ export const TaskBanner: React.FC<TaskBannerProps> = ({
             } at ${localDate?.toFormat('hh:mm a') || 'Unknown date'}`}</Typography>
           </Stack>
           <Stack direction="row" sx={{ alignItems: 'center' }}>
-            <LoadingButton
+            <Button
               loading={isLoading}
               variant="outlined"
               sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
@@ -61,7 +60,7 @@ export const TaskBanner: React.FC<TaskBannerProps> = ({
               }}
             >
               Assign Myself
-            </LoadingButton>
+            </Button>
             <IconButton color="info">
               <MoreVertIcon fontSize="medium" />
             </IconButton>

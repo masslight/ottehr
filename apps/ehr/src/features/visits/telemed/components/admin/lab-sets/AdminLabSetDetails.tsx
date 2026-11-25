@@ -1,5 +1,14 @@
-import { LoadingButton } from '@mui/lab';
-import { Box, CircularProgress, FormHelperText, FormLabel, Grid, Paper, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  Button,
+  CircularProgress,
+  FormHelperText,
+  FormLabel,
+  GridLegacy as Grid,
+  Paper,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
@@ -159,14 +168,9 @@ function ToggleStatusSection(props: ToggleStatusSectionProps): ReactElement {
           >
             {formBodyText}
           </Typography>
-          <LoadingButton
-            type="submit"
-            variant="contained"
-            loading={isSubmitting}
-            color={isActive ? 'error' : 'primary'}
-          >
+          <Button type="submit" variant="contained" loading={isSubmitting} color={isActive ? 'error' : 'primary'}>
             {formVerb}
-          </LoadingButton>
+          </Button>
           {submitError && (
             <FormHelperText sx={{ color: theme.palette.error.main }}>{submitError.message}</FormHelperText>
           )}
