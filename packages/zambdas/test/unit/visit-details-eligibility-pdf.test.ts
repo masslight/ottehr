@@ -688,6 +688,68 @@ describe('Visit Details PDF "Eligibility Check Details" section', () => {
     expect(table(info)).toEqual(FULL_SECTION);
   });
 
+  const AETNA_STORE = (): Store => ({
+    responses: [makeResponse('aetna', '2026-11-20T14:30:00.000Z', 'Coverage/cov-aetna')],
+    coverages: [AETNA_COVERAGE],
+  });
+  const dashed = (cells: [string, string][]): [string, string, string][] =>
+    FULL_SECTION.map(([group, label, value]) =>
+      cells.some(([g, l]) => g === group && l === label) ? [group, label, '-'] : [group, label, value]
+    );
+
+  it.each([
+    ['date of birth', ['policy-holder-date-of-birth'], [['Subscriber/Insured', 'DOB']]],
+    [
+      'name',
+      ['policy-holder-first-name', 'policy-holder-middle-name', 'policy-holder-last-name'],
+      [['Subscriber/Insured', 'First name, last name']],
+    ],
+    ['street address', ['policy-holder-address'], [['Subscriber/Insured', 'Address']]],
+    ['city, state and ZIP code', ['policy-holder-city', 'policy-holder-zip'], [['Subscriber/Insured', 'Address']]],
+    ['relationship to the patient', ['patient-relationship-to-insured'], [['Patient', 'Relationship to insured']]],
+  ] as [string, string[], [string, string][]][])(
+    'shows "-" for the subscriber %s that the Insurance section hides',
+    async (_, hiddenFields, cells) => {
+      const info = await withInsuranceConfig({ hiddenFields }, () =>
+        pdfEligibility(AETNA_STORE(), { primary: AETNA_COVERAGE })
+      );
+      expect(table(info)).toEqual(dashed(cells));
+    }
+  );
+
+  it.each([
+    ['only the first name', ['policy-holder-first-name']],
+    ['only the ZIP code', ['policy-holder-zip']],
+  ])('keeps the subscriber details the Insurance section still shows with %s hidden', async (_, hiddenFields) => {
+    const info = await withInsuranceConfig({ hiddenFields }, () =>
+      pdfEligibility(AETNA_STORE(), { primary: AETNA_COVERAGE })
+    );
+    expect(table(info)).toEqual(FULL_SECTION);
+  });
+
+  it('applies the secondary "-2" keys only when the secondary insurance is the printed one', async () => {
+    const secondaryHidden = { hiddenFields: ['policy-holder-date-of-birth-2'] };
+    expect(
+      table(
+        await withInsuranceConfig(secondaryHidden, () => pdfEligibility(AETNA_STORE(), { secondary: AETNA_COVERAGE }))
+      )
+    ).toEqual(dashed([['Subscriber/Insured', 'DOB']]));
+    expect(
+      table(
+        await withInsuranceConfig(secondaryHidden, () =>
+          pdfEligibility(AETNA_STORE(), { primary: AETNA_COVERAGE, secondary: CIGNA_COVERAGE })
+        )
+      )
+    ).toEqual(FULL_SECTION);
+    expect(
+      table(
+        await withInsuranceConfig({ hiddenFields: ['policy-holder-date-of-birth'] }, () =>
+          pdfEligibility(AETNA_STORE(), { secondary: AETNA_COVERAGE })
+        )
+      )
+    ).toEqual(FULL_SECTION);
+  });
+
   it('shows "-" in every field, without searching, when the Insurance section is hidden', async () => {
     const calls: string[] = [];
     const info = await withInsuranceConfig({ sectionHidden: true }, () =>
@@ -876,9 +938,66 @@ describe('Visit Details PDF "Eligibility Check Details" rendering', () => {
     expect(hidden.slice(hidden.indexOf('Eligibility Check Details')).filter((text) => text === '-')).toHaveLength(19);
   });
 
+  it('prints "-" instead of the subscriber DOB when the Insurance section hides the policy holder DOB', async () => {
+    const store = {
+      responses: [makeResponse('aetna', '2026-11-20T14:30:00.000Z', 'Coverage/cov-aetna')],
+      coverages: [AETNA_COVERAGE],
+    };
+    const coverages = { primary: AETNA_COVERAGE };
+    const renderVisitDetails = async (): Promise<string[]> =>
+      (
+        await render(await pdfEligibility(store, coverages), {
+          insurances: composeInsuranceData({ coverages, insuranceOrgs: INSURANCE_ORGS }),
+          sections: [createPrimaryInsuranceSection(), createEligibilitySection()],
+        })
+      ).map((item) => item.text);
+    const subscriberDob = (texts: string[]): string => {
+      const section = texts.slice(texts.indexOf('Eligibility Check Details'));
+      return section[section.indexOf('DOB', section.indexOf('Subscriber/Insured')) + 1];
+    };
+
+    const visible = await renderVisitDetails();
+    expect(subscriberDob(visible)).toBe('01/10/1999');
+
+    const hidden = await withInsuranceConfig({ hiddenFields: ['policy-holder-date-of-birth'] }, renderVisitDetails);
+    expect(subscriberDob(hidden)).toBe('-');
+    expect(hidden).not.toContain('01/10/1999');
+    expect(hidden).not.toContain("Policy holder's date of birth");
+    expect(hidden).toContain('Black, Jerome');
+    expect(hidden).toContain('01/12/2020');
+  });
+
   it('skips the section together with a hidden Insurance section', async () => {
     const section = await withInsuranceConfig({ sectionHidden: true }, async () => createEligibilitySection());
     expect(section.skip).toBe(true);
     expect(createEligibilitySection().skip).toBe(false);
   });
+
+  it.each([
+    [[], true, true],
+    [['policy-holder-first-name', 'policy-holder-last-name'], true, true],
+    [['policy-holder-first-name', 'policy-holder-middle-name', 'policy-holder-last-name'], false, true],
+    [['policy-holder-zip'], true, true],
+    [['policy-holder-city', 'policy-holder-zip'], true, false],
+  ])(
+    'keeps drawing the Insurance section name and City, State, ZIP rows as before with %j hidden',
+    async (hiddenFields, nameRow, cityStateZipRow) => {
+      const coverages = { primary: AETNA_COVERAGE };
+      const drawn = await withInsuranceConfig({ hiddenFields }, async () =>
+        (
+          await render(
+            { groups: allDashGroups() },
+            {
+              insurances: composeInsuranceData({ coverages, insuranceOrgs: INSURANCE_ORGS }),
+              sections: [createPrimaryInsuranceSection()],
+            }
+          )
+        )
+          .map((item) => item.text)
+          .join(' ')
+      );
+      expect(drawn.includes("Policy holder's name")).toBe(nameRow);
+      expect(drawn.includes('City, State, ZIP')).toBe(cityStateZipRow);
+    }
+  );
 });

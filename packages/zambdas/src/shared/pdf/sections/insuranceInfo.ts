@@ -146,10 +146,17 @@ export const isInsuranceSectionRendered = (insurance: Insurance): boolean => !!i
 
 const INSURANCE_FIELD_KEY_SUFFIX = { primary: '', secondary: '-2' } as const;
 
-export const getDisplayedInsurancePayerAndMemberId = (
-  coverages: OrderedCoveragesWithSubscribers,
+type InsuranceFieldVisibility = (baseFieldKey: string) => boolean;
+
+export const isPolicyHolderNameShown = (shows: InsuranceFieldVisibility): boolean =>
+  shows('policy-holder-first-name') || shows('policy-holder-middle-name') || shows('policy-holder-last-name');
+
+export const isPolicyHolderCityStateZipShown = (shows: InsuranceFieldVisibility): boolean =>
+  (shows('policy-holder-city') && shows('policy-holder-state')) || shows('policy-holder-zip');
+
+const getDisplayedInsurance = (
   insurances: InsuranceInfo
-): PayerAndMemberId | undefined => {
+): { priority: 'primary' | 'secondary'; shows: InsuranceFieldVisibility } | undefined => {
   const config = createSectionConfig('insurance');
   if (config.isHidden) return undefined;
   const priority = (['primary', 'secondary'] as const).find((candidate) =>
@@ -157,10 +164,20 @@ export const getDisplayedInsurancePayerAndMemberId = (
   );
   if (!priority) return undefined;
   const shouldShow = fieldFilter(config);
-  const suffix = INSURANCE_FIELD_KEY_SUFFIX[priority];
-  if (!shouldShow(`insurance-carrier${suffix}`) || !shouldShow(`insurance-member-id${suffix}`)) return undefined;
-  const payerId = coverages[priority]?.class?.[0]?.value;
-  const memberId = insurances[priority].memberId;
+  return { priority, shows: (baseFieldKey) => shouldShow(`${baseFieldKey}${INSURANCE_FIELD_KEY_SUFFIX[priority]}`) };
+};
+
+export const getDisplayedInsuranceFieldVisibility = (insurances: InsuranceInfo): InsuranceFieldVisibility =>
+  getDisplayedInsurance(insurances)?.shows ?? (() => false);
+
+export const getDisplayedInsurancePayerAndMemberId = (
+  coverages: OrderedCoveragesWithSubscribers,
+  insurances: InsuranceInfo
+): PayerAndMemberId | undefined => {
+  const displayed = getDisplayedInsurance(insurances);
+  if (!displayed || !displayed.shows('insurance-carrier') || !displayed.shows('insurance-member-id')) return undefined;
+  const payerId = coverages[displayed.priority]?.class?.[0]?.value;
+  const memberId = insurances[displayed.priority].memberId;
   return payerId && memberId ? { payerId, memberId } : undefined;
 };
 
@@ -212,11 +229,7 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
           dividerMargin: 8,
         });
       }
-      if (
-        shouldShow(k('policy-holder-first-name')) ||
-        shouldShow(k('policy-holder-middle-name')) ||
-        shouldShow(k('policy-holder-last-name'))
-      ) {
+      if (isPolicyHolderNameShown((base) => shouldShow(k(base)))) {
         client.drawLabelValueRow(
           `Policy holder's name`,
           data.policyHoldersName,
@@ -276,10 +289,7 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
           }
         );
       }
-      if (
-        (shouldShow(k('policy-holder-city')) && shouldShow(k('policy-holder-state'))) ||
-        shouldShow(k('policy-holder-zip'))
-      ) {
+      if (isPolicyHolderCityStateZipShown((base) => shouldShow(k(base)))) {
         client.drawLabelValueRow(
           'City, State, ZIP',
           `${data.city}, ${data.state}, ${data.zip}`,

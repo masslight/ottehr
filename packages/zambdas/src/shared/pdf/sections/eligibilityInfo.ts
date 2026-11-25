@@ -8,7 +8,12 @@ import { DISPLAY_DATE_AND_TIME_FORMAT } from 'utils/lib/utils/dateUtils';
 import { coverageCheckMatches } from '../../patient-coverage-checks';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { EligibilityDataInput, EligibilityInfo, EligibilityRowGroup, PdfSection } from '../types';
-import { getDisplayedInsurancePayerAndMemberId } from './insuranceInfo';
+import {
+  getDisplayedInsuranceFieldVisibility,
+  getDisplayedInsurancePayerAndMemberId,
+  isPolicyHolderCityStateZipShown,
+  isPolicyHolderNameShown,
+} from './insuranceInfo';
 
 const NO_VALUE = '-';
 
@@ -31,7 +36,11 @@ const formatCheckedAt = (iso: string, timezone: string): string | undefined => {
   return checkedAt.isValid ? checkedAt.setZone(timezone).toFormat(DISPLAY_DATE_AND_TIME_FORMAT) : undefined;
 };
 
-const eligibilityGroups = (check: CoverageCheckWithDetails | undefined, timezone: string): EligibilityRowGroup[] => {
+const eligibilityGroups = (
+  check: CoverageCheckWithDetails | undefined,
+  timezone: string,
+  shows: (baseFieldKey: string) => boolean
+): EligibilityRowGroup[] => {
   const details = check?.coverageDetails;
   const { subscriber, patient, insurance, payer } = details ?? {};
   return [
@@ -44,10 +53,18 @@ const eligibilityGroups = (check: CoverageCheckWithDetails | undefined, timezone
     {
       title: 'Subscriber/Insured',
       rows: [
-        row('First name, last name', formatName(subscriber?.firstName, subscriber?.middleName, subscriber?.lastName)),
+        row(
+          'First name, last name',
+          isPolicyHolderNameShown(shows)
+            ? formatName(subscriber?.firstName, subscriber?.middleName, subscriber?.lastName)
+            : undefined
+        ),
         row('Member ID', subscriber?.memberID),
-        row('DOB', subscriber?.dateOfBirth),
-        row('Address', subscriber?.address),
+        row('DOB', shows('policy-holder-date-of-birth') ? subscriber?.dateOfBirth : undefined),
+        row(
+          'Address',
+          shows('policy-holder-address') && isPolicyHolderCityStateZipShown(shows) ? subscriber?.address : undefined
+        ),
       ],
     },
     {
@@ -55,7 +72,7 @@ const eligibilityGroups = (check: CoverageCheckWithDetails | undefined, timezone
       rows: [
         row('First name, last name', formatName(patient?.firstName, patient?.middleName, patient?.lastName)),
         row('DOB', patient?.dateOfBirth),
-        row('Relationship to insured', check?.relationship),
+        row('Relationship to insured', shows('patient-relationship-to-insured') ? check?.relationship : undefined),
       ],
     },
     {
@@ -88,11 +105,12 @@ export const composeEligibilityData: DataComposer<EligibilityDataInput, Eligibil
   timezone,
 }) => {
   const displayed = getDisplayedInsurancePayerAndMemberId(coverages, insurances);
+  const shows = getDisplayedInsuranceFieldVisibility(insurances);
   if (displayed && !coverageChecks) {
-    return { groups: eligibilityGroups(undefined, timezone), unavailable: true };
+    return { groups: eligibilityGroups(undefined, timezone, shows), unavailable: true };
   }
   const check = displayed ? coverageChecks?.find((candidate) => coverageCheckMatches(candidate, displayed)) : undefined;
-  return { groups: eligibilityGroups(check, timezone) };
+  return { groups: eligibilityGroups(check, timezone, shows) };
 };
 
 export const createEligibilitySection = <TData extends { eligibility?: EligibilityInfo }>(): PdfSection<
