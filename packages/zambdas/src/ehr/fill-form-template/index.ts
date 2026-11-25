@@ -25,6 +25,7 @@ import { assembleProgressNoteInput } from '../../shared/pdf/assemble-progress-no
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeZ3ObjectUrl, z3ObjectNameDatePrefix } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 import { createPresignedUrl } from '../../shared/z3Utils';
@@ -209,7 +210,7 @@ const performEffect = async (
 
   // Superseded only once the replacement exists, so a failure here leaves the previous draft as the
   // current one rather than leaving the encounter with none.
-  const [, presignedUrl] = await Promise.all([
+  const [supersedeResult, presignedUrlResult] = await Promise.allSettled([
     supersedePreviousInstances(oystehr, {
       patientId,
       encounterId: visitResources.encounter?.id,
@@ -218,6 +219,8 @@ const performEffect = async (
     }),
     getPresignedURL(z3Url, token),
   ]);
+  settledValueOrThrow(supersedeResult);
+  const presignedUrl = settledValueOrThrow(presignedUrlResult);
 
   return {
     documentReferenceId: instance.id!,

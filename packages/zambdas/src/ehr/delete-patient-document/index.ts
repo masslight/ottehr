@@ -9,6 +9,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { sendWarning } from '../../shared/errors';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import { deleteZ3Object, Z3Error } from '../../shared/z3Utils';
@@ -48,7 +49,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log(`Found ${z3Urls.length} files to delete`);
 
-  const [, listResources] = await Promise.all([
+  const [deleteResult, listResourcesResult] = await Promise.allSettled([
     Promise.all(
       z3Urls.map(async (url) => {
         try {
@@ -78,6 +79,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       })
       .then((bundle) => bundle.unbundle() as List[]),
   ]);
+  settledValueOrThrow(deleteResult);
+  const listResources = settledValueOrThrow(listResourcesResult);
 
   const targetLists = listResources.filter(
     (list) => list.entry?.some((entry) => entry.item?.reference === `DocumentReference/${documentRefId}`)

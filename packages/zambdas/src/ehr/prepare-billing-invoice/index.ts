@@ -13,6 +13,7 @@ import { markInvoicedFromBillingApp, sendInvoiceTaskDedupeQuery } from '../../sh
 import { getInvoiceVisitResources, resolveInvoiceStripeCustomerId } from '../../shared/invoice-visit';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { getStripeClient } from '../../shared/stripeIntegration';
 import { resolveTemplatePlaceholders } from '../../shared/template-placeholders';
 import { ZambdaInput } from '../../shared/types/common';
@@ -51,7 +52,7 @@ async function performEffect(
 ): Promise<PrepareBillingInvoiceResponse> {
   // Only a ready task without a Stripe invoice id is safe to take over. A failed one may have sent
   // its invoice before the id was saved.
-  const [ehrInvoiceTasks, { patient, account, appointment, location, schedule, stripeAccountId }] = await Promise.all([
+  const [ehrInvoiceTasksResult, visitResourcesResult] = await Promise.allSettled([
     oystehr.fhir
       .search<Task>({
         resourceType: 'Task',
@@ -60,15 +61,18 @@ async function performEffect(
       .then((bundle) => bundle.unbundle()),
     getInvoiceVisitResources(oystehr, encounterId),
   ]);
+  const ehrInvoiceTasks = settledValueOrThrow(ehrInvoiceTasksResult);
   if (ehrInvoiceTasks.some((task) => task.status !== 'ready' || getInvoiceTaskOutputs(task).invoiceId)) {
     throw BILLING_INVOICE_CONFLICT_ERROR('This visit is invoiced from the EHR.');
   }
+  const { patient, account, appointment, location, schedule, stripeAccountId } =
+    settledValueOrThrow(visitResourcesResult);
 
   const timezone = resolveTimezone(schedule, location);
   const visitDate = formatDateToMDYWithTime(appointment.start, timezone)?.date;
   if (!visitDate) throw new Error('visit date is missing required field');
 
-  const [stripeCustomerId, placeholders] = await Promise.all([
+  const [stripeCustomerIdResult, placeholdersResult] = await Promise.allSettled([
     resolveInvoiceStripeCustomerId({
       oystehr,
       stripe: getStripeClient(secrets),
@@ -87,6 +91,8 @@ async function performEffect(
       },
     }),
   ]);
+  const stripeCustomerId = settledValueOrThrow(stripeCustomerIdResult);
+  const placeholders = settledValueOrThrow(placeholdersResult);
 
   // Cancelled only while still untouched, so a send the EHR started during the awaits above wins and
   // nothing is written here. The EHR hides cancelled tasks, so none can be sent before the marker lands.

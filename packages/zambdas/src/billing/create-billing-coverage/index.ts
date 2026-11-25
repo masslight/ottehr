@@ -6,6 +6,7 @@ import { CreateBillingCoverageInputSchema } from 'utils/lib/types/data/billing/b
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { resolvePayerOrganization } from '../custom-insurance-org.helpers';
@@ -50,11 +51,14 @@ async function complexValidation(params: CreateBillingCoverageParams, oystehr: O
 }
 
 async function performEffect(oystehr: Oystehr, params: CreateBillingCoverageParams): Promise<{ id: string }> {
-  const [, payerOrg, accounts] = await Promise.all([
+  const [validationResult, payerOrgResult, accountsResult] = await Promise.allSettled([
     complexValidation(params, oystehr),
     resolvePayerOrganization(oystehr, params.payerId),
     getPatientAccounts(oystehr, params.patientId),
   ]);
+  settledValueOrThrow(validationResult);
+  const payerOrg = settledValueOrThrow(payerOrgResult);
+  const accounts = settledValueOrThrow(accountsResult);
 
   // Coverage, its standalone policy-holder subscriber, and the account link are written in one
   // transaction so they all succeed or fail together.

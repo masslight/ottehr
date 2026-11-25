@@ -32,6 +32,7 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { makeZ3FileUrl } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import { createPresignedUrl, deleteZ3Object } from '../../shared/z3Utils';
@@ -87,7 +88,7 @@ const performEffect = async (
   const primaryIcdSlug = (icdCodes[0]?.code ?? 'unknown').replace(/[^A-Za-z0-9.]/g, '-');
   const fileName = `approved-patient-education-${primaryIcdSlug}-${randomUUID()}.pdf`;
   const z3Url = makeZ3FileUrl({ secrets, bucketName: BUCKET_NAMES.PATIENT_EDUCATION_ADMIN, fileName });
-  const [, searchResult] = await Promise.all([
+  const [uploadResult, listSearchResult] = await Promise.allSettled([
     (async () => {
       const presignedUploadUrl = await createPresignedUrl(token, z3Url, 'upload');
       await uploadObjectToZ3(pdfBytes, presignedUploadUrl);
@@ -105,7 +106,8 @@ const performEffect = async (
       ],
     }),
   ]);
-  const resources = searchResult.unbundle();
+  settledValueOrThrow(uploadResult);
+  const resources = settledValueOrThrow(listSearchResult).unbundle();
   const existingList = resources.find((r): r is List => r.resourceType === 'List');
   const existingDocRefs = resources.filter(
     (r): r is DocumentReference =>

@@ -148,7 +148,7 @@ export const useInsuranceMutation = (
     }) => {
       const name = data.name?.trim();
       const note = data.note?.trim();
-      await Promise.all([
+      const results = await Promise.allSettled([
         (async () => {
           if (data.showInPaperwork) {
             if (!data.existingName && name) {
@@ -202,6 +202,8 @@ export const useInsuranceMutation = (
           }
         })(),
       ]);
+      const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+      if (failure) throw failure.reason;
     },
   });
 };

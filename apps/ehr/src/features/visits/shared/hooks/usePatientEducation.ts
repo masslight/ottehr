@@ -80,6 +80,8 @@ export interface UsePatientEducationResult {
   defaultLanguage: PatientEducationLanguage;
 }
 
+const PDF_LOAD_BATCH_SIZE = 3;
+
 export function usePatientEducation(): UsePatientEducationResult {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -244,9 +246,13 @@ export function usePatientEducation(): UsePatientEducationResult {
           pdfLoaders.push(() => generateCombinedPdf([generatedSection], language));
         }
 
-        const loadedPdfs = await Promise.all(pdfLoaders.map((load) => load()));
-        for (const pdfBytes of loadedPdfs) {
-          await appendPdfPages(pdfBytes);
+        for (let start = 0; start < pdfLoaders.length; start += PDF_LOAD_BATCH_SIZE) {
+          const loadedPdfs = await Promise.all(
+            pdfLoaders.slice(start, start + PDF_LOAD_BATCH_SIZE).map((load) => load())
+          );
+          for (const pdfBytes of loadedPdfs) {
+            await appendPdfPages(pdfBytes);
+          }
         }
 
         mergedPdfBytes = await finalDoc.save();

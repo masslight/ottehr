@@ -157,10 +157,11 @@ export async function createUserResourcesForPatient(
     }
   };
 
-  const [{ person: foundPerson, newUser }, relatedPerson] = await Promise.all([
-    resolvePerson(),
-    resolveRelatedPerson(),
-  ]);
+  const [personResult, relatedPersonResult] = await Promise.allSettled([resolvePerson(), resolveRelatedPerson()]);
+  if (personResult.status === 'rejected') throw personResult.reason;
+  if (relatedPersonResult.status === 'rejected') throw relatedPersonResult.reason;
+  const { person: foundPerson, newUser } = personResult.value;
+  const relatedPerson = relatedPersonResult.value;
 
   if (!foundPerson) {
     throw new Error('Failed to resolve Person');

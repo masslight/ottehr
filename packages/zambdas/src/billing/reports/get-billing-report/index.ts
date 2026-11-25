@@ -5,6 +5,7 @@ import { GetBillingReportHistoryResponse, ReportRefreshStatus } from 'utils/lib/
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeValidate } from '../../../shared/validation';
 import { createBillingClient } from '../../shared';
@@ -81,10 +82,12 @@ export async function performEffect(
     };
   }
 
-  const [active, meta] = await Promise.all([
+  const [activeResult, metaResult] = await Promise.allSettled([
     refresh ? kickOffRefreshTask(oystehr, { kind, params, cacheKey }) : findActiveRefreshTask(oystehr, cacheKey),
     loadReportCacheMeta(oystehr, cacheKey),
   ]);
+  const active = settledValueOrThrow(activeResult);
+  const meta = settledValueOrThrow(metaResult);
 
   // never computed: serve the empty shape; a build runs only on an explicit refresh
   if (!meta) {

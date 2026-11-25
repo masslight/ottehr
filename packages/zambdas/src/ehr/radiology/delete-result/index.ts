@@ -9,6 +9,7 @@ import { DeleteRadiologyResultZambdaOutput } from 'utils/lib/types/api/radiology
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { deleteZ3Object } from '../../../shared/z3Utils';
 import { findExistingFolderList } from '../../shared/patient-document-folders';
@@ -47,7 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
   }
 
   const fileUrl = docRef.content?.[0]?.attachment?.url;
-  const [, radiologyReportsFolder] = await Promise.all([
+  const [, radiologyReportsFolderResult] = await Promise.allSettled([
     // Best-effort delete of the backing Z3 file before removing the DocumentReference.
     (async () => {
       if (!fileUrl) return;
@@ -64,6 +65,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
       oystehr,
     }),
   ]);
+  const radiologyReportsFolder = settledValueOrThrow(radiologyReportsFolderResult);
 
   const docRefReference = `DocumentReference/${docRef.id}`;
   if (radiologyReportsFolder?.id) {

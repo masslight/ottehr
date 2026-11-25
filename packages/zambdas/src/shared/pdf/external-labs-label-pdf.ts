@@ -14,6 +14,7 @@ import {
 } from 'utils/lib/types/data/labs/labs.constants';
 import { ExternalLabsLabelConfig } from 'utils/lib/types/data/labs/labs.types';
 import { makeZ3Url } from '../presigned-file-urls/helpers';
+import { settledValueOrThrow } from '../settled';
 import { createPresignedUrl } from './../z3Utils';
 import { getLabListResource } from './lab-pdf-utils';
 import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';
@@ -227,10 +228,12 @@ export async function createExternalLabsLabelPDF(
   token: string,
   oystehr: Oystehr
 ): Promise<{ docRef: DocumentReference; presignedURL: string }> {
-  const [pdfInfo, labListResource] = await Promise.all([
+  const [pdfInfoResult, labListResourceResult] = await Promise.allSettled([
     createExternalLabsLabelPDFHelper(labelConfig, patientUuid, secrets, token),
     getLabListResource(oystehr, patientUuid, secrets, getExternalLabsLabelFileName(labelConfig)),
   ]);
+  const pdfInfo = settledValueOrThrow(pdfInfoResult);
+  const labListResource = settledValueOrThrow(labListResourceResult);
 
   console.log(`This is the made pdfInfo`, JSON.stringify(pdfInfo));
 

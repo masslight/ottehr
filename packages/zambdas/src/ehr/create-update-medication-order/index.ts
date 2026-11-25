@@ -56,6 +56,7 @@ import { makeOrderDeleteRequests, makePendingRecheckCancelRequests } from '../..
 import { makeNursingOrderTransactionRequests } from '../../shared/nursing-orders';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import {
   createMedicationAdministrationResource,
@@ -120,11 +121,11 @@ async function performEffect(
     await updateOrder(oystehr, orderResources, newStatus, orderData, params.interactions, practitionerIdCalledZambda);
 
     const encounterIdFromMA = orderData.encounterId ?? getEncounterIdFromMA(orderResources.medicationAdministration);
-    await Promise.all([
+    const [syncResult, followUpResult] = await Promise.allSettled([
       syncInventoryForOrder(oystehr, orderId, practitionerIdCalledZambda, orderResources.medicationAdministration),
       (async () => {
         if (encounterIdFromMA && newStatus) {
-          await Promise.all([
+          const [cptCodesResult, vitalsRecheckResult] = await Promise.allSettled([
             manageAdditionalCptCodesForOrder(
               oystehr,
               encounterIdFromMA,
@@ -142,9 +143,13 @@ async function performEffect(
               practitionerIdCalledZambda
             ),
           ]);
+          settledValueOrThrow(cptCodesResult);
+          settledValueOrThrow(vitalsRecheckResult);
         } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
       })(),
     ]);
+    settledValueOrThrow(syncResult);
+    settledValueOrThrow(followUpResult);
 
     return {
       message: 'Order was updated successfully',
@@ -161,7 +166,7 @@ async function performEffect(
     );
 
     const encounterIdFromMA = getEncounterIdFromMA(orderResources.medicationAdministration);
-    await Promise.all([
+    const [syncResult, cptCodesResult] = await Promise.allSettled([
       syncInventoryForOrder(oystehr, orderId, practitionerIdCalledZambda, orderResources.medicationAdministration),
       (async () => {
         if (encounterIdFromMA) {
@@ -174,6 +179,8 @@ async function performEffect(
         } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
       })(),
     ]);
+    settledValueOrThrow(syncResult);
+    settledValueOrThrow(cptCodesResult);
 
     return {
       message: 'Order status was changed successfully',

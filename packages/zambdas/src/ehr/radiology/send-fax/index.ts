@@ -14,6 +14,7 @@ import { checkOrCreateM2MClientToken, getUser } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { sendLetterFax } from '../../../shared/send-letter-fax';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { getOrCreateRadiologyOrderForm } from '../shared/order-form-resources';
 import { validateInput, validateSecrets } from './validation';
@@ -46,7 +47,7 @@ const performEffect = async (
   const { serviceRequestId, faxNumber } = body;
   const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
 
-  const [{ mediaUrl: media, patientId }, userPractitioner] = await Promise.all([
+  const [orderFormResult, userPractitionerResult] = await Promise.allSettled([
     // Fax the form on file so the recipient gets the document that was printed and reviewed here.
     getOrCreateRadiologyOrderForm(serviceRequestId, secrets, token, oystehr),
     oystehr.fhir.get<Practitioner>({
@@ -54,6 +55,8 @@ const performEffect = async (
       id: user.profile.split('/')[1],
     }),
   ]);
+  const { mediaUrl: media, patientId } = settledValueOrThrow(orderFormResult);
+  const userPractitioner = settledValueOrThrow(userPractitionerResult);
 
   console.log('Sending radiology order fax to', faxNumber);
   const fax = await sendLetterFax({

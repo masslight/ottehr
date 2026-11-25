@@ -40,6 +40,7 @@ import {
   TemplateSectionAction,
   TemplateWarning,
 } from 'utils/lib/types/data/apply-template.types';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { makeDiagnosisDTO } from '../../shared/chart-data';
 import { findOrderCatalogMedication } from '../../shared/medication-inventory';
 import { getMyPractitionerId } from '../../shared/practitioners';
@@ -54,6 +55,8 @@ import { diagnosesFromReasonCode } from './helpers';
 // Local const so that DEPRECATED system doesn't get imported from utils
 const ICD_10_CODE_SYSTEM = 'http://hl7.org/fhir/sid/icd-10';
 const IN_HOUSE_MEDICATION_PLAN_TAG_SYSTEM = chartDataTagSystem('in-house-medication-administration-template');
+
+const MEDICATION_LOOKUP_CONCURRENCY = 5;
 
 export const isInHouseMedicationTemplatePlan = (resource: FhirResource): resource is MedicationAdministration => {
   if (resource.resourceType !== 'MedicationAdministration') return false;
@@ -126,14 +129,12 @@ export async function applyInHouseMedicationPlans(
     // product said to use the person applying the template for the ordering provider
     const [currentUserProviderId, medicationResources] = await Promise.all([
       getMyPractitionerId(userToken, secrets),
-      Promise.all(
-        templateMedAdministrations.map((templateMA) => {
-          const medicationForMa = medicationsByIdMap.get(
-            templateMA.medicationReference?.reference?.replace('#', '') ?? ''
-          );
-          return medicationForMa ? withoutSourceVisitLot(oystehr, medicationForMa) : undefined;
-        })
-      ),
+      mapWithConcurrency(templateMedAdministrations, MEDICATION_LOOKUP_CONCURRENCY, async (templateMA) => {
+        const medicationForMa = medicationsByIdMap.get(
+          templateMA.medicationReference?.reference?.replace('#', '') ?? ''
+        );
+        return medicationForMa ? withoutSourceVisitLot(oystehr, medicationForMa) : undefined;
+      }),
     ]);
 
     for (const [templateMaIndex, templateMA] of templateMedAdministrations.entries()) {
