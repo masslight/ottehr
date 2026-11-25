@@ -218,6 +218,8 @@ export default function SendStatementToPatientDialog({
         size="l"
         open={modalOpen}
         onClose={handleClose}
+        // This dialog never closed on Esc or a backdrop click, which would discard what was entered.
+        disableOutsideClose
         title="Send Statement"
         dismiss={{ label: 'Close' }}
         actions={[

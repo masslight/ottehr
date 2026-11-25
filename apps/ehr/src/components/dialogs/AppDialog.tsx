@@ -30,6 +30,9 @@ import { dataTestIds } from 'src/constants/data-test-ids';
  */
 export type AppDialogSize = 'xs' | 's' | 'm' | 'l' | 'full';
 
+/** What the user did to close the dialog. Most callers ignore it and just close. */
+export type AppDialogCloseReason = 'closeButton' | 'dismissButton' | 'escapeKeyDown' | 'backdropClick';
+
 export interface AppDialogPrimary {
   /** A verb, in Title Case: "Save", "Delete Note". Never "OK" or "Yes". */
   label: string;
@@ -67,12 +70,17 @@ export interface AppDialogAction {
 interface AppDialogCommonProps {
   open: boolean;
   /** Called by ✕, Esc, a backdrop click and the dismiss button. Decide here whether to really close. */
-  onClose: () => void;
+  onClose: (reason: AppDialogCloseReason) => void;
   /** Title Case. */
   title: string;
   children?: ReactNode;
   /** Blocks ✕, Esc, backdrop and dismiss. Implied while `primary` or any action is loading. */
   busy?: boolean;
+  /**
+   * Esc and a backdrop click do nothing; only ✕ and the buttons close. For dialogs where a stray
+   * click would throw away what the user has typed.
+   */
+  disableOutsideClose?: boolean;
   /** Only to sit above a non-modal floating panel the dialog is opened from. */
   zIndex?: number;
   'data-testid'?: string;
@@ -178,8 +186,9 @@ export function AppDialog(props: AppDialogProps): ReactElement {
     });
 
   const busy = Boolean(props.busy || pending || primary?.loading || actions.some((action) => action.loading));
-  const handleClose = (): void => {
-    if (!busy) onClose();
+  const close = (reason: AppDialogCloseReason) => (): void => {
+    const outside = reason === 'escapeKeyDown' || reason === 'backdropClick';
+    if (!busy && !(outside && props.disableOutsideClose)) onClose(reason);
   };
 
   // An alert with nothing to decide gets a single filled Close; a form with no buttons gets no footer.
@@ -190,7 +199,7 @@ export function AppDialog(props: AppDialogProps): ReactElement {
   return (
     <Dialog
       open={open}
-      onClose={handleClose}
+      onClose={(_event, reason) => close(reason)()}
       fullWidth
       maxWidth={size === 'full' ? false : MAX_WIDTH[size]}
       fullScreen={size === 'full' || (isNarrow && size === 'l')}
@@ -250,7 +259,7 @@ export function AppDialog(props: AppDialogProps): ReactElement {
         </Box>
         <IconButton
           aria-label="Close"
-          onClick={handleClose}
+          onClick={close('closeButton')}
           disabled={busy}
           sx={{ width: 32, height: 32, mr: -1, flex: 'none', color: 'text.secondary' }}
           data-testid={dataTestIds.dialog.closeButton}
@@ -275,7 +284,7 @@ export function AppDialog(props: AppDialogProps): ReactElement {
           {!informationOnly && (
             <LoadingButton
               variant="outlined"
-              onClick={dismiss?.onClick ?? handleClose}
+              onClick={dismiss?.onClick ?? close('dismissButton')}
               disabled={busy}
               sx={buttonSx}
               data-testid={dismiss?.['data-testid'] ?? dataTestIds.dialog.cancelButton}
@@ -307,7 +316,7 @@ export function AppDialog(props: AppDialogProps): ReactElement {
           {informationOnly ? (
             <LoadingButton
               variant="contained"
-              onClick={dismiss?.onClick ?? handleClose}
+              onClick={dismiss?.onClick ?? close('dismissButton')}
               sx={buttonSx}
               data-testid={dismiss?.['data-testid'] ?? dataTestIds.dialog.cancelButton}
             >

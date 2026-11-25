@@ -51,6 +51,35 @@ describe('AppDialog', () => {
     expect(onClose).toHaveBeenCalledTimes(3);
   });
 
+  it('reports how it was closed, and can ignore Esc', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const { rerender } = render(
+      <AppDialog variant="form" size="s" open onClose={onClose} title="Send Invoice" primary={{ label: 'Send' }} />
+    );
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onClose.mock.calls.map(([reason]) => reason)).toEqual(['escapeKeyDown', 'closeButton', 'dismissButton']);
+
+    onClose.mockClear();
+    rerender(
+      <AppDialog
+        variant="form"
+        size="s"
+        open
+        onClose={onClose}
+        disableOutsideClose
+        title="Send Invoice"
+        primary={{ label: 'Send' }}
+      />
+    );
+    await user.keyboard('{Escape}');
+    expect(onClose).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClose).toHaveBeenCalledWith('closeButton');
+  });
+
   it('cannot be closed while the primary action is running', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

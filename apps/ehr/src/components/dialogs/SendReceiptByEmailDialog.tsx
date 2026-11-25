@@ -56,6 +56,8 @@ export default function SendReceiptByEmailDialog({
       size="s"
       open={modalOpen}
       onClose={handleClose}
+      // This dialog never closed on Esc or a backdrop click, which would discard what was entered.
+      disableOutsideClose
       title={title}
       onSubmit={(e) => {
         // The shell's form is `noValidate`; keep the browser's own check of the required fields.

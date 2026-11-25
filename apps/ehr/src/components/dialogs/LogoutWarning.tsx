@@ -46,13 +46,13 @@ export default function LogoutWarning({
     onContinue();
   };
 
-  // Esc and a backdrop click have always ended the session here, so `onClose` (which the shell's ✕
-  // shares with them) still does; only "Continue Session" keeps it.
+  // Esc and a backdrop click have always ended the session here, and still do. The ✕ is new with the
+  // standard shell; it keeps the session, since a close button should never log anyone out.
   return (
     <AppDialog
       variant="alert"
       open={modalOpen}
-      onClose={onEnd}
+      onClose={(reason) => (reason === 'closeButton' ? handleContinue() : onEnd())}
       title="Your Session Is About to Expire"
       primary={{ label: 'End Session', onClick: onEnd }}
       dismiss={{ label: 'Continue Session', onClick: handleContinue }}

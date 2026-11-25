@@ -332,6 +332,8 @@ export const InteractionAlertsDialog: React.FC<Props> = ({
       size="l"
       open
       onClose={onCancel}
+      // This dialog never closed on Esc or a backdrop click, which would discard what was entered.
+      disableOutsideClose
       title="Interaction Alerts"
       dismiss={{ label: readonly ? 'Close' : 'Cancel' }}
       primary={
