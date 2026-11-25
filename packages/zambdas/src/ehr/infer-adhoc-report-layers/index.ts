@@ -1,4 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { findLink, LINK_BASE_LAYER } from 'utils/lib/types/adhoc/datasets/links';
 import {
   CatalogDataset,
   InferAdHocLayersOutput,
@@ -225,27 +226,41 @@ export const parseDatasets = (value: unknown, catalog: CatalogDataset[]): InferA
   }));
 };
 
+// A layer-less dataset folds into the host's `<dataset>.base`, or is dropped when the host is linked to it without
+// one (its base is already on the host). The host may be a dataset the model did not pick.
 export const foldIntoForeignLayers = (
   picked: InferAdHocLayersOutput['datasets'],
   catalog: CatalogDataset[]
 ): InferAdHocLayersOutput['datasets'] => {
   if (picked.length < 2) return picked;
 
-  for (const host of picked) {
-    const offered = new Set(catalog.find((d) => d.id === host.id)?.layers.map((l) => l.id) ?? []);
-    const others = picked.filter((d) => d.id !== host.id);
+  const pickedIds = new Set(picked.map((d) => d.id));
+  const hosts = [...picked.map((d) => d.id), ...catalog.map((d) => d.id).filter((id) => !pickedIds.has(id))];
 
-    const folds = others.every(
-      (other) => other.layerIds.length > 0 && other.layerIds.every((layerId) => offered.has(`${other.id}.${layerId}`))
-    );
+  for (const hostId of hosts) {
+    const offered = new Set(catalog.find((d) => d.id === hostId)?.layers.map((l) => l.id) ?? []);
+    const added: string[] = [];
+    let folds = true;
+
+    for (const other of picked.filter((d) => d.id !== hostId)) {
+      if (other.layerIds.length > 0) {
+        if (!other.layerIds.every((layerId) => offered.has(`${other.id}.${layerId}`))) {
+          folds = false;
+          break;
+        }
+        added.push(...other.layerIds.map((layerId) => `${other.id}.${layerId}`));
+      } else if (offered.has(`${other.id}.${LINK_BASE_LAYER}`)) {
+        added.push(`${other.id}.${LINK_BASE_LAYER}`);
+      } else if (!findLink(hostId, other.id)) {
+        folds = false;
+        break;
+      }
+    }
 
     if (!folds) continue;
 
-    const layerIds = new Set(host.layerIds);
-
-    for (const other of others) for (const layerId of other.layerIds) layerIds.add(`${other.id}.${layerId}`);
-
-    return [{ id: host.id, layerIds: Array.from(layerIds) }];
+    const own = picked.find((d) => d.id === hostId)?.layerIds ?? [];
+    return [{ id: hostId, layerIds: Array.from(new Set([...own, ...added])) }];
   }
 
   return picked;

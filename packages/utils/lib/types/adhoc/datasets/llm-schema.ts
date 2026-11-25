@@ -124,7 +124,8 @@ export function llmFieldsFromZodObject(
 }
 
 /** The prompt-facing field list for a dataset: base fields (minus internal ids) plus the fields of
- *  each SELECTED opt-in layer, in declaration order. `domains` carries any sampled value sets. */
+ *  each SELECTED opt-in layer, in declaration order. `domains` carries any sampled value sets.
+ *  A name declared by several layers (`claimMatched`) is listed once: the raw-data grid builds its columns from it. */
 export function llmFieldsForLayers(
   base: z.ZodObject<z.ZodRawShape>,
   layers: Record<string, z.ZodObject<z.ZodRawShape>>,
@@ -132,12 +133,14 @@ export function llmFieldsForLayers(
   internalFields: readonly string[] = [],
   domains: Record<string, string[]> = {}
 ): LlmFieldSchema[] {
-  return [
+  const fields = [
     ...llmFieldsFromZodObject(base, internalFields, domains),
     ...Object.entries(layers)
       .filter(([id]) => selected[id])
       .flatMap(([, layer]) => llmFieldsFromZodObject(layer, internalFields, domains)),
   ];
+  const seen = new Set<string>();
+  return fields.filter((field) => !seen.has(field.name) && !!seen.add(field.name));
 }
 
 // Max distinct values a whitelisted field may disclose. Above this the field is too high-cardinality

@@ -5,7 +5,6 @@
 import { MedicationRequest } from 'fhir/r4b';
 import { z } from 'zod';
 import { mapDispositionTypeToLabel } from '../../../fhir/disposition';
-import { PaymentVariant } from '../../../fhir/encounter';
 import { LATERALITY_SELECTORS, LateralityValue } from '../../../fhir/radiology';
 import {
   VitalBloodPressureObservationMethod,
@@ -23,6 +22,13 @@ import { OBSERVATION_CODES } from '../../data/in-house/in-house.constants';
 import { TestStatus } from '../../data/in-house/in-house.types';
 import { ExternalLabsStatus } from '../../data/labs/labs.types';
 import { NursingOrdersStatus } from '../../data/orders/constants';
+import { BILLING_INTERNAL_FIELDS, BILLING_LAYERS, BILLING_NATIVE_DOMAIN_FIELDS, BillingBaseRowSchema } from './billing';
+import {
+  BILLING_CLAIMS_DOMAIN_FIELDS,
+  BILLING_CLAIMS_INTERNAL_FIELDS,
+  BILLING_CLAIMS_LAYERS,
+  BillingClaimsBaseRowSchema,
+} from './billing-claims';
 import {
   AdHocLayerMap,
   DatasetInput,
@@ -31,13 +37,14 @@ import {
   foreignLayers,
   LayerRowFields,
 } from './dataset';
+import { findLink, linkFieldList, linkLayers } from './links';
 import { PATIENT_LAYERS } from './patients';
+import { PAYMENT_VARIANT_VALUES } from './payment-variant';
 
 // Closed vocabularies are taken from the app's own constants, so a status the app adds or renames
 // changes the schema the report is generated against instead of failing validation at runtime.
 const enumValues = <T extends string>(values: T[]): [T, ...T[]] => values as [T, ...T[]];
 
-export const PAYMENT_VARIANT_VALUES = enumValues(Object.values(PaymentVariant));
 const EXTERNAL_LAB_STATUS_VALUES = Object.values(ExternalLabsStatus);
 
 // Record<TestStatus, true> requires every TestStatus as a key — a new status fails to compile here.
@@ -277,7 +284,7 @@ export const ENCOUNTER_INTERNAL_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
 // displays WITH strength (high-cardinality; medicationIngredients is the field to count by), all
 // numeric/date fields (a value list is meaningless). Closed vocabularies are z.enum and
 // need no entry. Typed as keys of the row so a field absent from the schema is a compile error.
-export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
+const ENCOUNTER_NATIVE_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   // base categoricals
   'appointmentType',
   'serviceCategory',
@@ -1499,8 +1506,41 @@ export const ENCOUNTER_FOREIGN_LAYERS: AdHocLayerMap = foreignLayers({
   native: ENCOUNTER_LAYERS,
 });
 
-/** Every layer the encounters dataset offers: its own, then the foreign ones. */
-export const ENCOUNTER_ALL_LAYERS: AdHocLayerMap = { ...ENCOUNTER_LAYERS, ...ENCOUNTER_FOREIGN_LAYERS };
+const BILLING_LINK = findLink('encounters-comprehensive', 'billing')!;
+const CLAIM_LINK = findLink('encounters-comprehensive', 'billing-claims')!;
+
+export const ENCOUNTER_BILLING_LINK_LAYERS: AdHocLayerMap = linkLayers({
+  link: BILLING_LINK,
+  sourceLabel: 'Visit payments',
+  sourceNoun: 'payments & charges record',
+  sourceBase: BillingBaseRowSchema,
+  sourceLayers: BILLING_LAYERS,
+  sourceInternalFields: BILLING_INTERNAL_FIELDS,
+  hostBase: EncounterBaseRowSchema,
+});
+
+export const ENCOUNTER_CLAIM_LINK_LAYERS: AdHocLayerMap = linkLayers({
+  link: CLAIM_LINK,
+  sourceLabel: 'Claim',
+  sourceNoun: 'claim',
+  sourceBase: BillingClaimsBaseRowSchema,
+  sourceLayers: BILLING_CLAIMS_LAYERS,
+  sourceInternalFields: BILLING_CLAIMS_INTERNAL_FIELDS,
+  hostBase: EncounterBaseRowSchema,
+});
+
+export const ENCOUNTER_ALL_LAYERS: AdHocLayerMap = {
+  ...ENCOUNTER_LAYERS,
+  ...ENCOUNTER_FOREIGN_LAYERS,
+  ...ENCOUNTER_BILLING_LINK_LAYERS,
+  ...ENCOUNTER_CLAIM_LINK_LAYERS,
+};
+
+export const ENCOUNTER_DOMAIN_FIELDS: readonly string[] = [
+  ...ENCOUNTER_NATIVE_DOMAIN_FIELDS,
+  ...linkFieldList(BILLING_LINK, ENCOUNTER_BILLING_LINK_LAYERS, BILLING_NATIVE_DOMAIN_FIELDS),
+  ...linkFieldList(CLAIM_LINK, ENCOUNTER_CLAIM_LINK_LAYERS, BILLING_CLAIMS_DOMAIN_FIELDS),
+];
 
 type EncounterNativeRow = z.infer<typeof EncounterBaseRowSchema> & LayerRowFields<typeof ENCOUNTER_LAYERS>;
 /** The foreign patient-layer columns an encounter row may carry (each optional, the base's own fields excluded). */

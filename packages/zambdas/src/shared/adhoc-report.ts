@@ -165,6 +165,10 @@ export function beginReportBudget(): void {
   reportDeadlineMs = Date.now() + REPORT_BUDGET_MS;
 }
 
+export function reportDeadline(): number | undefined {
+  return reportDeadlineMs || undefined;
+}
+
 function jobWait(): { pollIntervalMs: number; timeoutMs: number } {
   if (reportDeadlineMs === 0) return { pollIntervalMs: JOB_POLL_INTERVAL_MS, timeoutMs: DEFAULT_JOB_TIMEOUT_MS };
   const remaining = reportDeadlineMs - Date.now();

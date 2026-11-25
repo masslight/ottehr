@@ -202,6 +202,11 @@ RULES:
   (or latest/final) value, use the field whose description says so; if no such field exists, treat the
   request as unavailable per the rules above. NEVER relabel a field to match the wording of the
   request.
+- LINKED RECORDS. Columns of a record linked to the visit carry its prefix — the claim (claimBilled,
+  claimArStage, claimCptCodes) or the visit's payments & charges (billingExpectedCharge) — next to the
+  visit's own columns: cptCodes are the codes charted, claimCptCodes the codes billed. A row whose
+  claimMatched (billingMatched) is false has no such record: its columns are null, NOT zero. Leave those
+  rows out of that record's rates, sums and averages, and state how many visits had no record.
 - A COUNT OF POPULATED COLUMNS IS NOT A COUNT OF EVENTS. Do not answer "how many X were done" by
   counting how many fields on the row are non-null, or by counting rows when a row is not one X.
   Only use a field that explicitly counts the thing asked about; otherwise report it as unavailable.

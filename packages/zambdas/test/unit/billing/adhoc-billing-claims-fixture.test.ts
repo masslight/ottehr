@@ -789,6 +789,46 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     );
   });
 
+  it("builds the rows of the given encounters' claims, by identifier and whatever their service date", async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const previous = process.env.ADHOC_SYNC_PAGES;
+    process.env.ADHOC_SYNC_PAGES = '6';
+    try {
+      const { oystehr, search } = stubBillingClient();
+      const rows = await fetchAdHocClaimRows(
+        oystehr,
+        { dateRange: DATE_RANGE },
+        { encounterIds: ['enc-claim-1', 'enc-claim-3', 'enc-claim-3', 'enc-without-claim'] }
+      );
+
+      expect(rows.map((r) => r.claimId).sort()).toEqual(['claim-1', 'claim-3']);
+      expect(() => AdHocBillingClaimsOutputSchema.parse({ rows })).not.toThrow();
+
+      const scans = search.mock.calls.filter(
+        ([arg]) =>
+          (arg.params as Param[]).find((p) => p.name === '_elements')?.value === 'id,meta,created,item,billablePeriod'
+      );
+      expect(scans).toHaveLength(0);
+      const lookup = search.mock.calls.find(([arg]) => (arg.params as Param[]).some((p) => p.name === 'identifier'));
+      expect(lookup?.[0].resourceType).toBe('Claim');
+    } finally {
+      process.env.ADHOC_SYNC_PAGES = previous;
+    }
+  });
+
+  it('builds no rows and runs no search for an empty encounter list', async () => {
+    const { oystehr, search } = stubBillingClient();
+    await expect(fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE }, { encounterIds: [] })).resolves.toEqual([]);
+    expect(search.mock.calls.filter(([arg]) => arg.resourceType === 'Claim')).toHaveLength(0);
+  });
+
+  it('stops at the deadline the caller passes, with the budget error', async () => {
+    const { oystehr } = stubBillingClient();
+    await expect(fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE }, { deadline: Date.now() - 1 })).rejects.toThrow(
+      ADHOC_CLAIMS_OVER_BUDGET_MESSAGE
+    );
+  });
+
   it('returns no rows for a project with no claims, without asking for _summary=count', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const { oystehr, search } = stubBillingClient({ noClaims: true });

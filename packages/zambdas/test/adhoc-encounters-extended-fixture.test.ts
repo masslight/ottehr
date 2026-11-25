@@ -47,7 +47,8 @@ import { ORDER_TYPE_CODE_SYSTEM, SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL } 
 import { CODE_SYSTEM_SERVICE_CATEGORY_CODES } from 'utils/lib/helpers/rcm/constants';
 import { CONSENT_FORMS_CONFIG } from 'utils/lib/ottehr-config/consent-forms';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
-import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
+import { layerIncludeFlags } from 'utils/lib/types/adhoc/datasets/dataset';
+import { AdHocEncountersOutputSchema, ENCOUNTER_ALL_LAYERS } from 'utils/lib/types/adhoc/datasets/encounters';
 import {
   VitalBloodPressureObservationMethod,
   VitalFieldNames,
@@ -86,6 +87,7 @@ import {
 } from '../src/ehr/immunization/common';
 import { fetchEncounterOrders, inHouseResults } from '../src/shared/adhoc-datasets/encounter-orders';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
+import { applyDatasetLinks, LINK_SOURCES } from '../src/shared/adhoc-datasets/links';
 import { makeNoteResource } from '../src/shared/chart-data';
 import { makeExamObservationResource, makeObservationResource } from '../src/shared/chart-data';
 
@@ -1559,4 +1561,44 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
     }
     delete resourcesByJob['scaled-orders'];
   }, 120_000);
+
+  it('linked claim columns: the host builder ignores the link flags, and joined rows parse with the real schema', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const options = { 'billing-claims.base': true, 'billing-claims.codes': true };
+    const input = { dateRange, ...layerIncludeFlags(ENCOUNTER_ALL_LAYERS, options) };
+    const hostRows = await fetchAdHocEncounterRows(fakeOystehr, input as never);
+    const claims = {
+      ...LINK_SOURCES['billing-claims'],
+      fetch: vi.fn(async () => [
+        {
+          claimId: 'claim-1',
+          encounterId: 'enc-1',
+          claimType: 'professional',
+          billed: 180,
+          allowed: 0,
+          arStage: 'insurance-payer-ar',
+          cptCodes: ['99214'],
+          icdCodes: ['J02.9'],
+        },
+      ]),
+    };
+    const rows = await applyDatasetLinks({
+      hostId: 'encounters-comprehensive',
+      hostLayers: ENCOUNTER_ALL_LAYERS,
+      rows: hostRows,
+      options,
+      ctx: {
+        oystehr: fakeOystehr,
+        billingOystehr: fakeOystehr,
+        eraReadClient: () => fakeOystehr,
+        dateRange,
+      },
+      sources: { 'billing-claims': claims },
+    });
+
+    expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
+    const signed = rows.find((r) => r.encounterId === 'enc-1')!;
+    expect(signed).toMatchObject({ claimMatched: true, claimBilled: 180, claimCptCodes: ['99214'] });
+    expect(rows.filter((r) => r.encounterId !== 'enc-1').every((r) => r.claimMatched === false)).toBe(true);
+  });
 });

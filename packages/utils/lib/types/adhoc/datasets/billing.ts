@@ -1,5 +1,11 @@
 import { z } from 'zod';
 import {
+  BILLING_CLAIMS_DOMAIN_FIELDS,
+  BILLING_CLAIMS_INTERNAL_FIELDS,
+  BILLING_CLAIMS_LAYERS,
+  BillingClaimsBaseRowSchema,
+} from './billing-claims';
+import {
   AdHocLayerMap,
   DatasetInput,
   datasetInputSchema,
@@ -8,8 +14,9 @@ import {
   LayerRowFields,
 } from './dataset';
 import { ELIGIBILITY_STATUS_DESCRIPTION, ELIGIBILITY_STATUS_VALUES } from './eligibility';
-import { PAYMENT_VARIANT_VALUES } from './encounters';
+import { findLink, linkFieldList, linkLayers } from './links';
 import { PATIENT_LAYERS } from './patients';
+import { PAYMENT_VARIANT_VALUES } from './payment-variant';
 
 export const BillingBaseRowSchema = z.object({
   // --- Visit ---
@@ -55,7 +62,7 @@ export const BillingBaseRowSchema = z.object({
 
 export const BILLING_INTERNAL_FIELDS: readonly (keyof AdHocBillingRow)[] = ['encounterId'];
 
-export const BILLING_DOMAIN_FIELDS: readonly (keyof AdHocBillingRow)[] = [
+export const BILLING_NATIVE_DOMAIN_FIELDS: readonly (keyof AdHocBillingRow)[] = [
   // base categoricals
   'serviceCategory',
   'visitStatus',
@@ -276,8 +283,27 @@ export const BILLING_FOREIGN_LAYERS: AdHocLayerMap = foreignLayers({
   native: BILLING_LAYERS,
 });
 
-/** Every layer the billing dataset offers: its own, then the foreign ones. */
-export const BILLING_ALL_LAYERS: AdHocLayerMap = { ...BILLING_LAYERS, ...BILLING_FOREIGN_LAYERS };
+const CLAIM_LINK = findLink('billing', 'billing-claims')!;
+export const BILLING_CLAIM_LINK_LAYERS: AdHocLayerMap = linkLayers({
+  link: CLAIM_LINK,
+  sourceLabel: 'Claim',
+  sourceNoun: 'claim',
+  sourceBase: BillingClaimsBaseRowSchema,
+  sourceLayers: BILLING_CLAIMS_LAYERS,
+  sourceInternalFields: BILLING_CLAIMS_INTERNAL_FIELDS,
+  hostBase: BillingBaseRowSchema,
+});
+
+export const BILLING_ALL_LAYERS: AdHocLayerMap = {
+  ...BILLING_LAYERS,
+  ...BILLING_FOREIGN_LAYERS,
+  ...BILLING_CLAIM_LINK_LAYERS,
+};
+
+export const BILLING_DOMAIN_FIELDS: readonly string[] = [
+  ...BILLING_NATIVE_DOMAIN_FIELDS,
+  ...linkFieldList(CLAIM_LINK, BILLING_CLAIM_LINK_LAYERS, BILLING_CLAIMS_DOMAIN_FIELDS),
+];
 
 type BillingNativeRow = z.infer<typeof BillingBaseRowSchema> & LayerRowFields<typeof BILLING_LAYERS>;
 export type BillingForeignRowFields = Omit<LayerRowFields<typeof PATIENT_LAYERS>, keyof BillingNativeRow>;

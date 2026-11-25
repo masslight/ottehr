@@ -114,4 +114,70 @@ describe('foldIntoForeignLayers', () => {
     ];
     expect(foldIntoForeignLayers(baseOnly, catalog)).toEqual(baseOnly);
   });
+
+  const linked: CatalogDataset[] = [
+    { id: 'patients', label: 'Patients', fields: [], layers: [layer('allergies')] },
+    {
+      id: 'encounters-comprehensive',
+      label: 'Encounters',
+      fields: [],
+      layers: [
+        layer('ai'),
+        layer('patients.allergies'),
+        layer('billing.charges'),
+        layer('billing-claims.base'),
+        layer('billing-claims.remits'),
+      ],
+    },
+    { id: 'billing', label: 'Billing', fields: [], layers: [layer('charges'), layer('billing-claims.base')] },
+    { id: 'billing-claims', label: 'Claims', fields: [], layers: [layer('remits')] },
+  ];
+
+  it('folds a dataset picked for its base columns into the host <dataset>.base link layer', () => {
+    expect(
+      foldIntoForeignLayers(
+        [
+          { id: 'encounters-comprehensive', layerIds: ['ai'] },
+          { id: 'billing-claims', layerIds: [] },
+        ],
+        linked
+      )
+    ).toEqual([{ id: 'encounters-comprehensive', layerIds: ['ai', 'billing-claims.base'] }]);
+  });
+
+  it('drops a linked dataset whose base the host already has (Visit payments on Encounters)', () => {
+    expect(
+      foldIntoForeignLayers(
+        [
+          { id: 'encounters-comprehensive', layerIds: ['ai'] },
+          { id: 'billing', layerIds: [] },
+        ],
+        linked
+      )
+    ).toEqual([{ id: 'encounters-comprehensive', layerIds: ['ai'] }]);
+  });
+
+  it('folds into a host the model did not pick when none of the picked ones can carry the others', () => {
+    expect(
+      foldIntoForeignLayers(
+        [
+          { id: 'patients', layerIds: ['allergies'] },
+          { id: 'billing-claims', layerIds: ['remits'] },
+        ],
+        linked
+      )
+    ).toEqual([{ id: 'encounters-comprehensive', layerIds: ['patients.allergies', 'billing-claims.remits'] }]);
+  });
+
+  it('prefers a picked host over one the model did not pick', () => {
+    expect(
+      foldIntoForeignLayers(
+        [
+          { id: 'billing', layerIds: ['charges'] },
+          { id: 'billing-claims', layerIds: [] },
+        ],
+        linked
+      )
+    ).toEqual([{ id: 'billing', layerIds: ['charges', 'billing-claims.base'] }]);
+  });
 });

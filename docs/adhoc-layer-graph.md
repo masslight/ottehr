@@ -1,6 +1,6 @@
 # Ad-hoc reports: layers instead of datasets — dev design
 
-Repository: `local/core`. All paths are relative to it. Status: **prototype**, implemented 2026-11-11, tuned on synth 2026-11-20.
+Repository: `local/core`. All paths are relative to it. Status: **prototype**, implemented 2026-11-11, tuned on synth 2026-11-20; links between datasets (section 2.9) implemented 2026-11-25, not yet run on real data.
 Numbers marked "(SC)" come from the document "Ad hoc reports: speed and completeness" and are not re-measured. Other numbers are measured on `local` or synth with the tools in section 6.
 
 **Summary**
@@ -11,6 +11,7 @@ Numbers marked "(SC)" come from the document "Ad hoc reports: speed and complete
   - the monolithic `fetchAdHocEncounterRows` / `fetchAdHocPatientRows` became **one module per layer**; the worker loads root, then all requested layers in parallel;
   - the front end loads **only the missing layers** and merges them into the rows it has;
   - a layer is bound to a **base field** (`encounterId`, `patientId`), not to a dataset, so the patients dataset's layers are also offered on the encounters and billing rows (`patients.allergies`, …);
+  - a visit row can also carry the columns of the **linked datasets**, joined in the worker by `encounterId`: the visit's claim from the billing app (`billing-claims.*`) on the encounters and visit-payments rows, and the visit's payments and charges (`billing.*`) on the encounters rows (section 2.9, plan and reasons in [adhoc-dataset-links.md](adhoc-dataset-links.md));
   - the report data is stored gzip.
 - **Result on synth** (90 days, ~4 700 visits, five typical reports, 2026-11-20): even with Report Studio's runner or faster — by the median of three passes, faster on four reports of five and within noise on the fifth; every result matched the hand-written searches (section 6, [adhoc-bench-reports.md](adhoc-bench-reports.md)).
 - **Result on local:** the encounters dataset with 5 layers loads 5× faster over 60 days with identical rows; a year (~43 500 visits) takes ~100 s, where the old code did not finish within the 13-minute budget. Settings may need tuning on production data (section 7).
@@ -98,7 +99,7 @@ flowchart LR
   subgraph FE["EHR · report-builder"]
     RB[useReportBuilder] --> MR["mergeRows(prev, next, rowKey)"]
   end
-  META["utils · adhoc/datasets<br/>DATASET_META, *_LAYERS, foreign layers"]
+  META["utils · adhoc/datasets<br/>DATASET_META, *_LAYERS, foreign layers, DATASET_LINKS"]
   META -.-> RB & INF & SUB
   RB -- request --> INF["infer → datasetId + layerIds"]
   RB --> GEN["generate → code + needsLayers"]
@@ -108,7 +109,7 @@ flowchart LR
   SUB -- "flat rows, gzip" --> Z3[(Z3)]
 ```
 
-The billing-app datasets (`billing-claims`, `billing-rules`) are unchanged apart from gzip; the clinical/billing boundary from `PLAN-adhoc-billing-datasets.md` stays.
+The billing-app datasets (`billing-claims`, `billing-rules`) are still served by their own zambda and worker. In addition, `sub-adhoc-report` reads the claims of a report's visits itself when a `billing-claims.*` layer is requested (section 2.9): it already held a billing client for the payments layer, and it calls the same claims builder (`billing/adhoc/claims.ts`).
 
 ### 2.3 Execution
 
@@ -152,6 +153,7 @@ Run order in the worker (`adhoc-datasets/encounters/index.ts`):
    - Most layers do not read patients or locations, so they no longer wait for them. The few that do while fetching await `rootLookups()` themselves: employer, paperwork, the foreign patient layers, the lab / nursing orders, the location schedules, and the practitioner loader. The root's practitioners (with the provider-type extension) therefore still land in the practitioner map before any other lookup, and the rows are the same as with the lookups first.
    - This saves one round of jobs (~2.5–4 s) on every report. The patients and billing datasets keep the lookups inside the root: they need the patients to build their rows.
 3. **Rows:** one per encounter — the base row, then each layer's `map`, then the foreign columns by `patientId`.
+   - **Links**, after the rows are built and outside the dataset builder (`applyDatasetLinks`, section 2.9): only when a link layer is requested; the sources are fetched at once and joined by `encounterId`. Logged as `[adhoc] link <host> <- <source>: layers=… keys=… sourceRows=… ms=…` and `matched=…/…`.
 4. A log line shows where the time went: `[adhoc] encounters timing: rows=… root ms=… layers ms=… map ms=… | <layer>: fetch … map …`, with each shared search (`shared.procedures: fetch …`), each foreign layer and its steps (`patients.visitHistory.seenBeforeAnswers: fetch …`). Each visits search and base lookup logs its own time too.
 
 There is no dependency graph: no layer depends on another layer. A layer needs the root and, at most, a shared search or a by-id loader.
@@ -286,7 +288,10 @@ flowchart LR
 | Visits + patient allergies | rejected (two datasets) | encounters + `patients.allergies` |
 | Visit payments + patient language | rejected | billing + `patients.demographics` |
 | Patients + diagnoses of their visits | `visitHistory` only | unchanged (no "many" layers) |
-| Visits + claim status (billing app) | rejected | unchanged: out of scope (clinical/billing boundary) |
+| Visits + claim status (billing app) | rejected | encounters (or billing) + `billing-claims.base` (section 2.9) |
+| Visit duration or AI use + claim amounts | rejected | encounters + `timing` / `ai` + `billing-claims.base` |
+| Visit attributes + charges / patient payments | rejected | encounters + `billing.charges` / `billing.payments` |
+| Patients + claims (no visit dataset picked) | rejected | infer folds it into encounters + `patients.*` + `billing-claims.*` |
 | Two independent tables in one report | no | unchanged: it would change the report code contract |
 
 "Any data" means data with a layer module; each new kind of data is one new module.
@@ -299,6 +304,32 @@ flowchart LR
 | Report code (JSX) | No change: same flat rows, same schema |
 | Rows | The fixture tests pass unchanged; the bench compare shows identical rows against the old code (section 6) |
 | System reports / Report Studio | Not affected |
+| Links between datasets (section 2.9) | A link layer is one more key in `criteria.options`; rows stay flat; reports saved before contain none of them |
+
+### 2.9 Links between datasets
+
+Plan, reasons and rejected options: [adhoc-dataset-links.md](adhoc-dataset-links.md). What is in the code:
+
+| Host rows | Columns from | Layer ids on the host | Column prefix | Source rows fetched |
+|---|---|---|---|---|
+| encounters | Claims (billing app) | `billing-claims.base` + 9 layers | `claim` | by the host's encounter ids |
+| encounters | Visit payments & charges | `billing.*`, 5 layers (no `.base`: the visit header is shared) | `billing` | by the host's date range |
+| billing (visit payments) | Claims (billing app) | `billing-claims.base` + 9 layers | `claim` | by the host's encounter ids |
+
+The visit is the hub: the encounters rows can carry patient, visit-finance and claim columns in one report. Patients, claims, medication inventory and billing rules are not hosts of a link. `patients.*` (section 2.6) is a different mechanism and is unchanged.
+
+- **Declared once:** `DATASET_LINKS` in `utils/lib/types/adhoc/datasets/links.ts` — host, source, the two key fields, the prefix. A link exists only when it is listed. `linkLayers` builds a link's layers from the source's **own** layers; each host dataset file adds them to its `*_ALL_LAYERS`, next to `patients.*`, so the input and output schemas, the layer checkboxes, the infer catalog and the LLM schema pick them up.
+- **Columns:** `<prefix><Field>` (`claimBilled`, `claimCptCodes`, `billingExpectedCharge`); a field that already starts with the prefix keeps its name (`claimType`). They never clash with the host's columns: `cptCodes` is charted, `claimCptCodes` is billed (a unit test checks every host). Every link column is nullable, and every layer of a link declares `<prefix>Matched` (`claimMatched`, `billingMatched`): false = the visit has no such record and its columns are null, not zero.
+- **Domain and internal fields** of the link columns follow the source dataset's lists: `ENCOUNTER_DOMAIN_FIELDS` and `BILLING_DOMAIN_FIELDS` are now the dataset's own list (`*_NATIVE_DOMAIN_FIELDS`) plus the derived link columns. The internal lists are unchanged: a link never carries the source's internal fields.
+- **Join:** `joinRows` (`utils/.../datasets/join.ts`), a lookup. Host rows are never added or dropped; a source row with an empty key is skipped (a claim created by hand); on two source rows with one key the smallest source row key is kept and the count is logged.
+- **Worker:** `applyDatasetLinks` (`zambdas/src/shared/adhoc-datasets/links.ts`), called in `sub-adhoc-report` after the host rows are built. `LINK_SOURCES` says how each source's rows are built: `fetchAdHocClaimRows` with `encounterIds` (an identifier search by `claim-encounter-id` instead of the scan of every claim) and `deadline` (the report's budget), and `fetchAdHocBillingRows` for the host's range. A report with no link layer makes no extra request.
+- **Imports go one way:** `encounters.ts` → `billing.ts` → `billing-claims.ts`. `PAYMENT_VARIANT_VALUES` moved to `datasets/payment-variant.ts` so that `billing.ts` does not import `encounters.ts`.
+- **Infer** (`foldIntoForeignLayers`): a dataset picked with no layers folds into the host's `<dataset>.base`; when the host is linked to it but offers no `.base`, it is dropped; and the host may be a dataset the model did not pick (Patients + Claims → encounters).
+- **Generation:** one prompt rule, LINKED RECORDS — prefixed columns, and `…Matched` false means null, not zero.
+- **Cost:** a `billing-claims.*` layer costs the claim lookup for the host's visits plus the layer's own searches; a `billing.*` layer on encounters costs a second pass of the visit root search. Nothing else changes for existing layers.
+- **Access:** one role check, in `adhoc-report`. `adhoc-billing-dataset` requires the same roles; a unit test pins the two together.
+
+`<prefix>Matched` is declared by every layer of a link, so `llmFieldsForLayers` lists a field name once, where it first appears: that list is both the model's schema and the columns of the raw-data grid.
 
 ---
 
@@ -322,9 +353,10 @@ Learned on synth (2026-11-20), each found by timing the steps first:
 - **Production-like data.** `local` has many visits and few clinical records per visit. On real data a 500-id search carries far more records and may reach the 30 s limit: it then splits (slower, still complete). Run the bench there and watch for `split` / `FAILED` lines; lower `ADHOC_IDS_PER_SEARCH` if splits are frequent.
 - **Load on the Oystehr project.** 16 jobs per report; several reports at once multiply that.
 - **Dangling references in the data.** A medication order whose patient is not among the loaded patients is skipped by the app's order mapper, as before; on local this logs one stack trace per order.
-- **The LLM picks the dataset and layers.** The infer catalog is longer with the foreign layers; check it on the eval set.
+- **The LLM picks the dataset and layers.** The infer catalog is longer with the foreign layers and longer again with the link layers (encounters: 38 → 53 layers, ~290 → 432 fields). There is no infer eval set in the repository yet; it has to be put together before this can be checked (acceptance in [adhoc-dataset-links.md](adhoc-dataset-links.md), section 6).
+- **Links share the worker's budget.** The host rows and the linked sources are built in one run of 13 minutes; a long range with heavy layers on both sides may not fit. Not measured on real data yet.
 - **Small reports** still pay the Task round-trip (~2 s); a direct call is not in this design.
-- **Not covered:** the data kinds missing from the layer maps, billing-app layers on clinical rows, "many" layers, two tables in one report, server-side value filters and count-only steps (Report Studio has them).
+- **Not covered:** the data kinds missing from the layer maps, clinical columns on claim rows (claims as the host), links of the medication inventory, "many" layers, two tables in one report, server-side value filters and count-only steps (Report Studio has them).
 
 ## 5. Report Studio, for comparison
 
