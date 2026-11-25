@@ -65,6 +65,25 @@ describe('normalizeNotificationPreferencesV2', () => {
     expect(normalized.waitingRoom).toBeDefined();
   });
 
+  it('starts Referrals on for the tasks assigned to the staffer, while every other unset category stays off', () => {
+    const normalized = normalizeNotificationPreferencesV2({});
+    expect(normalized.taskCategories.referrals).toMatchObject({ enabled: true, assignedTo: 'me', allLocations: true });
+    const otherCategories = UI_TASK_CATEGORY_IDS.filter((id) => id !== 'referrals');
+    expect(otherCategories.every((id) => !normalized.taskCategories[id].enabled)).toBe(true);
+  });
+
+  it('starts Referrals on for staff whose saved settings predate it, but keeps it off once they turned it off', () => {
+    const savedBeforeReferrals = normalizeNotificationPreferencesV2({
+      taskCategories: { radiology: { enabled: true } } as any,
+    });
+    expect(savedBeforeReferrals.taskCategories.referrals).toMatchObject({ enabled: true, assignedTo: 'me' });
+
+    const turnedOff = normalizeNotificationPreferencesV2({
+      taskCategories: { referrals: { enabled: false, assignedTo: 'me' } } as any,
+    });
+    expect(turnedOff.taskCategories.referrals.enabled).toBe(false);
+  });
+
   it('defaults a partial row to disabled + all-locations + anyone', () => {
     const normalized = normalizeNotificationPreferencesV2({ waitingRoom: { enabled: true } as any });
     expect(normalized.waitingRoom.enabled).toBe(true);
@@ -139,6 +158,7 @@ describe('getAllNotificationRows', () => {
 
   it('reflects each row’s enabled flag and method', () => {
     const prefs = normalizeNotificationPreferencesV2({});
+    prefs.taskCategories.referrals.enabled = false;
     prefs.waitingRoom.enabled = true;
     prefs.taskCategories.billing = {
       ...prefs.taskCategories.billing,
@@ -181,6 +201,21 @@ describe('getProviderNotificationPreferencesV2', () => {
     const result = getProviderNotificationPreferencesV2(practitioner);
     // legacy taskNotificationsEnabled=true → every task category defaults to enabled
     expect(UI_TASK_CATEGORY_IDS.every((id) => result?.taskCategories[id].enabled)).toBe(true);
+  });
+
+  it('starts Referrals on for the assignee for an un-migrated practitioner, whatever the legacy task flag', () => {
+    const practitioner: Practitioner = {
+      resourceType: 'Practitioner',
+      extension: [
+        {
+          url: PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
+          extension: [{ url: PROVIDER_TASK_NOTIFICATIONS_ENABLED_URL, valueBoolean: false }],
+        },
+      ],
+    };
+    const result = getProviderNotificationPreferencesV2(practitioner);
+    expect(result?.taskCategories.referrals).toMatchObject({ enabled: true, assignedTo: 'me' });
+    expect(result?.taskCategories.radiology.enabled).toBe(false);
   });
 
   it('returns undefined when there is no practitioner', () => {

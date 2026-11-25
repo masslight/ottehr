@@ -156,13 +156,17 @@ export const defaultNotificationRowPref = (
   assignedTo: 'anyone',
 });
 
+const UNSET_TASK_CATEGORY_ROWS: Partial<Record<UiTaskCategoryId, Partial<NotificationRowPref>>> = {
+  referrals: { enabled: true, assignedTo: 'me' },
+};
+
 export const buildDefaultTaskCategoryPrefs = (
   enabled: boolean,
   method: ProviderNotificationMethod
 ): Record<UiTaskCategoryId, NotificationRowPref> => {
   const rows = {} as Record<UiTaskCategoryId, NotificationRowPref>;
   for (const id of UI_TASK_CATEGORY_IDS) {
-    rows[id] = defaultNotificationRowPref(enabled, method);
+    rows[id] = { ...defaultNotificationRowPref(enabled, method), ...UNSET_TASK_CATEGORY_ROWS[id] };
   }
   return rows;
 };
@@ -188,7 +192,7 @@ export const normalizeNotificationPreferencesV2 = (
   };
   const taskCategories = {} as Record<UiTaskCategoryId, NotificationRowPref>;
   for (const id of UI_TASK_CATEGORY_IDS) {
-    const row = normalizeRow(prefs?.taskCategories?.[id]);
+    const row = normalizeRow(prefs?.taskCategories?.[id] ?? UNSET_TASK_CATEGORY_ROWS[id]);
     // A stored location selection on a category whose tasks carry no location matched nothing at all, which
     // read as "notifications for this category are broken". Repaired here, at the read boundary both the
     // settings page and the notifications cron go through, so anyone already muted this way is fixed on
