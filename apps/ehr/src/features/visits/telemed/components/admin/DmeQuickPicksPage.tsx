@@ -4,10 +4,6 @@ import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   IconButton,
   Link,
   Paper,
@@ -24,8 +20,8 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
-import { RoundedButton } from 'src/components/RoundedButton';
 import { DmeQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { useDmeQuickPicksQuery, useRemoveDmeQuickPickMutation, useRenameDmeQuickPickMutation } from './admin.queries';
 
@@ -219,27 +215,24 @@ export default function DmeQuickPicksPage(): ReactElement {
 
       {renderList()}
 
-      <Dialog open={!!renamingQuickPick} onClose={() => setRenamingQuickPick(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Rename Quick Pick</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            fullWidth
-            sx={{ mt: 1 }}
-            autoFocus
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <RoundedButton onClick={() => setRenamingQuickPick(null)} disabled={renameMutation.isPending}>
-            Cancel
-          </RoundedButton>
-          <RoundedButton variant="contained" onClick={handleRename} disabled={renameMutation.isPending}>
-            {renameMutation.isPending ? <CircularProgress size={20} /> : 'Rename'}
-          </RoundedButton>
-        </DialogActions>
-      </Dialog>
+      <AppDialog
+        variant="form"
+        size="s"
+        open={!!renamingQuickPick}
+        onClose={() => setRenamingQuickPick(null)}
+        title="Rename Quick Pick"
+        primary={{ label: 'Rename', onClick: handleRename, loading: renameMutation.isPending }}
+        dismiss={{}}
+      >
+        <TextField
+          label="Name"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          fullWidth
+          sx={{ mt: 1 }}
+          autoFocus
+        />
+      </AppDialog>
     </Box>
   );
 }

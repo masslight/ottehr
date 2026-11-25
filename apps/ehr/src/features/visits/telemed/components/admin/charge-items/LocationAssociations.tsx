@@ -8,10 +8,6 @@ import {
   Button,
   Checkbox,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   IconButton,
   List,
   ListItemButton,
@@ -33,6 +29,7 @@ import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query'
 import { ChargeItemDefinition, Location } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useMemo } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   useCmAssociatePayerMutation,
@@ -312,15 +309,27 @@ export default function LocationAssociations({
         </TableContainer>
       </Paper>
 
-      <Dialog
+      <AppDialog
+        variant="form"
+        size="m"
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{ sx: { height: '70vh' } }}
+        title="Associate Locations"
+        primary={{
+          label: `Associate${selectedLocations.length > 0 ? ` (${selectedLocations.length})` : ''}`,
+          onClick: handleAssociate,
+          disabled: selectedLocations.length === 0 || associating,
+        }}
+        dismiss={{
+          onClick: () => {
+            setDialogOpen(false);
+            setSelectedLocations([]);
+            setDialogSearch('');
+          },
+        }}
       >
-        <DialogTitle>Associate Locations</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', pb: 0 }}>
+        {/* AppDialog has no fixed-height option; this keeps the old 70vh dialog with the list scrolling inside. */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', height: 'calc(70vh - 152px)' }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
             Select locations to associate with this {entityLabel}.
             {selectedLocations.length > 0 && <strong> ({selectedLocations.length} selected)</strong>}
@@ -374,30 +383,8 @@ export default function LocationAssociations({
               })}
             </List>
           )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button
-            onClick={() => {
-              setDialogOpen(false);
-              setSelectedLocations([]);
-              setDialogSearch('');
-            }}
-            sx={{ textTransform: 'none' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleAssociate}
-            disabled={selectedLocations.length === 0 || associating}
-            sx={{ textTransform: 'none' }}
-          >
-            {associating
-              ? 'Associating...'
-              : `Associate${selectedLocations.length > 0 ? ` (${selectedLocations.length})` : ''}`}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
+      </AppDialog>
     </>
   );
 }

@@ -7,11 +7,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   IconButton,
   Table,
   TableBody,
@@ -28,6 +23,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, ReactNode, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { deleteTemplate, listTemplates, renameTemplate } from 'src/api/api';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { GLOBAL_TEMPLATES_URL } from 'src/features/admin/adminRoutes';
@@ -309,52 +305,42 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
       )}
 
       {/* Rename Dialog */}
-      <Dialog open={renameDialogOpen} onClose={handleCloseRenameDialog} disableScrollLock maxWidth="sm" fullWidth>
-        <DialogTitle>Rename Template</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="New template name"
-            fullWidth
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            disabled={isRenaming}
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleCloseRenameDialog} disabled={isRenaming}>
-            Cancel
-          </Button>
-          <LoadingButton
-            variant="contained"
-            onClick={handleRename}
-            loading={isRenaming}
-            disabled={!newName.trim() || newName.trim() === selectedTemplate?.title}
-          >
-            Rename
-          </LoadingButton>
-        </DialogActions>
-      </Dialog>
+      <AppDialog
+        variant="form"
+        size="s"
+        open={renameDialogOpen}
+        onClose={handleCloseRenameDialog}
+        title="Rename Template"
+        primary={{
+          label: 'Rename',
+          onClick: handleRename,
+          loading: isRenaming,
+          disabled: !newName.trim() || newName.trim() === selectedTemplate?.title,
+        }}
+        dismiss={{}}
+      >
+        <TextField
+          autoFocus
+          margin="dense"
+          label="New template name"
+          fullWidth
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          disabled={isRenaming}
+        />
+      </AppDialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={handleCloseDeleteDialog} disableScrollLock>
-        <DialogTitle>Delete Template</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete the template <strong>{selectedTemplate?.title}</strong>? This action cannot
-            be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleCloseDeleteDialog} disabled={isDeleting}>
-            Cancel
-          </Button>
-          <LoadingButton variant="contained" color="error" onClick={handleDelete} loading={isDeleting}>
-            Delete
-          </LoadingButton>
-        </DialogActions>
-      </Dialog>
+      <AppDialog
+        variant="destructive"
+        open={deleteDialogOpen}
+        onClose={handleCloseDeleteDialog}
+        title="Delete Template"
+        primary={{ label: 'Delete', onClick: handleDelete, loading: isDeleting }}
+      >
+        Are you sure you want to delete the template <strong>{selectedTemplate?.title}</strong>? This action cannot be
+        undone.
+      </AppDialog>
     </Box>
   );
 }

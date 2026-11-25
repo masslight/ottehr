@@ -1,16 +1,4 @@
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  SelectChangeEvent,
-  Typography,
-} from '@mui/material';
+import { FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, Typography } from '@mui/material';
 import { useAudioInputs, useAudioVideo, useVideoInputs } from 'amazon-chime-sdk-component-library-react';
 import {
   BackgroundBlurVideoFrameProcessor,
@@ -23,6 +11,7 @@ import {
   VideoInputDevice,
 } from 'amazon-chime-sdk-js';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { useApplyVirtualBackground } from '../../hooks/useApplyVirtualBackground';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { VirtualBackgroundSettings } from './VirtualBackgroundSettings';
@@ -171,9 +160,16 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
   }, [selectedVideoPreviewDeviceId, startVideoPreview]);
 
   return (
-    <Dialog open onClose={onClose}>
-      <DialogTitle>Call Settings</DialogTitle>
-      <DialogContent>
+    // ✕, Esc and a backdrop click close without the Cancel button's rollback, as Esc and backdrop always did.
+    <AppDialog
+      variant="form"
+      size="s"
+      open
+      onClose={onClose}
+      title="Call Settings"
+      primary={{ label: 'Save Changes', onClick: handleSave }}
+      dismiss={{ onClick: () => void handleClose() }}
+    >
         <FormControl fullWidth margin="normal">
           <InputLabel>Camera</InputLabel>
           <Select value={selectedVideoPreviewDeviceId} onChange={handleVideoDeviceChange} label="Camera">
@@ -216,15 +212,6 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
           Functional microphone, sound and camera are required to proceed with the visit. If something is not working
           for you, please contact our support team.
         </Typography>
-      </DialogContent>
-      <DialogActions sx={{ alignItems: 'center', justifyContent: 'flex-end', padding: '16px 24px' }}>
-        <Button onClick={handleClose} sx={{ marginRight: 1 }} variant="text">
-          Cancel
-        </Button>
-        <Button onClick={handleSave} variant="contained">
-          Save Changes
-        </Button>
-      </DialogActions>
-    </Dialog>
+    </AppDialog>
   );
 };

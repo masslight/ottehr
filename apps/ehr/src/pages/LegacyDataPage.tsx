@@ -18,6 +18,7 @@ import { useMutation } from '@tanstack/react-query';
 import { lazy, ReactElement, Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { searchLegacyRecords } from 'src/api/api';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { FileType, FileTypeMap, SearchLegacyRecordsOutput } from 'utils/lib/types/data/legacy-data/legacy-data.types';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
@@ -295,26 +296,19 @@ export default function LegacyDataPage(): ReactElement {
         )}
 
         {/* TIFF viewer modal */}
-        <Dialog open={!!activeTiff} onClose={() => setActiveTiff(null)} maxWidth="lg" fullWidth>
-          <DialogTitle sx={{ pr: 6 }}>
-            {activeTiff?.fileName}
-            <IconButton
-              aria-label="close-tiff-view-btn"
-              onClick={() => setActiveTiff(null)}
-              sx={{ position: 'absolute', right: 8, top: 8 }}
-              size="small"
-            >
-              <CloseIcon />
-            </IconButton>
-          </DialogTitle>
-          <DialogContent>
-            {activeTiff && (
-              <Suspense fallback={<CircularProgress />}>
-                <TiffViewer url={activeTiff.url} />
-              </Suspense>
-            )}
-          </DialogContent>
-        </Dialog>
+        <AppDialog
+          variant="form"
+          size="l"
+          open={!!activeTiff}
+          onClose={() => setActiveTiff(null)}
+          title={activeTiff?.fileName ?? ''}
+        >
+          {activeTiff && (
+            <Suspense fallback={<CircularProgress />}>
+              <TiffViewer url={activeTiff.url} />
+            </Suspense>
+          )}
+        </AppDialog>
       </Box>
     </PageContainer>
   );

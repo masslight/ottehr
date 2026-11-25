@@ -23,10 +23,6 @@ import {
   Chip,
   CircularProgress,
   Collapse,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Divider,
   FormControl,
   FormControlLabel,
@@ -50,6 +46,7 @@ import {
 import { useEditor } from '@tiptap/react';
 import React, { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { SmsCharacterCounter } from 'src/components/template-editor-field/SmsCharacterCounter';
 import { INVOICE_TOKEN_IDS, TemplateEditorField } from 'src/components/template-editor-field/TemplateEditorField';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
@@ -1739,14 +1736,22 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
           })}
 
           {/* ── Delete Confirmation Dialog ─────────────────────────────────── */}
-          <Dialog
+          <AppDialog
+            variant="destructive"
             open={deleteConfirmAction !== null}
             onClose={() => setDeleteConfirmAction(null)}
-            maxWidth="xs"
-            fullWidth
+            title="Delete Outreach Action"
+            primary={{
+              label: 'Delete',
+              onClick: () => {
+                if (deleteConfirmAction) {
+                  deleteAction(deleteConfirmAction.id);
+                }
+                setDeleteConfirmAction(null);
+              },
+            }}
           >
-            <DialogTitle>Delete Outreach Action</DialogTitle>
-            <DialogContent>
+            <>
               {deleteConfirmAction &&
                 (() => {
                   const action = deleteConfirmAction;
@@ -1875,31 +1880,19 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                     </Stack>
                   );
                 })()}
-            </DialogContent>
-            <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
-              <Button onClick={() => setDeleteConfirmAction(null)} sx={{ textTransform: 'none' }}>
-                Cancel
-              </Button>
-              <Button
-                variant="contained"
-                color="error"
-                onClick={() => {
-                  if (deleteConfirmAction) {
-                    deleteAction(deleteConfirmAction.id);
-                  }
-                  setDeleteConfirmAction(null);
-                }}
-                sx={{ textTransform: 'none' }}
-              >
-                Delete
-              </Button>
-            </DialogActions>
-          </Dialog>
+            </>
+          </AppDialog>
 
           {/* ── Add Action Dialog ──────────────────────────────────────────── */}
-          <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="xs" fullWidth>
-            <DialogTitle>Add Outreach Action</DialogTitle>
-            <DialogContent>
+          <AppDialog
+            variant="form"
+            size="s"
+            open={addDialogOpen}
+            onClose={() => setAddDialogOpen(false)}
+            title="Add Outreach Action"
+            primary={{ label: 'Add', onClick: handleAddAction, disabled: !outreachEnabled }}
+          >
+            <>
               <Stack spacing={2} sx={{ mt: 1 }}>
                 <FormControl size="small" fullWidth>
                   <InputLabel>Trigger Event</InputLabel>
@@ -1985,30 +1978,25 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                   </Select>
                 </FormControl>
               </Stack>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setAddDialogOpen(false)} sx={{ textTransform: 'none' }}>
-                Cancel
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleAddAction}
-                disabled={!outreachEnabled}
-                sx={{ textTransform: 'none' }}
-              >
-                Add
-              </Button>
-            </DialogActions>
-          </Dialog>
+            </>
+          </AppDialog>
 
           {/* ── Notification Settings Dialog ───────────────────────────────── */}
-          <Dialog open={settingsDialogOpen} onClose={() => setSettingsDialogOpen(false)} maxWidth="sm" fullWidth>
-            <DialogTitle>
-              <Typography variant="h3" component="span" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-                Patient Notification Settings
-              </Typography>
-            </DialogTitle>
-            <DialogContent>
+          <AppDialog
+            variant="form"
+            size="s"
+            open={settingsDialogOpen}
+            onClose={() => setSettingsDialogOpen(false)}
+            title="Patient Notification Settings"
+            primary={{
+              label: 'Save',
+              onClick: () => {
+                setSettingsDialogOpen(false);
+                saveActions(actions);
+              },
+            }}
+          >
+            <>
               <Stack spacing={2} sx={{ mt: 1 }}>
                 <FormControlLabel
                   control={
@@ -2064,23 +2052,8 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                   </Typography>
                 </Stack>
               </Stack>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setSettingsDialogOpen(false)} sx={{ textTransform: 'none' }}>
-                Cancel
-              </Button>
-              <Button
-                variant="contained"
-                onClick={() => {
-                  setSettingsDialogOpen(false);
-                  saveActions(actions);
-                }}
-                sx={{ textTransform: 'none' }}
-              >
-                Done
-              </Button>
-            </DialogActions>
-          </Dialog>
+            </>
+          </AppDialog>
         </>
       )}
 

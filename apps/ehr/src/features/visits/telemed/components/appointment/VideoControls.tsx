@@ -13,8 +13,9 @@ import {
   useToggleLocalMute,
   useVideoInputs,
 } from 'amazon-chime-sdk-component-library-react';
+import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { IconButtonContained } from 'src/features/visits/shared/components/IconButtonContained';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -36,6 +37,7 @@ export const VideoControls: FC = () => {
   const { applyBackground, isBackgroundBlurSupported } = useApplyVirtualBackground();
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isEndCallOpen, setIsEndCallOpen] = useState(false);
 
   const openSettings = (): void => {
     setIsSettingsOpen(true);
@@ -67,7 +69,7 @@ export const VideoControls: FC = () => {
 
   const disconnect = async (): Promise<void> => {
     if (!oystehr || !encounter.id) {
-      // Throw so ConfirmationDialog surfaces an error and keeps the dialog open, rather than silently
+      // Throw so the confirmation dialog surfaces an error and keeps the dialog open, rather than silently
       // tearing down only the provider's side while the patient stays in the meeting.
       throw new Error('Unable to end the video call: the session is not ready yet. Please try again in a moment.');
     }
@@ -78,6 +80,16 @@ export const VideoControls: FC = () => {
     await oystehr.telemed.endMeeting({ encounterId: encounter.id });
     useVideoCallStore.setState((state) => ({ endedCallCount: state.endedCallCount + 1 }));
     await cleanup();
+  };
+
+  const confirmEndCall = async (): Promise<void> => {
+    try {
+      await disconnect();
+      setIsEndCallOpen(false);
+    } catch (error: unknown) {
+      console.error(error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    }
   };
 
   return (
@@ -117,28 +129,22 @@ export const VideoControls: FC = () => {
         <IconButtonContained onClick={openSettings} variant="primary.lighter">
           <SettingsIcon sx={{ color: theme.palette.primary.contrastText }} />
         </IconButtonContained>
-        <ConfirmationDialog
-          title="Do you want to end video call with the patient?"
-          description="This will permanently end the meeting for all participants and cannot be undone."
-          response={disconnect}
-          actionButtons={{
-            proceed: {
-              text: 'End video call',
-              color: 'error',
-            },
-            back: { text: 'Cancel' },
-          }}
-        >
-          {(showDialog) => (
-            <IconButtonContained onClick={showDialog} variant="error">
-              <CallEndIcon
-                sx={{ color: theme.palette.primary.contrastText }}
-                data-testid={dataTestIds.telemedEhrFlow.endVideoCallButton}
-              />
-            </IconButtonContained>
-          )}
-        </ConfirmationDialog>
+        <IconButtonContained onClick={() => setIsEndCallOpen(true)} variant="error">
+          <CallEndIcon
+            sx={{ color: theme.palette.primary.contrastText }}
+            data-testid={dataTestIds.telemedEhrFlow.endVideoCallButton}
+          />
+        </IconButtonContained>
       </Box>
+      <AppDialog
+        variant="destructive"
+        open={isEndCallOpen}
+        onClose={() => setIsEndCallOpen(false)}
+        title="Do You Want to End Video Call with the Patient?"
+        primary={{ label: 'End Video Call', onClick: confirmEndCall }}
+      >
+        This will permanently end the meeting for all participants and cannot be undone.
+      </AppDialog>
       {isSettingsOpen && <CallSettings onClose={closeSettings} />}
     </>
   );

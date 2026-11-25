@@ -1,13 +1,14 @@
 import { Stack } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { getLocationLabel, LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { PatientSelectInput } from 'src/components/input/PatientSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
-import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import { useCreateManualTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
@@ -73,17 +74,22 @@ export const CreateTaskDialog: React.FC<Props> = ({
 
   const { mutateAsync: createManualTask } = useCreateManualTask();
   const handleConfirm = async (): Promise<void> => {
-    await createManualTask({
-      category: formValue.category,
-      appointmentId: formValue.appointment,
-      orderId: formValue.order,
-      encounterId: encounterId || undefined,
-      taskTitle: formValue.taskTitle,
-      taskDetails: formValue.taskDetails,
-      assignee: formValue.assignee,
-      location: formValue.location,
-      patient: formValue.patient,
-    });
+    try {
+      await createManualTask({
+        category: formValue.category,
+        appointmentId: formValue.appointment,
+        orderId: formValue.order,
+        encounterId: encounterId || undefined,
+        taskTitle: formValue.taskTitle,
+        taskDetails: formValue.taskDetails,
+        assignee: formValue.assignee,
+        location: formValue.location,
+        patient: formValue.patient,
+      });
+      handleClose();
+    } catch {
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    }
   };
 
   const { data: visitHistory, isLoading: appointmentsLoading } = useGetPatientVisitHistory(formValue.patient?.id);
@@ -222,54 +228,52 @@ export const CreateTaskDialog: React.FC<Props> = ({
   }, [open, appointment.location, methods]);
 
   return (
-    <InPersonModal
-      color="primary.main"
-      icon={null}
-      showEntityPreview={false}
+    <AppDialog
+      variant="form"
+      size="s"
       open={open}
-      handleClose={handleClose}
-      handleConfirm={handleConfirm}
-      disabled={!formValue.category || !formValue.taskTitle || !formValue.location}
-      description={''}
-      title={'New Task'}
-      confirmText={'Create new task'}
-      closeButtonText="Cancel"
-      ContentComponent={
-        <FormProvider {...methods}>
-          <Stack minWidth="500px" spacing={1} paddingTop="8px">
-            <PatientSelectInput name="patient" label="Patient" />
-            <SelectInput
-              name="appointment"
-              label="Visit"
-              options={appointmentsLoading ? [] : appointmentOptions.map((appointment) => appointment.id)}
-              getOptionLabel={(option) => appointmentOptions.find((opt) => opt.id === option)?.label ?? option}
-              loading={appointmentsLoading}
-              disabled={!formValue.patient}
-            />
-            <SelectInput
-              name="category"
-              label="Category"
-              options={Object.values(MANUAL_TASK.category)}
-              getOptionLabel={(option) => TASK_CATEGORY_LABEL[option]}
-              required
-            />
-            <SelectInput
-              name="order"
-              label="Order"
-              options={orderOptions.map((order) => order.id)}
-              getOptionLabel={(option) => orderOptions.find((opt) => opt.id === option)?.label ?? ''}
-              loading={ordersLoading}
-              disabled={!formValue.appointment || !formValue.category}
-            />
-            <TextInput name="taskTitle" label="Title" required />
-            <TextInput name="taskDetails" label="Task details" />
-            <Stack direction="row" spacing={1}>
-              <EmployeeSelectInput name="assignee" label="Assign task to" />
-              <LocationSelectInput name="location" label="Location" type="in-person" required />
-            </Stack>
+      onClose={handleClose}
+      title="New Task"
+      primary={{
+        label: 'Create New Task',
+        onClick: handleConfirm,
+        disabled: !formValue.category || !formValue.taskTitle || !formValue.location,
+      }}
+    >
+      <FormProvider {...methods}>
+        <Stack spacing={1} paddingTop="8px">
+          <PatientSelectInput name="patient" label="Patient" />
+          <SelectInput
+            name="appointment"
+            label="Visit"
+            options={appointmentsLoading ? [] : appointmentOptions.map((appointment) => appointment.id)}
+            getOptionLabel={(option) => appointmentOptions.find((opt) => opt.id === option)?.label ?? option}
+            loading={appointmentsLoading}
+            disabled={!formValue.patient}
+          />
+          <SelectInput
+            name="category"
+            label="Category"
+            options={Object.values(MANUAL_TASK.category)}
+            getOptionLabel={(option) => TASK_CATEGORY_LABEL[option]}
+            required
+          />
+          <SelectInput
+            name="order"
+            label="Order"
+            options={orderOptions.map((order) => order.id)}
+            getOptionLabel={(option) => orderOptions.find((opt) => opt.id === option)?.label ?? ''}
+            loading={ordersLoading}
+            disabled={!formValue.appointment || !formValue.category}
+          />
+          <TextInput name="taskTitle" label="Title" required />
+          <TextInput name="taskDetails" label="Task details" />
+          <Stack direction="row" spacing={1}>
+            <EmployeeSelectInput name="assignee" label="Assign task to" />
+            <LocationSelectInput name="location" label="Location" type="in-person" required />
           </Stack>
-        </FormProvider>
-      }
-    />
+        </Stack>
+      </FormProvider>
+    </AppDialog>
   );
 };

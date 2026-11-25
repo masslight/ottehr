@@ -5,10 +5,6 @@ import {
   Box,
   Button,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControlLabel,
   Grid,
   Skeleton,
@@ -28,6 +24,7 @@ import { ChargeItemDefinition } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/features/admin/adminRoutes';
 import {
@@ -99,12 +96,6 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
     } catch {
       enqueueSnackbar(`Failed to create ${label.toLowerCase()}`, { variant: 'error' });
     }
-  };
-
-  const buttonSx = {
-    fontWeight: 500,
-    textTransform: 'none',
-    borderRadius: 6,
   };
 
   return (
@@ -298,18 +289,20 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
         </Table>
       </TableContainer>
 
-      <Dialog
+      <AppDialog
+        variant="form"
+        size="s"
         open={dialogOpen}
         onClose={handleCloseDialog}
-        disableScrollLock
-        maxWidth="sm"
-        fullWidth
-        sx={{ '.MuiPaper-root': { padding: 2 } }}
+        title={`Create ${label}`}
+        primary={{
+          label: 'Create',
+          onClick: handleCreate,
+          disabled: !newFeeSchedule.name || !newFeeSchedule.effectiveDate || createMutation.isPending,
+        }}
+        dismiss={{}}
       >
-        <DialogTitle variant="h4" color="primary.dark">
-          Create {label}
-        </DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
             label="Name"
             value={newFeeSchedule.name}
@@ -328,21 +321,8 @@ export default function FeeSchedule({ mode = 'fee-schedule' }: FeeScheduleProps)
             margin="dense"
             InputLabelProps={{ shrink: true }}
           />
-        </DialogContent>
-        <DialogActions>
-          <Button variant="outlined" onClick={handleCloseDialog} sx={buttonSx}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleCreate}
-            sx={buttonSx}
-            disabled={!newFeeSchedule.name || !newFeeSchedule.effectiveDate || createMutation.isPending}
-          >
-            Create
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
+      </AppDialog>
     </Box>
   );
 }

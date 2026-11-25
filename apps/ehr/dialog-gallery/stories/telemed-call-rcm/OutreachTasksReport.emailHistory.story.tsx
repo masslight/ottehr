@@ -5,7 +5,7 @@ import { communicationsMock, outreachEmails, outreachMocks } from './_outreach';
 export default defineStory({
   title: 'Outreach email history',
   source: 'apps/ehr/src/rcm/features/scheduled-patient-outreach/OutreachTasksReport.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'viewer',
   where: 'Admin → Outreach → Patient outreach → Outreach Tracker → task row → email history button',
   notes: 'Real OutreachTasksReport with mocked task list; history content is mocked (FHIR Communication search).',

@@ -5,7 +5,7 @@ import { outreachMocks } from './_outreach';
 export default defineStory({
   title: 'Outreach SMS history',
   source: 'apps/ehr/src/rcm/features/scheduled-patient-outreach/OutreachTasksReport.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'viewer',
   where: 'Admin → Outreach → Patient outreach → Outreach Tracker → task row → SMS history button',
   notes: 'Real OutreachTasksReport with mocked task list; history content is mocked (get-conversation zambda).',

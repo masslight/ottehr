@@ -1,15 +1,10 @@
 import AddIcon from '@mui/icons-material/Add';
-import CloseIcon from '@mui/icons-material/Close';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import {
   Box,
   Button,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   IconButton,
   Paper,
   Table,
@@ -24,8 +19,8 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
-import { RoundedButton } from 'src/components/RoundedButton';
 
 export interface QuickPickEditorColumn<T> {
   label: string;
@@ -250,70 +245,45 @@ export default function QuickPickEditor<T extends { id?: string }>({
         </TableContainer>
       )}
 
-      <Dialog
+      <AppDialog
+        variant="form"
+        size="s"
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: 2 } }}
+        title={editingItem ? `Edit ${itemLabel}` : `Add ${itemLabel}`}
+        primary={{ label: editingItem ? 'Save' : 'Add', onClick: () => void handleSave(), loading: saving }}
+        dismiss={{}}
       >
-        <DialogTitle
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            px: 3,
-            pt: 3,
-            pb: 1,
-          }}
-        >
-          <Typography variant="h4" component="span" color="primary.dark" sx={{ fontWeight: 600 }}>
-            {editingItem ? `Edit ${itemLabel}` : `Add ${itemLabel}`}
-          </Typography>
-          <IconButton onClick={() => setDialogOpen(false)} size="small" disabled={saving}>
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent sx={{ px: 3, pt: 1, pb: 1 }}>
-          {fields.map((field, index) =>
-            field.renderField ? (
-              <Box key={field.key} sx={{ mt: index === 0 ? 1 : 2 }}>
-                {field.renderField(
-                  fieldValues[field.key] ?? '',
-                  (value) => setFieldValues((prev) => ({ ...prev, [field.key]: value })),
-                  (extraData) => setFieldValues((prev) => ({ ...prev, ...extraData }))
-                )}
-              </Box>
-            ) : (
-              <TextField
-                key={field.key}
-                label={field.label}
-                value={fieldValues[field.key] ?? ''}
-                onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                fullWidth
-                sx={{ mt: index === 0 ? 1 : 2 }}
-                autoFocus={index === 0}
-                placeholder={field.placeholder}
-                required={field.required}
-                multiline={field.multiline}
-                rows={field.multiline ? field.rows ?? 4 : undefined}
-                inputProps={field.maxLength ? { maxLength: field.maxLength } : undefined}
-                helperText={
-                  field.maxLength ? `${(fieldValues[field.key] ?? '').length} / ${field.maxLength}` : undefined
-                }
-              />
-            )
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3, pt: 2 }}>
-          <RoundedButton onClick={() => setDialogOpen(false)} disabled={saving}>
-            Cancel
-          </RoundedButton>
-          <RoundedButton variant="contained" onClick={() => void handleSave()} disabled={saving}>
-            {saving ? <CircularProgress size={20} /> : editingItem ? 'Save' : 'Add'}
-          </RoundedButton>
-        </DialogActions>
-      </Dialog>
+        {fields.map((field, index) =>
+          field.renderField ? (
+            <Box key={field.key} sx={{ mt: index === 0 ? 1 : 2 }}>
+              {field.renderField(
+                fieldValues[field.key] ?? '',
+                (value) => setFieldValues((prev) => ({ ...prev, [field.key]: value })),
+                (extraData) => setFieldValues((prev) => ({ ...prev, ...extraData }))
+              )}
+            </Box>
+          ) : (
+            <TextField
+              key={field.key}
+              label={field.label}
+              value={fieldValues[field.key] ?? ''}
+              onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+              fullWidth
+              sx={{ mt: index === 0 ? 1 : 2 }}
+              autoFocus={index === 0}
+              placeholder={field.placeholder}
+              required={field.required}
+              multiline={field.multiline}
+              rows={field.multiline ? field.rows ?? 4 : undefined}
+              inputProps={field.maxLength ? { maxLength: field.maxLength } : undefined}
+              helperText={
+                field.maxLength ? `${(fieldValues[field.key] ?? '').length} / ${field.maxLength}` : undefined
+              }
+            />
+          )
+        )}
+      </AppDialog>
     </Box>
   );
 }

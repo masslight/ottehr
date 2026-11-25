@@ -4,7 +4,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'Call settings (before connecting to patient)',
   source: 'apps/ehr/src/features/visits/telemed/components/appointment/PreCallSettingsDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Virtual visit → footer → "Connect to Patient"',
   notes:

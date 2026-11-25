@@ -1,17 +1,4 @@
-import { LoadingButton } from '@mui/lab';
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  SelectChangeEvent,
-  Typography,
-} from '@mui/material';
+import { FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, Typography } from '@mui/material';
 import {
   BackgroundBlurVideoFrameProcessor,
   BackgroundReplacementProcessor,
@@ -23,6 +10,7 @@ import {
 } from 'amazon-chime-sdk-js';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useVideoCallStore } from '../../state/video-call/video-call.store';
 import { VirtualBackgroundSettings } from './VirtualBackgroundSettings';
@@ -198,9 +186,19 @@ export const PreCallSettingsDialog: FC<PreCallSettingsDialogProps> = ({ open, on
   };
 
   return (
-    <Dialog open={open} onClose={isConnecting ? undefined : onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Call Settings</DialogTitle>
-      <DialogContent>
+    <AppDialog
+      variant="form"
+      size="s"
+      open={open}
+      onClose={onClose}
+      title="Call Settings"
+      primary={{
+        label: 'Connect to Patient',
+        onClick: () => void handleConnect(),
+        loading: isConnecting,
+        'data-testid': dataTestIds.dialog.proceedButton,
+      }}
+    >
         <FormControl fullWidth margin="normal">
           <InputLabel>Camera</InputLabel>
           <Select value={selectedVideoDeviceId} onChange={handleVideoDeviceChange} label="Camera">
@@ -231,20 +229,6 @@ export const PreCallSettingsDialog: FC<PreCallSettingsDialogProps> = ({ open, on
           Functional microphone, sound and camera are required to proceed with the visit. If something is not working
           for you, please contact our support team.
         </Typography>
-      </DialogContent>
-      <DialogActions sx={{ alignItems: 'center', justifyContent: 'flex-end', padding: '16px 24px' }}>
-        <Button onClick={onClose} variant="text" disabled={isConnecting} sx={{ marginRight: 1 }}>
-          Cancel
-        </Button>
-        <LoadingButton
-          loading={isConnecting}
-          onClick={() => void handleConnect()}
-          variant="contained"
-          data-testid={dataTestIds.dialog.proceedButton}
-        >
-          Connect to Patient
-        </LoadingButton>
-      </DialogActions>
-    </Dialog>
+    </AppDialog>
   );
 };

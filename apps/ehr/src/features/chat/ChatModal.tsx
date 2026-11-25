@@ -6,8 +6,6 @@ import {
   Box,
   CircularProgress,
   Dialog,
-  DialogContent,
-  DialogTitle,
   Divider,
   Grid,
   IconButton,
@@ -23,6 +21,7 @@ import Typography from '@mui/material/Typography';
 import { Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ChangeEvent, memo, ReactElement, UIEvent, useEffect, useMemo, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { getPatientName } from 'src/shared/utils/getPatientName';
 import { initialsFromName, markAllMessagesRead } from 'utils/lib/fhir/chat';
 import { AppointmentMessaging, ConversationMessage } from 'utils/lib/types/api/messaging.types';
@@ -393,31 +392,14 @@ const ChatModal = memo(
               </LoadingButton>
             </Grid>
           </Grid>
-          <Dialog
+          <AppDialog
+            variant="form"
+            size="m"
             open={quickTextsOpen}
             onClose={() => setQuickTextsOpen(false)}
-            maxWidth="sm"
-            fullWidth
-            PaperProps={{ sx: { borderRadius: 2 } }}
+            title="Quick Text"
           >
-            <DialogTitle
-              sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                px: 3,
-                pt: 3,
-                pb: 1,
-              }}
-            >
-              <Typography variant="h4" color="primary.dark" sx={{ fontWeight: 600 }}>
-                Quick Text
-              </Typography>
-              <IconButton onClick={() => setQuickTextsOpen(false)} size="small">
-                <Close />
-              </IconButton>
-            </DialogTitle>
-            <DialogContent sx={{ px: 3, pt: 1, pb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
                 <Typography variant="body2" color="text.secondary">
                   Select a quick text to populate the message to the patient
@@ -523,8 +505,8 @@ const ChatModal = memo(
                   </List>
                 )}
               </Box>
-            </DialogContent>
-          </Dialog>
+            </Box>
+          </AppDialog>
         </form>
       </Dialog>
     );

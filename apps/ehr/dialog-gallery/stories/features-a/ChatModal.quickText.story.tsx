@@ -4,7 +4,7 @@ import { ChatHost, chatMocks } from './_chat';
 export default defineStory({
   title: 'Quick text picker (patient chat)',
   source: 'apps/ehr/src/features/chat/ChatModal.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'picker',
   where: 'Patient chat modal → "Quick text"',
   mocks: chatMocks,

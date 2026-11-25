@@ -1,16 +1,7 @@
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import {
-  Alert,
-  Box,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Divider, TextField, Typography } from '@mui/material';
 import { ChangeEvent, FC, useRef, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { PracticeManagedQuestionnaireImportJsonOutput } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { usePracticeManagedQuestionnaireImportJson } from '../../admin.queries';
@@ -83,78 +74,75 @@ export const ImportQuestionnaireJsonDialog: FC<ImportQuestionnaireJsonDialogProp
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <DialogTitle>{isNewVersion ? 'Upload New Version' : 'Import Questionnaire JSON'}</DialogTitle>
-      <DialogContent>
-        {isNewVersion && existingQuestionnaire ? (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            The url in the JSON must be <b>{existingQuestionnaire.url}</b>. The current version is{' '}
-            <b>{existingQuestionnaire.version ?? 'unknown'}</b>; if the JSON does not contain a higher version, the
-            version will be bumped automatically.
-          </Alert>
-        ) : (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Upload or paste a FHIR Questionnaire. Imported questionnaires are read only in the admin portal; to make
-            changes, upload a new version from the questionnaire's detail page.
-          </Typography>
-        )}
+    <AppDialog
+      variant="form"
+      size="m"
+      open={open}
+      onClose={handleClose}
+      title={isNewVersion ? 'Upload New Version' : 'Import Questionnaire JSON'}
+      primary={{ label: isNewVersion ? 'Upload Version' : 'Import', onClick: handleSubmit, loading: isPending }}
+      dismiss={{}}
+    >
+      {isNewVersion && existingQuestionnaire ? (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          The url in the JSON must be <b>{existingQuestionnaire.url}</b>. The current version is{' '}
+          <b>{existingQuestionnaire.version ?? 'unknown'}</b>; if the JSON does not contain a higher version, the
+          version will be bumped automatically.
+        </Alert>
+      ) : (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Upload or paste a FHIR Questionnaire. Imported questionnaires are read only in the admin portal; to make
+          changes, upload a new version from the questionnaire's detail page.
+        </Typography>
+      )}
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json,application/json"
-            hidden
-            onChange={(e) => void handleFileChange(e)}
-          />
-          <RoundedButton
-            variant="outlined"
-            startIcon={<UploadFileIcon />}
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isPending}
-          >
-            Choose File
-          </RoundedButton>
-          <Typography variant="body2" color={fileName ? 'text.primary' : 'text.secondary'}>
-            {fileName ?? 'No file selected'}
-          </Typography>
-        </Box>
-
-        <Divider sx={{ my: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            or paste JSON
-          </Typography>
-        </Divider>
-
-        <TextField
-          value={jsonText}
-          onChange={(e) => {
-            setJsonText(e.target.value);
-            setError(undefined);
-          }}
-          placeholder='{ "resourceType": "Questionnaire", ... }'
-          multiline
-          minRows={12}
-          maxRows={24}
-          fullWidth
-          disabled={isPending}
-          inputProps={{ style: { fontFamily: 'monospace', fontSize: 12 } }}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,application/json"
+          hidden
+          onChange={(e) => void handleFileChange(e)}
         />
+        <RoundedButton
+          variant="outlined"
+          startIcon={<UploadFileIcon />}
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isPending}
+        >
+          Choose File
+        </RoundedButton>
+        <Typography variant="body2" color={fileName ? 'text.primary' : 'text.secondary'}>
+          {fileName ?? 'No file selected'}
+        </Typography>
+      </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {error}
-          </Alert>
-        )}
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <RoundedButton variant="outlined" onClick={handleClose} disabled={isPending}>
-          Cancel
-        </RoundedButton>
-        <RoundedButton variant="contained" onClick={() => void handleSubmit()} loading={isPending}>
-          {isNewVersion ? 'Upload Version' : 'Import'}
-        </RoundedButton>
-      </DialogActions>
-    </Dialog>
+      <Divider sx={{ my: 2 }}>
+        <Typography variant="body2" color="text.secondary">
+          or paste JSON
+        </Typography>
+      </Divider>
+
+      <TextField
+        value={jsonText}
+        onChange={(e) => {
+          setJsonText(e.target.value);
+          setError(undefined);
+        }}
+        placeholder='{ "resourceType": "Questionnaire", ... }'
+        multiline
+        minRows={12}
+        maxRows={24}
+        fullWidth
+        disabled={isPending}
+        inputProps={{ style: { fontFamily: 'monospace', fontSize: 12 } }}
+      />
+
+      {error && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      )}
+    </AppDialog>
   );
 };

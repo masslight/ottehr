@@ -1,7 +1,7 @@
-import CloseIcon from '@mui/icons-material/Close';
-import { Box, Dialog, DialogContent, DialogTitle, IconButton } from '@mui/material';
+import { Box } from '@mui/material';
 import { Questionnaire } from 'fhir/r4b';
 import { FC, useCallback, useMemo, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { countPreviewPages } from '../questionnaire-utils';
 import { QuestionnairePreview } from './QuestionnairePreview';
 
@@ -22,13 +22,9 @@ export const QuestionnaireTestDialog: FC<QuestionnaireTestDialogProps> = ({ open
   }, [onClose]);
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { minHeight: '70vh' } }}>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pb: 0 }}>
-        <IconButton onClick={handleClose} size="small">
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent>
+    <AppDialog variant="form" size="m" open={open} onClose={handleClose} title="Test Form">
+      {/* Keeps the dialog at least 70vh tall, as before, so it does not jump between pages. */}
+      <Box sx={{ minHeight: 'calc(70vh - 92px)' }}>
         {/* Page progress */}
         {totalPages > 1 && !completed && (
           <Box sx={{ display: 'flex', gap: 0.5, mb: 2 }}>
@@ -54,7 +50,7 @@ export const QuestionnaireTestDialog: FC<QuestionnaireTestDialogProps> = ({ open
           setCompleted={setCompleted}
           previewMode={'full'}
         />
-      </DialogContent>
-    </Dialog>
+      </Box>
+    </AppDialog>
   );
 };

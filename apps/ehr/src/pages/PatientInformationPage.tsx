@@ -13,7 +13,7 @@ import { FC, ReactElement, ReactNode, useEffect, useMemo, useRef, useState } fro
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { updatePatientVisitDetails } from 'src/api/api';
-import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { PatientMergedBanner } from 'src/components/PatientMergedBanner';
 import { AboutPatientContainer } from 'src/features/visits/shared/components/patient/AboutPatientContainer';
 import { ActionBar } from 'src/features/visits/shared/components/patient/ActionBar';
@@ -725,15 +725,17 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
               backButtonHidden={renderBackButton === false}
             />
           </Box>
-          <CustomDialog
+          <AppDialog
+            variant="destructive"
             open={openConfirmationDialog}
-            handleClose={handleCloseConfirmationDialog}
+            onClose={handleCloseConfirmationDialog}
             title="Discard Changes?"
-            description="You have unsaved changes. Are you sure you want to discard them and go back?"
-            closeButtonText="Cancel"
-            handleConfirm={handleDiscardChanges}
-            confirmText="Discard Changes"
-          />
+            primary={{ label: 'Discard Changes', onClick: handleDiscardChanges }}
+          >
+            <span data-testid={dataTestIds.dialog.message}>
+              You have unsaved changes. Are you sure you want to discard them and go back?
+            </span>
+          </AppDialog>
         </FormProvider>
       </SaveConfirmationProvider>
     </div>

@@ -56,7 +56,7 @@ export const VirtualBackgroundSettings: FC<VirtualBackgroundSettingsProps> = ({
           startIcon={imageActive ? <HideImageIcon /> : <CoPresentIcon />}
           sx={{ borderRadius: '20px', paddingY: 1, paddingX: 2 }}
         >
-          {imageActive ? 'Clear background image' : 'Add background'}
+          {imageActive ? 'Clear Background Image' : 'Add Background'}
         </Button>
         <Button
           variant="outlined"
@@ -66,7 +66,7 @@ export const VirtualBackgroundSettings: FC<VirtualBackgroundSettingsProps> = ({
           startIcon={blurActive ? <BlurOffIcon /> : <BlurOnIcon />}
           sx={{ borderRadius: '20px', paddingY: 1, paddingX: 2 }}
         >
-          {blurActive ? 'Turn OFF blur' : 'Turn ON blur'}
+          {blurActive ? 'Turn OFF Blur' : 'Turn ON Blur'}
         </Button>
       </Box>
       <input

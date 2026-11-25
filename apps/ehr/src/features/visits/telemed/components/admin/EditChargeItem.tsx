@@ -6,18 +6,12 @@ import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import FormatStrikethroughIcon from '@mui/icons-material/FormatStrikethrough';
 import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Box,
   Button,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   Divider,
   FormLabel,
   Grid,
@@ -42,6 +36,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { BILLING_URL } from 'src/features/admin/adminRoutes';
 import PageContainer from 'src/layout/PageContainer';
 import {
@@ -796,72 +791,45 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
             </TabContext>
           </Grid>
         </Grid>
-        <Dialog open={!!pendingDesignation} onClose={() => setPendingDesignation(null)} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <WarningAmberIcon color="warning" />
-            Confirm Charge Master Designation
-          </DialogTitle>
-          <DialogContent>
-            <DialogContentText>
-              You are about to designate this {entityLabelLower} as the{' '}
-              <strong>
-                {pendingDesignation === 'default-insurance'
-                  ? 'Default Insurance Charge Master'
-                  : 'Self-Pay Charge Master'}
-              </strong>
-              . All payer associations on this charge master will be cleared. This action affects billing across the
-              system.
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setPendingDesignation(null)} sx={{ textTransform: 'none' }}>
-              Cancel
-            </Button>
-            <LoadingButton
-              variant="contained"
-              color="warning"
-              loading={designatePending}
-              onClick={async () => {
-                if (pendingDesignation) {
-                  await handleDesignate(pendingDesignation);
-                  setPendingDesignation(null);
-                }
-              }}
-              sx={{ textTransform: 'none', fontWeight: 'bold' }}
-            >
-              Proceed
-            </LoadingButton>
-          </DialogActions>
-        </Dialog>
-        <Dialog open={pendingCaseRateToggle} onClose={() => setPendingCaseRateToggle(false)} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <WarningAmberIcon color="warning" />
-            Switch to Case Rate
-          </DialogTitle>
-          <DialogContent>
-            <DialogContentText>
-              Switching this fee schedule to case rate will <strong>delete all existing procedure codes</strong>. The
-              fee schedule will use a single flat rate for the entire visit. This action cannot be undone.
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setPendingCaseRateToggle(false)} sx={{ textTransform: 'none' }}>
-              Cancel
-            </Button>
-            <LoadingButton
-              variant="contained"
-              color="warning"
-              loading={updatePending}
-              onClick={async () => {
-                await handleCaseRateToggle(true);
-                setPendingCaseRateToggle(false);
-              }}
-              sx={{ textTransform: 'none', fontWeight: 'bold' }}
-            >
-              Proceed
-            </LoadingButton>
-          </DialogActions>
-        </Dialog>
+        <AppDialog
+          variant="confirm"
+          open={!!pendingDesignation}
+          onClose={() => setPendingDesignation(null)}
+          title="Confirm Charge Master Designation"
+          primary={{
+            label: 'Designate',
+            loading: designatePending,
+            onClick: async () => {
+              if (pendingDesignation) {
+                await handleDesignate(pendingDesignation);
+                setPendingDesignation(null);
+              }
+            },
+          }}
+        >
+          You are about to designate this {entityLabelLower} as the{' '}
+          <strong>
+            {pendingDesignation === 'default-insurance' ? 'Default Insurance Charge Master' : 'Self-Pay Charge Master'}
+          </strong>
+          . All payer associations on this charge master will be cleared. This action affects billing across the system.
+        </AppDialog>
+        <AppDialog
+          variant="destructive"
+          open={pendingCaseRateToggle}
+          onClose={() => setPendingCaseRateToggle(false)}
+          title="Switch to Case Rate"
+          primary={{
+            label: 'Switch to Case Rate',
+            loading: updatePending,
+            onClick: async () => {
+              await handleCaseRateToggle(true);
+              setPendingCaseRateToggle(false);
+            },
+          }}
+        >
+          Switching this fee schedule to case rate will <strong>delete all existing procedure codes</strong>. The fee
+          schedule will use a single flat rate for the entire visit. This action cannot be undone.
+        </AppDialog>
       </>
     </PageContainer>
   );

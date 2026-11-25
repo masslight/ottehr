@@ -5,7 +5,7 @@ import { existingQuickPicks } from './_dme';
 export default defineStory({
   title: 'Add DME order to quick picks',
   source: 'apps/ehr/src/features/dme/components/DmeQuickPickDialogs.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'In-person visit → DME order form → "Add to Quick Picks"',
   render: () => (

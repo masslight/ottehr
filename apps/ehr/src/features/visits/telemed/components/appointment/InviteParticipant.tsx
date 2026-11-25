@@ -1,18 +1,9 @@
-import { LoadingButton } from '@mui/lab';
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { FormControl, TextField, Typography } from '@mui/material';
 import React, { ReactElement } from 'react';
 import { useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { inviteParticipant } from 'src/api/api';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { useApiClients } from 'src/hooks/useAppClients';
 
 interface InviteParticipantProps {
@@ -26,14 +17,6 @@ interface FormInputs {
   phone: string;
   email: string;
 }
-
-const buttonSx = {
-  fontWeight: 500,
-  textTransform: 'none',
-  borderRadius: 6,
-  mb: 2,
-  ml: 1,
-};
 
 const InviteParticipant = ({ modalOpen, onClose }: InviteParticipantProps): ReactElement => {
   const { register, handleSubmit, formState } = useForm<FormInputs>({
@@ -67,18 +50,15 @@ const InviteParticipant = ({ modalOpen, onClose }: InviteParticipantProps): Reac
   };
 
   return (
-    <Dialog
+    <AppDialog
+      variant="form"
+      size="s"
       open={modalOpen}
       onClose={onClose}
-      fullWidth
-      disableScrollLock
-      sx={{ '.MuiPaper-root': { padding: 1, width: '444px', maxWidth: 'initial' } }}
+      title="Invite Participant"
+      onSubmit={handleSubmit(onSubmit)}
+      primary={{ label: 'Send Invite', loading: isLoading, disabled: !formState.isValid }}
     >
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <DialogTitle variant="h4" color="primary.dark" sx={{ width: '100%' }}>
-          Invite Participant
-        </DialogTitle>
-        <DialogContent>
           <FormControl fullWidth required sx={{ mt: 2 }}>
             <TextField
               {...register('firstName', { required: true })}
@@ -123,30 +103,12 @@ const InviteParticipant = ({ modalOpen, onClose }: InviteParticipantProps): Reac
               required
             />
           </FormControl>
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'flex-start', marginLeft: 1 }}>
-          <LoadingButton
-            loading={isLoading}
-            type="submit"
-            variant="contained"
-            color="primary"
-            size="medium"
-            sx={buttonSx}
-            disabled={!formState.isValid}
-          >
-            Send Invite
-          </LoadingButton>
-          <Button onClick={onClose} variant="text" color="primary" size="medium" sx={buttonSx}>
-            Cancel
-          </Button>
-        </DialogActions>
         {error && (
-          <Typography color="error" variant="body2" my={1} mx={2}>
+          <Typography color="error" variant="body2" mt={2}>
             There was an error inviting this participant, please try again.
           </Typography>
         )}
-      </form>
-    </Dialog>
+    </AppDialog>
   );
 };
 

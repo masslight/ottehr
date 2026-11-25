@@ -5,7 +5,7 @@ import { icdMocks } from './_icd';
 export default defineStory({
   title: 'New approved patient education (step 1: pick diagnosis)',
   source: 'apps/ehr/src/features/admin/patient-education/ApprovedPatientEducationDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Patient Education → "New"',
   mocks: icdMocks,

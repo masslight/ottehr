@@ -7,7 +7,7 @@ import { visitMocks, visitRoute } from './_visit';
 export default defineStory({
   title: 'End video call confirmation',
   source: 'apps/ehr/src/features/visits/telemed/components/appointment/VideoControls.tsx',
-  base: 'ConfirmationDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Virtual visit → video call window → red "end call" button',
   ...visitRoute,

@@ -110,7 +110,7 @@ describe('AddressBookPicker', () => {
     await user.click(options[1]);
     await user.click(screen.getByRole('button', { name: 'Edit contact' }));
 
-    expect(await screen.findByText('Edit contact')).toBeInTheDocument();
+    expect(await screen.findByText('Edit Contact')).toBeInTheDocument();
     expect(screen.getByLabelText('Fax')).toHaveValue('(212) 555-2222');
   });
 
@@ -143,7 +143,7 @@ describe('AddressBookPicker', () => {
     await user.type(screen.getByLabelText("Recipient's name"), 'Jane Roe');
     await user.click(await screen.findByRole('option', { name: /Add new contact/ }));
 
-    expect(await screen.findByText('New contact')).toBeInTheDocument();
+    expect(await screen.findByText('New Contact')).toBeInTheDocument();
     expect(screen.getByLabelText('Organization')).toHaveValue('Jane Roe');
   });
 
@@ -154,7 +154,7 @@ describe('AddressBookPicker', () => {
     await user.click(screen.getByLabelText("Recipient's name"));
     await user.click(await screen.findByRole('option', { name: /Add new contact/ }));
 
-    expect(await screen.findByText('New contact')).toBeInTheDocument();
+    expect(await screen.findByText('New Contact')).toBeInTheDocument();
     expect(screen.getByText('pcp')).toHaveClass('MuiChip-label');
   });
 

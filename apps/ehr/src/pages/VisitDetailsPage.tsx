@@ -50,8 +50,7 @@ import CardThumbnail from 'src/components/CardThumbnail';
 import { CustomFormCard } from 'src/components/CustomFormCard';
 import ActivityLogDialog from 'src/components/dialogs/ActivityLogDialog';
 import CancellationReasonDialog from 'src/components/dialogs/CancellationReasonDialog';
-import { CustomDialog } from 'src/components/dialogs/CustomDialog';
-import DeleteDialog from 'src/components/dialogs/DeleteDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { EditFormResponseDialog } from 'src/components/dialogs/EditFormResponseDialog';
 import EditPatientInfoDialog from 'src/components/dialogs/EditPatientInfoDialog';
 import ReportIssueDialog from 'src/components/dialogs/ReportIssueDialog';
@@ -152,7 +151,7 @@ const MENU_ITEM_ICON_SX = { color: 'inherit' };
 //
 // The reminder reads the *checkbox*, not the persisted attestation, so checking the box quiets it
 // immediately - the separate Save in the "Completed consent forms" block is what persists it.
-const CONSENT_REMINDER_TITLE = 'Reminder: consent not signed';
+const CONSENT_REMINDER_TITLE = 'Reminder: Consent Not Signed';
 const CONSENT_REMINDER_MESSAGE =
   "Consent forms are not yet signed for this encounter. Please verify consent and check the 'I verify that patient consent has been obtained.' checkbox before the patient is marked 'Ready'.";
 
@@ -1425,21 +1424,29 @@ export default function VisitDetailsPage(): ReactElement {
                   >
                     Move to next
                   </Button>
-                  <CustomDialog
+                  <AppDialog
+                    variant="confirm"
                     open={hopQueueDialogOpen}
-                    handleClose={() => {
+                    onClose={() => {
                       setErrors(({ hopError: _hopError, ...rest }) => rest);
                       setHopQueueDialogOpen(false);
                     }}
-                    closeButton={false}
-                    title="Move to next"
-                    description={`Are you sure you want to move ${patient?.name?.[0]?.family}, ${patient?.name?.[0]?.given?.[0]} to next?`}
-                    closeButtonText="Cancel"
-                    handleConfirm={() => hopInQueueMutation.mutate()}
-                    confirmText="Move to next"
-                    confirmLoading={hopInQueueMutation.isPending}
-                    error={errors?.hopError}
-                  />
+                    title="Move to Next"
+                    primary={{
+                      label: 'Move to Next',
+                      onClick: () => hopInQueueMutation.mutate(),
+                      loading: hopInQueueMutation.isPending,
+                    }}
+                  >
+                    <span data-testid={dataTestIds.dialog.message}>
+                      {`Are you sure you want to move ${patient?.name?.[0]?.family}, ${patient?.name?.[0]?.given?.[0]} to next?`}
+                    </span>
+                    {errors?.hopError && (
+                      <Typography color="error" variant="body2" mt={1}>
+                        {errors.hopError}
+                      </Typography>
+                    )}
+                  </AppDialog>
                 </>
               ) : null}
             </Grid>
@@ -1909,39 +1916,18 @@ export default function VisitDetailsPage(): ReactElement {
           outputFormat="png"
           onScanComplete={handleScanComplete}
         />
-        <CustomDialog
+        <AppDialog
+          variant="confirm"
           open={Boolean(pendingSave)}
-          handleClose={handleCancelPendingSave}
+          onClose={handleCancelPendingSave}
           title={CONSENT_REMINDER_TITLE}
-          description={
-            <Typography variant="body2" data-testid={dataTestIds.dialog.message}>
-              {CONSENT_REMINDER_MESSAGE}
-            </Typography>
-          }
-          dataTestId={dataTestIds.visitDetailsPage.consentReminderDialog}
-          maxWidth="xs"
-          fullWidth
-          actions={
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-              <Button
-                variant="outlined"
-                onClick={handleCancelPendingSave}
-                disabled={pendingSaveIsRunning}
-                data-testid={dataTestIds.dialog.cancelButton}
-              >
-                Cancel
-              </Button>
-              <LoadingButton
-                variant="contained"
-                onClick={handleConfirmPendingSave}
-                loading={pendingSaveIsRunning}
-                data-testid={dataTestIds.dialog.proceedButton}
-              >
-                Save
-              </LoadingButton>
-            </Box>
-          }
-        />
+          data-testid={dataTestIds.visitDetailsPage.consentReminderDialog}
+          primary={{ label: 'Save', onClick: handleConfirmPendingSave, loading: pendingSaveIsRunning }}
+        >
+          <Typography variant="body2" data-testid={dataTestIds.dialog.message}>
+            {CONSENT_REMINDER_MESSAGE}
+          </Typography>
+        </AppDialog>
         {appointmentID && (
           <SendFormDialog
             open={sendFormDialogOpen}
@@ -1963,18 +1949,17 @@ export default function VisitDetailsPage(): ReactElement {
             }}
           />
         )}
-        <DeleteDialog
+        <AppDialog
+          variant="destructive"
           open={Boolean(formToDelete)}
-          title="Delete form?"
-          description={`"${
+          onClose={() => setFormToDelete(undefined)}
+          title="Delete Form?"
+          primary={{ label: 'Delete Form', onClick: () => void handleDeleteForm(), loading: deletingForm }}
+        >
+          {`"${
             formToDelete?.questionnaireTitle ?? 'This form'
           }" and the answers submitted on it will no longer show on this visit.`}
-          closeButtonText="Cancel"
-          handleClose={() => setFormToDelete(undefined)}
-          deleteButtonText="Delete"
-          handleDelete={() => void handleDeleteForm()}
-          loadingDelete={deletingForm}
-        />
+        </AppDialog>
       </>
     </PageContainer>
   );

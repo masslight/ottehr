@@ -10,10 +10,6 @@ import {
   Button,
   Checkbox,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   IconButton,
   List,
   ListItemButton,
@@ -35,6 +31,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ChargeItemDefinition, Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useMemo } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import {
   useCmAssociatePayerMutation,
@@ -359,15 +356,27 @@ export default function PayerAssociations({
         </TableContainer>
       </Paper>
 
-      <Dialog
+      <AppDialog
+        variant="form"
+        size="m"
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{ sx: { height: '70vh' } }}
+        title="Associate Payers"
+        primary={{
+          label: `Associate${selectedOrgs.length > 0 ? ` (${selectedOrgs.length})` : ''}`,
+          onClick: handleAssociate,
+          disabled: selectedOrgs.length === 0 || associating,
+        }}
+        dismiss={{
+          onClick: () => {
+            setDialogOpen(false);
+            setSelectedOrgs([]);
+            setDialogSearch('');
+          },
+        }}
       >
-        <DialogTitle>Associate Payers</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', pb: 0 }}>
+        {/* AppDialog has no fixed-height option; this keeps the old 70vh dialog with the list scrolling inside. */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', height: 'calc(70vh - 152px)' }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
             Select active insurance organizations or employers to associate with this fee schedule.
             {selectedOrgs.length > 0 && <strong> ({selectedOrgs.length} selected)</strong>}
@@ -417,28 +426,8 @@ export default function PayerAssociations({
               })}
             </List>
           )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button
-            onClick={() => {
-              setDialogOpen(false);
-              setSelectedOrgs([]);
-              setDialogSearch('');
-            }}
-            sx={{ textTransform: 'none' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleAssociate}
-            disabled={selectedOrgs.length === 0 || associating}
-            sx={{ textTransform: 'none' }}
-          >
-            {associating ? 'Associating...' : `Associate${selectedOrgs.length > 0 ? ` (${selectedOrgs.length})` : ''}`}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
+      </AppDialog>
     </>
   );
 }

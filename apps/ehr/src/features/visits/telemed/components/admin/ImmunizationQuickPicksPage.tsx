@@ -3,10 +3,6 @@ import EditIcon from '@mui/icons-material/Edit';
 import {
   Box,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   IconButton,
   Paper,
   Table,
@@ -22,8 +18,8 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
-import { RoundedButton } from 'src/components/RoundedButton';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
   useImmunizationQuickPicksQuery,
@@ -160,27 +156,24 @@ export default function ImmunizationQuickPicksPage(): ReactElement {
         </TableContainer>
       )}
 
-      <Dialog open={renameDialogOpen} onClose={() => setRenameDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Rename Quick Pick</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            fullWidth
-            sx={{ mt: 1 }}
-            autoFocus
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <RoundedButton onClick={() => setRenameDialogOpen(false)} disabled={renameMutation.isPending}>
-            Cancel
-          </RoundedButton>
-          <RoundedButton variant="contained" onClick={handleRename} disabled={renameMutation.isPending}>
-            {renameMutation.isPending ? <CircularProgress size={20} /> : 'Rename'}
-          </RoundedButton>
-        </DialogActions>
-      </Dialog>
+      <AppDialog
+        variant="form"
+        size="s"
+        open={renameDialogOpen}
+        onClose={() => setRenameDialogOpen(false)}
+        title="Rename Quick Pick"
+        primary={{ label: 'Rename', onClick: () => void handleRename(), loading: renameMutation.isPending }}
+        dismiss={{}}
+      >
+        <TextField
+          label="Name"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          fullWidth
+          sx={{ mt: 1 }}
+          autoFocus
+        />
+      </AppDialog>
     </Box>
   );
 }

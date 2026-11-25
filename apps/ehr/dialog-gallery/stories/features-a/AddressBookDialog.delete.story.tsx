@@ -5,7 +5,7 @@ import { addressBookMocks, contact } from './_addressBook';
 export default defineStory({
   title: 'Delete address book contact',
   source: 'apps/ehr/src/features/address-book/AddressBookDialog.tsx',
-  base: 'ConfirmationDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Address book admin page → edit contact → "Delete"',
   mocks: addressBookMocks,
@@ -19,7 +19,7 @@ export default defineStory({
   ),
   play: async ({ user, screen }) => {
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
-    await screen.findByText('Delete this contact?');
+    await screen.findByText('Delete This Contact?');
   },
   notes: 'Opens stacked on top of the edit-contact dialog, as in the product.',
 });

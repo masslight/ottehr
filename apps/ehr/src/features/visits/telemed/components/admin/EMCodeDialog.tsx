@@ -1,6 +1,6 @@
-import { LoadingButton } from '@mui/lab';
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
+import { Box, TextField } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { EmCodeOption } from 'utils/lib/types/api/config/em-codes';
 import { useAdminCreateEmCodeMutation, useAdminUpdateEmCodeMutation } from './admin.queries';
@@ -35,39 +35,39 @@ export default function EMCodeDialog({ open, onClose, existingCode }: EMCodeDial
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid={dataTestIds.emCodesAdminPage.dialog}>
-      <DialogTitle>{isEditing ? 'Edit E&M Code' : 'Add E&M Code'}</DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-          <TextField
-            label="Code"
-            value={codeInput}
-            onChange={(e) => setCodeInput(e.target.value)}
-            disabled={isEditing}
-            fullWidth
-            inputProps={{ 'data-testid': dataTestIds.emCodesAdminPage.codeField }}
-          />
-          <TextField
-            label="Display"
-            value={displayInput}
-            onChange={(e) => setDisplayInput(e.target.value)}
-            fullWidth
-            inputProps={{ 'data-testid': dataTestIds.emCodesAdminPage.displayField }}
-          />
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <LoadingButton
-          loading={isSaving}
-          onClick={handleSave}
-          disabled={!codeInput.trim() || !displayInput.trim()}
-          variant="contained"
-          data-testid={dataTestIds.emCodesAdminPage.saveButton}
-        >
-          Save
-        </LoadingButton>
-      </DialogActions>
-    </Dialog>
+    <AppDialog
+      variant="form"
+      size="s"
+      open={open}
+      onClose={onClose}
+      title={isEditing ? 'Edit E&M Code' : 'Add E&M Code'}
+      data-testid={dataTestIds.emCodesAdminPage.dialog}
+      primary={{
+        label: 'Save',
+        onClick: handleSave,
+        loading: isSaving,
+        disabled: !codeInput.trim() || !displayInput.trim(),
+        'data-testid': dataTestIds.emCodesAdminPage.saveButton,
+      }}
+      dismiss={{}}
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <TextField
+          label="Code"
+          value={codeInput}
+          onChange={(e) => setCodeInput(e.target.value)}
+          disabled={isEditing}
+          fullWidth
+          inputProps={{ 'data-testid': dataTestIds.emCodesAdminPage.codeField }}
+        />
+        <TextField
+          label="Display"
+          value={displayInput}
+          onChange={(e) => setDisplayInput(e.target.value)}
+          fullWidth
+          inputProps={{ 'data-testid': dataTestIds.emCodesAdminPage.displayField }}
+        />
+      </Box>
+    </AppDialog>
   );
 }

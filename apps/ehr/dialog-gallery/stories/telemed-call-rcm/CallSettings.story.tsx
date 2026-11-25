@@ -5,7 +5,7 @@ import { ChimeProviders } from './_chime';
 export default defineStory({
   title: 'Call settings (during a video call)',
   source: 'apps/ehr/src/features/visits/telemed/components/appointment/CallSettings.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Virtual visit → video call window → settings (gear) button',
   notes:

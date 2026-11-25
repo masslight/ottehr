@@ -1,15 +1,10 @@
 import AddIcon from '@mui/icons-material/Add';
-import CloseIcon from '@mui/icons-material/Close';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import {
   Box,
   Button,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Divider,
   IconButton,
   MenuItem,
@@ -32,8 +27,8 @@ import {
   removeQuickPick,
   updateInsuranceQuickPick,
 } from 'src/api/api';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
-import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { InsuranceQuickPickData, InsuranceQuickPickMetadataEntry } from 'utils/lib/types/api/quick-picks.types';
@@ -278,134 +273,116 @@ export default function InsuranceQuickPickPage(): ReactElement {
         </TableContainer>
       )}
 
-      <Dialog
+      <AppDialog
+        variant="form"
+        size="s"
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: 2 } }}
+        title={editingId ? 'Edit Quick Pick' : 'Add Quick Pick'}
+        primary={{ label: editingId ? 'Save' : 'Add', onClick: () => void handleSave(), loading: saving }}
+        dismiss={{}}
       >
-        <DialogTitle
-          sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 3, pt: 3, pb: 1 }}
-        >
-          <Typography variant="h4" component="span" color="primary.dark" sx={{ fontWeight: 600 }}>
-            {editingId ? 'Edit Quick Pick' : 'Add Quick Pick'}
-          </Typography>
-          <IconButton onClick={() => setDialogOpen(false)} size="small" disabled={saving}>
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent sx={{ px: 3, pt: 1, pb: 1 }}>
-          <TextField
-            label="Name"
-            value={state.name}
-            onChange={(e) => patchState({ name: e.target.value })}
-            fullWidth
-            required
-            autoFocus
-            placeholder="e.g. Nomastin PPO"
-            sx={{ mt: 1 }}
+        <TextField
+          label="Name"
+          value={state.name}
+          onChange={(e) => patchState({ name: e.target.value })}
+          fullWidth
+          required
+          autoFocus
+          placeholder="e.g. Nomastin PPO"
+          sx={{ mt: 1 }}
+        />
+
+        <Box sx={{ mt: 2 }}>
+          <InsuranceSearchField
+            value={state.organizationDisplay}
+            onChange={(value) => patchState({ organizationDisplay: value })}
+            onExtraData={(data) =>
+              patchState({
+                payerId: data.payerId ?? '',
+                organizationReference: data.organizationReference ?? '',
+                organizationDisplay: data.organizationDisplay ?? state.organizationDisplay,
+              })
+            }
           />
+        </Box>
 
-          <Box sx={{ mt: 2 }}>
-            <InsuranceSearchField
-              value={state.organizationDisplay}
-              onChange={(value) => patchState({ organizationDisplay: value })}
-              onExtraData={(data) =>
-                patchState({
-                  payerId: data.payerId ?? '',
-                  organizationReference: data.organizationReference ?? '',
-                  organizationDisplay: data.organizationDisplay ?? state.organizationDisplay,
-                })
-              }
-            />
-          </Box>
+        <TextField
+          select
+          label="Insurance type"
+          value={state.insuranceType}
+          onChange={(e) => patchState({ insuranceType: e.target.value })}
+          fullWidth
+          sx={{ mt: 2 }}
+          helperText="Optional — leave as “None” to keep the patient's current insurance type."
+        >
+          <MenuItem value="">— None (leave unchanged) —</MenuItem>
+          {INSURANCE_TYPE_OPTIONS.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </TextField>
 
-          <TextField
-            select
-            label="Insurance type"
-            value={state.insuranceType}
-            onChange={(e) => patchState({ insuranceType: e.target.value })}
-            fullWidth
-            sx={{ mt: 2 }}
-            helperText="Optional — leave as “None” to keep the patient's current insurance type."
-          >
-            <MenuItem value="">— None (leave unchanged) —</MenuItem>
-            {INSURANCE_TYPE_OPTIONS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
+        <TextField
+          select
+          label="Relationship to insured"
+          value={state.relationship}
+          onChange={(e) => patchState({ relationship: e.target.value })}
+          fullWidth
+          sx={{ mt: 2 }}
+          helperText="Optional — leave as “None” to keep the patient's current relationship."
+        >
+          <MenuItem value="">— None (leave unchanged) —</MenuItem>
+          {RELATIONSHIP_OPTIONS.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </TextField>
 
-          <TextField
-            select
-            label="Relationship to insured"
-            value={state.relationship}
-            onChange={(e) => patchState({ relationship: e.target.value })}
-            fullWidth
-            sx={{ mt: 2 }}
-            helperText="Optional — leave as “None” to keep the patient's current relationship."
-          >
-            <MenuItem value="">— None (leave unchanged) —</MenuItem>
-            {RELATIONSHIP_OPTIONS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          <Divider sx={{ mt: 3, mb: 1 }} />
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              Metadata (optional)
-            </Typography>
-            <Button size="small" startIcon={<AddIcon />} onClick={addMetadataRow} sx={{ textTransform: 'none' }}>
-              Add metadata
-            </Button>
-          </Box>
-          {state.metadata.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1 }}>
-              Optional key/value pairs stored on this quick pick (e.g. MCO string matches).
-            </Typography>
-          ) : (
-            state.metadata.map((entry, index) => (
-              <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 1 }}>
-                <TextField
-                  label="Key"
-                  value={entry.key}
-                  onChange={(e) => updateMetadata(index, { key: e.target.value })}
-                  size="small"
-                  sx={{ flex: 1 }}
-                />
-                <TextField
-                  label="Value"
-                  value={entry.value}
-                  onChange={(e) => updateMetadata(index, { value: e.target.value })}
-                  size="small"
-                  sx={{ flex: 1 }}
-                />
-                <IconButton
-                  size="small"
-                  onClick={() => removeMetadataRow(index)}
-                  title="Remove metadata"
-                  sx={{ color: theme.palette.error.main }}
-                >
-                  <DeleteOutlineIcon fontSize="small" />
-                </IconButton>
-              </Box>
-            ))
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3, pt: 2 }}>
-          <RoundedButton onClick={() => setDialogOpen(false)} disabled={saving}>
-            Cancel
-          </RoundedButton>
-          <RoundedButton variant="contained" onClick={() => void handleSave()} disabled={saving}>
-            {saving ? <CircularProgress size={20} /> : editingId ? 'Save' : 'Add'}
-          </RoundedButton>
-        </DialogActions>
-      </Dialog>
+        <Divider sx={{ mt: 3, mb: 1 }} />
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+            Metadata (optional)
+          </Typography>
+          <Button size="small" startIcon={<AddIcon />} onClick={addMetadataRow} sx={{ textTransform: 'none' }}>
+            Add Metadata
+          </Button>
+        </Box>
+        {state.metadata.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1 }}>
+            Optional key/value pairs stored on this quick pick (e.g. MCO string matches).
+          </Typography>
+        ) : (
+          state.metadata.map((entry, index) => (
+            <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 1 }}>
+              <TextField
+                label="Key"
+                value={entry.key}
+                onChange={(e) => updateMetadata(index, { key: e.target.value })}
+                size="small"
+                sx={{ flex: 1 }}
+              />
+              <TextField
+                label="Value"
+                value={entry.value}
+                onChange={(e) => updateMetadata(index, { value: e.target.value })}
+                size="small"
+                sx={{ flex: 1 }}
+              />
+              <IconButton
+                size="small"
+                onClick={() => removeMetadataRow(index)}
+                title="Remove metadata"
+                sx={{ color: theme.palette.error.main }}
+              >
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          ))
+        )}
+      </AppDialog>
     </Box>
   );
 }

@@ -321,17 +321,8 @@ function PreviewButton({ htmlContent, description }: { htmlContent: string; desc
           Preview
         </Button>
       </Tooltip>
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pr: 1 }}>
-          <Typography variant="h3" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
-            Statement Preview
-          </Typography>
-          <IconButton onClick={() => setOpen(false)} aria-label="close">
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent>
-          <Box
+      <AppDialog variant="form" size="m" open={open} onClose={() => setOpen(false)} title="Statement Preview">
+        <Box
             component="iframe"
             title="Statement Preview"
             sandbox="allow-scripts"
@@ -342,11 +333,10 @@ function PreviewButton({ htmlContent, description }: { htmlContent: string; desc
               border: 'none',
               backgroundColor: '#fff',
               borderRadius: 1,
-              filter: 'grayscale(100%)',
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+            filter: 'grayscale(100%)',
+          }}
+        />
+      </AppDialog>
     </>
   );
 }

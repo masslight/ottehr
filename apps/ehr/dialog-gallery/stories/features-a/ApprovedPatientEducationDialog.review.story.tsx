@@ -20,7 +20,7 @@ A sore throat is pain or irritation in the throat that often gets worse when you
 export default defineStory({
   title: 'New approved patient education (step 2: review generated content)',
   source: 'apps/ehr/src/features/admin/patient-education/ApprovedPatientEducationDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Patient Education → "New" → pick diagnosis → "Generate"',
   mocks: [

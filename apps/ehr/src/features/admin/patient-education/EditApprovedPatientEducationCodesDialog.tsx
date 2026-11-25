@@ -1,8 +1,8 @@
-import { CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { RoundedButton } from 'src/components/RoundedButton';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { ApprovedPatientEducationItem } from 'utils/lib/types/api/approved-patient-education.types';
@@ -59,45 +59,41 @@ export const EditApprovedPatientEducationCodesDialog: FC<DialogProps> = ({ open,
   const primaryErrorMessage = submitAttempted && !primary ? 'This field is required' : undefined;
 
   return (
-    <Dialog open={open} onClose={() => !isBusy && onClose()} maxWidth="md" fullWidth>
-      <DialogTitle>Edit Approved Patient Education Codes</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <Typography variant="body2" color="text.secondary">
-            Update the diagnosis or alternative ICD-10 codes for{' '}
-            <Typography component="span" variant="body2" sx={{ fontWeight: 600 }}>
-              {item.title}
-            </Typography>
-            . The PDF content is not changed.
+    <AppDialog
+      variant="form"
+      size="m"
+      open={open}
+      onClose={onClose}
+      busy={isBusy}
+      title="Edit Approved Patient Education Codes"
+      primary={{
+        label: 'Save',
+        onClick: () => {
+          if (!primary) {
+            setSubmitAttempted(true);
+            return;
+          }
+          saveMutation.mutate();
+        },
+        loading: isBusy,
+      }}
+    >
+      <Stack spacing={2} sx={{ mt: 1 }}>
+        <Typography variant="body2" color="text.secondary">
+          Update the diagnosis or alternative ICD-10 codes for{' '}
+          <Typography component="span" variant="body2" sx={{ fontWeight: 600 }}>
+            {item.title}
           </Typography>
-          <PrimaryDiagnosisInput value={primary} onChange={setPrimary} required errorMessage={primaryErrorMessage} />
-          <AlternateDiagnosesInput value={alternates} onChange={setAlternates} primary={primary} />
-          {errorMsg && (
-            <Typography color="error" variant="body2">
-              {errorMsg}
-            </Typography>
-          )}
-        </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <RoundedButton onClick={onClose} disabled={isBusy}>
-          Cancel
-        </RoundedButton>
-        <RoundedButton
-          variant="contained"
-          onClick={() => {
-            if (!primary) {
-              setSubmitAttempted(true);
-              return;
-            }
-            saveMutation.mutate();
-          }}
-          disabled={isBusy}
-          startIcon={isBusy ? <CircularProgress size={16} /> : null}
-        >
-          Save
-        </RoundedButton>
-      </DialogActions>
-    </Dialog>
+          . The PDF content is not changed.
+        </Typography>
+        <PrimaryDiagnosisInput value={primary} onChange={setPrimary} required errorMessage={primaryErrorMessage} />
+        <AlternateDiagnosesInput value={alternates} onChange={setAlternates} primary={primary} />
+        {errorMsg && (
+          <Typography color="error" variant="body2">
+            {errorMsg}
+          </Typography>
+        )}
+      </Stack>
+    </AppDialog>
   );
 };

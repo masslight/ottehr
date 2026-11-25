@@ -1,6 +1,5 @@
-import { LoadingButton } from '@mui/lab';
-import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
 import { ReactElement } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useAdminDeleteEmCodeMutation } from './admin.queries';
 
@@ -19,31 +18,21 @@ export default function EMCodeDeleteDialog({ code, onClose }: EMCodeDeleteDialog
   };
 
   return (
-    <Dialog open={code !== null} onClose={onClose} data-testid={dataTestIds.emCodesAdminPage.confirmDeleteDialog}>
-      <DialogTitle>Delete E&M Code</DialogTitle>
-      <DialogContent>
-        <DialogContentText>
-          Are you sure you want to delete code <strong>{code}</strong>? This action cannot be undone.
-        </DialogContentText>
-      </DialogContent>
-      <DialogActions>
-        <Button
-          onClick={onClose}
-          disabled={deleteMutation.isPending}
-          data-testid={dataTestIds.emCodesAdminPage.cancelDeleteButton}
-        >
-          Cancel
-        </Button>
-        <LoadingButton
-          loading={deleteMutation.isPending}
-          onClick={handleConfirm}
-          color="error"
-          variant="contained"
-          data-testid={dataTestIds.emCodesAdminPage.confirmDeleteButton}
-        >
-          Delete
-        </LoadingButton>
-      </DialogActions>
-    </Dialog>
+    <AppDialog
+      variant="destructive"
+      open={code !== null}
+      onClose={onClose}
+      title="Delete E&M Code"
+      data-testid={dataTestIds.emCodesAdminPage.confirmDeleteDialog}
+      primary={{
+        label: 'Delete',
+        onClick: handleConfirm,
+        loading: deleteMutation.isPending,
+        'data-testid': dataTestIds.emCodesAdminPage.confirmDeleteButton,
+      }}
+      dismiss={{ 'data-testid': dataTestIds.emCodesAdminPage.cancelDeleteButton }}
+    >
+      Are you sure you want to delete code <strong>{code}</strong>? This action cannot be undone.
+    </AppDialog>
   );
 }

@@ -1,5 +1,7 @@
+import { Typography } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
-import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { DmeOrderDTO } from 'utils/lib/types/api/dme.types';
 import { useUpdateDmeOrder } from '../dme.queries';
@@ -43,15 +45,17 @@ export const DmeOrderActionDialog = ({
   const copy = ACTION_COPY[action];
   const [serverError, setServerError] = useState<string | undefined>();
 
+  // Reproduces what InPersonModal did for this dialog: close on success, keep it open with the error on failure.
   const handleConfirm = async (): Promise<void> => {
     setServerError(undefined);
     try {
       await updateOrder({ action, deviceRequestId: order.id });
+      onDone?.();
+      handleClose();
     } catch (error) {
       setServerError(getApiError({ error, defaultError: copy.errorMessage }));
-      throw error;
+      enqueueSnackbar(copy.errorMessage, { variant: 'error' });
     }
-    onDone?.();
   };
 
   const handleClose = (): void => {
@@ -60,18 +64,19 @@ export const DmeOrderActionDialog = ({
   };
 
   return (
-    <InPersonModal
+    <AppDialog
+      variant={action === 'delete' ? 'destructive' : 'confirm'}
       open={open}
+      onClose={handleClose}
       title={copy.title}
-      description={copy.description(order.itemName)}
-      confirmText={copy.confirmText}
-      closeButtonText="Cancel"
-      color={action === 'delete' ? 'error.main' : 'primary.main'}
-      handleConfirm={handleConfirm}
-      handleClose={handleClose}
-      errorMessage={copy.errorMessage}
-      error={serverError}
-      disabled={isPending}
-    />
+      primary={{ label: copy.confirmText, onClick: handleConfirm, disabled: isPending }}
+    >
+      {copy.description(order.itemName)}
+      {serverError && (
+        <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+          {serverError}
+        </Typography>
+      )}
+    </AppDialog>
   );
 };

@@ -14,7 +14,7 @@ const item: ApprovedPatientEducationItem = {
 export default defineStory({
   title: 'Edit approved patient education ICD-10 codes',
   source: 'apps/ehr/src/features/admin/patient-education/EditApprovedPatientEducationCodesDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Patient Education → row "edit codes" action',
   mocks: icdMocks,

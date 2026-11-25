@@ -5,7 +5,7 @@ import { addressBookMocks, contact } from './_addressBook';
 export default defineStory({
   title: 'Edit address book contact',
   source: 'apps/ehr/src/features/address-book/AddressBookDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Address book admin page → click a contact',
   mocks: addressBookMocks,

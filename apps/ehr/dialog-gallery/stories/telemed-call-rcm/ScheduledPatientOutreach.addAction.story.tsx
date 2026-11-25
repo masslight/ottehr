@@ -5,7 +5,7 @@ import { AdminHeaderHost, outreachMocks } from './_outreach';
 export default defineStory({
   title: 'Add outreach action',
   source: 'apps/ehr/src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Outreach → Patient outreach → Configuration → "Add Action" header button',
   notes:

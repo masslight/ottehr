@@ -1,19 +1,10 @@
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SchoolIcon from '@mui/icons-material/School';
-import {
-  Box,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { RoundedButton } from 'src/components/RoundedButton';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { PatientEducationLanguageSelector } from 'src/features/visits/shared/components/PatientEducationLanguageSelector';
 import { PatientEducationSectionsEditor } from 'src/features/visits/shared/components/PatientEducationSectionsEditor';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -114,79 +105,76 @@ export const ApprovedPatientEducationDialog: FC<DialogProps> = ({ open, onClose 
   const primaryErrorMessage = submitAttempted && !primary ? 'This field is required' : undefined;
 
   return (
-    <Dialog open={open} onClose={() => !isBusy && onClose()} maxWidth="md" fullWidth>
-      <DialogTitle>{showReview ? 'Review Patient Education' : 'New Approved Patient Education'}</DialogTitle>
-      <DialogContent>
-        {!showReview && (
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <PatientEducationLanguageSelector value={language} onChange={setLanguage} disabled={isBusy} />
-            <Typography variant="body2" color="text.secondary">
-              Pick the diagnosis the AI should use to generate the PDF. Add alternative ICD-10 codes if the same PDF
-              should also apply to other diagnoses. A code can have separate English and Spanish approved PDFs.
+    <AppDialog
+      variant="form"
+      size="m"
+      open={open}
+      onClose={onClose}
+      busy={isBusy}
+      title={showReview ? 'Review Patient Education' : 'New Approved Patient Education'}
+      actions={
+        showReview
+          ? [
+              {
+                label: 'Back',
+                onClick: () => {
+                  setGeneratedSection(null);
+                  setEditableSection(null);
+                },
+              },
+            ]
+          : undefined
+      }
+      primary={
+        showReview
+          ? {
+              label: 'Approve & Save',
+              onClick: () => saveMutation.mutate(),
+              loading: isBusy,
+              startIcon: <PictureAsPdfIcon />,
+            }
+          : {
+              label: 'Generate',
+              onClick: () => {
+                if (!primary) {
+                  setSubmitAttempted(true);
+                  return;
+                }
+                generateMutation.mutate();
+              },
+              loading: isBusy,
+              startIcon: <SchoolIcon />,
+            }
+      }
+    >
+      {!showReview && (
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <PatientEducationLanguageSelector value={language} onChange={setLanguage} disabled={isBusy} />
+          <Typography variant="body2" color="text.secondary">
+            Pick the diagnosis the AI should use to generate the PDF. Add alternative ICD-10 codes if the same PDF
+            should also apply to other diagnoses. A code can have separate English and Spanish approved PDFs.
+          </Typography>
+          <PrimaryDiagnosisInput value={primary} onChange={setPrimary} required errorMessage={primaryErrorMessage} />
+          <AlternateDiagnosesInput value={alternates} onChange={setAlternates} primary={primary} />
+          {errorMsg && (
+            <Typography color="error" variant="body2">
+              {errorMsg}
             </Typography>
-            <PrimaryDiagnosisInput value={primary} onChange={setPrimary} required errorMessage={primaryErrorMessage} />
-            <AlternateDiagnosesInput value={alternates} onChange={setAlternates} primary={primary} />
-            {errorMsg && (
-              <Typography color="error" variant="body2">
-                {errorMsg}
-              </Typography>
-            )}
-          </Stack>
-        )}
+          )}
+        </Stack>
+      )}
 
-        {showReview && reviewSection && (
-          <Box sx={{ mt: 1 }}>
-            <PatientEducationSectionsEditor
-              sections={[reviewSection]}
-              onSectionsChange={(next) => setEditableSection(next[0])}
-              disabled={isBusy}
-              errorMessage={errorMsg}
-              helperText='Edit the content below if needed. Use markdown formatting: "#", "##" for section headers, "- " for bullet points. When you approve, the rendered PDF is what charting will use.'
-            />
-          </Box>
-        )}
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <RoundedButton onClick={onClose} disabled={isBusy}>
-          Cancel
-        </RoundedButton>
-        {showReview && (
-          <RoundedButton
-            onClick={() => {
-              setGeneratedSection(null);
-              setEditableSection(null);
-            }}
+      {showReview && reviewSection && (
+        <Box sx={{ mt: 1 }}>
+          <PatientEducationSectionsEditor
+            sections={[reviewSection]}
+            onSectionsChange={(next) => setEditableSection(next[0])}
             disabled={isBusy}
-          >
-            Back
-          </RoundedButton>
-        )}
-        {!showReview ? (
-          <RoundedButton
-            variant="contained"
-            onClick={() => {
-              if (!primary) {
-                setSubmitAttempted(true);
-                return;
-              }
-              generateMutation.mutate();
-            }}
-            disabled={isBusy}
-            startIcon={isBusy ? <CircularProgress size={16} /> : <SchoolIcon />}
-          >
-            Generate
-          </RoundedButton>
-        ) : (
-          <RoundedButton
-            variant="contained"
-            onClick={() => saveMutation.mutate()}
-            disabled={isBusy}
-            startIcon={isBusy ? <CircularProgress size={16} /> : <PictureAsPdfIcon />}
-          >
-            Approve & Save
-          </RoundedButton>
-        )}
-      </DialogActions>
-    </Dialog>
+            errorMessage={errorMsg}
+            helperText='Edit the content below if needed. Use markdown formatting: "#", "##" for section headers, "- " for bullet points. When you approve, the rendered PDF is what charting will use.'
+          />
+        </Box>
+      )}
+    </AppDialog>
   );
 };

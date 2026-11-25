@@ -237,7 +237,7 @@ describe('AddressBookDialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Delete' }));
     expect(api.deleteAddressBookContact).not.toHaveBeenCalled();
-    expect(screen.getByText('Delete this contact?')).toBeInTheDocument();
+    expect(screen.getByText('Delete This Contact?')).toBeInTheDocument();
 
     await user.click(screen.getByTestId('dialog-proceed-button'));
 

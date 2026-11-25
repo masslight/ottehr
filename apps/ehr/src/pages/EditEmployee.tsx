@@ -14,7 +14,7 @@ import { getAllNotificationRows } from 'utils/lib/types/api/provider-notificatio
 import { hasPractitionerProfile } from 'utils/lib/types/api/user.types';
 import { UserActivationMode } from 'utils/lib/types/api/user-activation.types';
 import { deleteUser, userActivation } from '../api/api';
-import { ConfirmationDialog } from '../components/ConfirmationDialog';
+import { AppDialog } from '../components/dialogs/AppDialog';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import EmployeeInformationForm from '../components/EmployeeInformation';
 import PractitionerRoleList from '../components/schedule/PractitionerRoleList';
@@ -61,6 +61,7 @@ export default function EditEmployeePage(): JSX.Element {
     },
   });
 
+  const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const handleDeleteUser = async (): Promise<void> => {
     setErrors({ submit: '' });
     try {
@@ -231,35 +232,41 @@ export default function EditEmployeePage(): JSX.Element {
                     </Typography>
                   )}
 
-                  <ConfirmationDialog
-                    title="Delete user?"
-                    description={`This will permanently delete ${
-                      user?.email || user?.name
-                    } and block EHR access. This cannot be undone.`}
-                    response={handleDeleteUser}
-                    actionButtons={{
-                      proceed: { text: 'Delete', color: 'error', loading: deleteMutation.isPending },
+                  <LoadingButton
+                    variant="contained"
+                    color="error"
+                    data-testid={dataTestIds.employeesPage.deleteUserButton}
+                    sx={{
+                      textTransform: 'none',
+                      borderRadius: 28,
+                      marginTop: 4,
+                      fontWeight: 'bold',
+                      marginRight: 1,
+                    }}
+                    loading={deleteMutation.isPending}
+                    onClick={() => setDeleteUserDialogOpen(true)}
+                  >
+                    Delete
+                  </LoadingButton>
+                  <AppDialog
+                    variant="destructive"
+                    open={deleteUserDialogOpen}
+                    onClose={() => setDeleteUserDialogOpen(false)}
+                    title="Delete User?"
+                    primary={{
+                      label: 'Delete User',
+                      // handleDeleteUser reports its own failures, so the dialog closes either way.
+                      onClick: async () => {
+                        await handleDeleteUser();
+                        setDeleteUserDialogOpen(false);
+                      },
+                      loading: deleteMutation.isPending,
                     }}
                   >
-                    {(showDialog) => (
-                      <LoadingButton
-                        variant="contained"
-                        color="error"
-                        data-testid={dataTestIds.employeesPage.deleteUserButton}
-                        sx={{
-                          textTransform: 'none',
-                          borderRadius: 28,
-                          marginTop: 4,
-                          fontWeight: 'bold',
-                          marginRight: 1,
-                        }}
-                        loading={deleteMutation.isPending}
-                        onClick={showDialog}
-                      >
-                        Delete
-                      </LoadingButton>
-                    )}
-                  </ConfirmationDialog>
+                    {`This will permanently delete ${
+                      user?.email || user?.name
+                    } and block EHR access. This cannot be undone.`}
+                  </AppDialog>
                 </Paper>
               ) : (
                 <Paper sx={{ padding: 3, marginTop: 3 }}>

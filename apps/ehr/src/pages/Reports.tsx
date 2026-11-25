@@ -36,6 +36,7 @@ import { SavedAdHocReport } from 'utils/lib/types/adhoc/saved/saved.types';
 import { AD_HOC_REPORT_EDIT_ROLES, AD_HOC_REPORT_VIEW_ROLES } from 'utils/lib/types/api/adhoc-report-access';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { deleteAdHocReport, listAdHocReports, saveAdHocReport } from '../api/api';
+import { AppDialog } from '../components/dialogs/AppDialog';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
@@ -431,72 +432,58 @@ export default function Reports(): React.ReactElement {
           )}
         </Box>
 
-        <Dialog
+        <AppDialog
+          variant="destructive"
           open={!!deleteTarget}
-          onClose={() => (busy ? undefined : setDeleteTarget(null))}
-          maxWidth="xs"
-          fullWidth
+          onClose={() => setDeleteTarget(null)}
+          title="Delete Saved Report"
+          busy={busy}
+          primary={{ label: 'Delete Report', onClick: () => void handleDelete(), loading: busy }}
         >
-          <DialogTitle>Delete saved report</DialogTitle>
-          <DialogContent>
-            <DialogContentText>
-              Delete “{deleteTarget?.name}”? This removes the tile for everyone. The underlying data is unaffected.
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDeleteTarget(null)} disabled={busy}>
-              Cancel
-            </Button>
-            <Button color="error" variant="contained" onClick={() => void handleDelete()} disabled={busy}>
-              {busy ? <CircularProgress size={18} /> : 'Delete'}
-            </Button>
-          </DialogActions>
-        </Dialog>
+          Delete “{deleteTarget?.name}”? This removes the tile for everyone. The underlying data is unaffected.
+        </AppDialog>
 
-        <Dialog
+        <AppDialog
+          variant="form"
+          size="s"
           open={!!renameTarget}
-          onClose={() => (busy ? undefined : setRenameTarget(null))}
-          maxWidth="xs"
-          fullWidth
+          onClose={() => setRenameTarget(null)}
+          title="Edit Report"
+          busy={busy}
+          primary={{
+            label: 'Save',
+            onClick: () => void handleSaveEdit(),
+            loading: busy,
+            disabled: !renameValue.trim(),
+          }}
         >
-          <DialogTitle>Edit report</DialogTitle>
-          <DialogContent>
-            <TextField
-              autoFocus
-              fullWidth
-              size="small"
-              label="Report name"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && renameValue.trim() && !busy) {
-                  e.preventDefault();
-                  void handleSaveEdit();
-                }
-              }}
-              sx={{ mt: 1 }}
-            />
-            <TextField
-              fullWidth
-              size="small"
-              multiline
-              minRows={2}
-              label="Description (optional)"
-              placeholder="A sentence or two describing what this report shows."
-              value={descriptionValue}
-              onChange={(e) => setDescriptionValue(e.target.value)}
-              sx={{ mt: 2 }}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setRenameTarget(null)} disabled={busy}>
-              Cancel
-            </Button>
-            <Button variant="contained" onClick={() => void handleSaveEdit()} disabled={busy || !renameValue.trim()}>
-              {busy ? <CircularProgress size={18} /> : 'Save'}
-            </Button>
-          </DialogActions>
-        </Dialog>
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            label="Report name"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && renameValue.trim() && !busy) {
+                e.preventDefault();
+                void handleSaveEdit();
+              }
+            }}
+            sx={{ mt: 1 }}
+          />
+          <TextField
+            fullWidth
+            size="small"
+            multiline
+            minRows={2}
+            label="Description (optional)"
+            placeholder="A sentence or two describing what this report shows."
+            value={descriptionValue}
+            onChange={(e) => setDescriptionValue(e.target.value)}
+            sx={{ mt: 2 }}
+          />
+        </AppDialog>
       </>
     </PageContainer>
   );

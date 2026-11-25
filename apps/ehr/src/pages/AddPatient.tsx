@@ -48,7 +48,7 @@ import { getAppointmentDurationFromSlot, getTimezone } from 'utils/lib/utils/sch
 import { createAppointment, createPatient, createSlot, getLocations, listServiceCategories } from '../api/api';
 import BookableSelect, { BookableMode, BookableTarget } from '../components/BookableSelect';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
-import { CustomDialog } from '../components/dialogs/CustomDialog';
+import { AppDialog } from '../components/dialogs/AppDialog';
 import SlotPicker from '../components/SlotPicker';
 import { MAXIMUM_CHARACTER_LIMIT } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -1051,13 +1051,14 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                 </Box>
               </Stack>
             </form>
-            <CustomDialog
+            <AppDialog
+              variant="alert"
               open={selectSlotDialogOpen}
-              title="Please select a date and time"
-              description="To continue, please select an available appointment."
-              closeButtonText="Close"
-              handleClose={() => setSelectSlotDialogOpen(false)}
-            />
+              onClose={() => setSelectSlotDialogOpen(false)}
+              title="Select Date and Time"
+            >
+              <span data-testid={dataTestIds.dialog.message}>To continue, please select an available appointment.</span>
+            </AppDialog>
           </Paper>
         </Grid>
 

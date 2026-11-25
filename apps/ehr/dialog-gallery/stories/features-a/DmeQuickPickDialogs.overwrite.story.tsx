@@ -5,7 +5,7 @@ import { existingQuickPicks } from './_dme';
 export default defineStory({
   title: 'Replace existing DME quick pick?',
   source: 'apps/ehr/src/features/dme/components/DmeQuickPickDialogs.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'In-person visit → DME order form → "Add to Quick Picks" → save under a name that already exists',
   render: () => (

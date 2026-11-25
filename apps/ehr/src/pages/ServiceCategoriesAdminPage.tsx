@@ -35,6 +35,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
@@ -126,196 +127,183 @@ const ServiceCategoryDialog: FC<{
   }, [onSubmit, value, reasonsText, codeIsTaken]);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        <Typography variant="h4" component="span" color="primary.dark">
-          {initial?.id ? 'Edit Service' : 'New Service'}
-        </Typography>
-      </DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-          <TextField
-            label="Display Name"
-            value={value.name}
-            onChange={(e) => setValue((v) => ({ ...v, name: e.target.value }))}
-            required
-            size="small"
-            fullWidth
-            helperText="Shown to patients — e.g., 'Urgent Care', 'Workers Comp'"
-          />
-          <TextField
-            label="Abbreviation/Short Name (2-3 symbols)"
-            value={value.abbreviation ?? ''}
-            onChange={(e) => setValue((v) => ({ ...v, abbreviation: e.target.value }))}
-            required
-            size="small"
-            fullWidth
-            error={!value.abbreviation?.trim()}
-            helperText="Shown on the Tracking Board and patients' visits list - e.g., 'UC', 'WC'"
-          />
-          <TextField
-            label="Code"
-            value={value.code}
+    <AppDialog
+      variant="form"
+      size="s"
+      open={open}
+      onClose={onClose}
+      title={initial?.id ? 'Edit Service' : 'New Service'}
+      primary={{ label: 'Save', onClick: handleSave, loading: saving, disabled: codeIsTaken }}
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+        <TextField
+          label="Display Name"
+          value={value.name}
+          onChange={(e) => setValue((v) => ({ ...v, name: e.target.value }))}
+          required
+          size="small"
+          fullWidth
+          helperText="Shown to patients — e.g., 'Urgent Care', 'Workers Comp'"
+        />
+        <TextField
+          label="Abbreviation/Short Name (2-3 symbols)"
+          value={value.abbreviation ?? ''}
+          onChange={(e) => setValue((v) => ({ ...v, abbreviation: e.target.value }))}
+          required
+          size="small"
+          fullWidth
+          error={!value.abbreviation?.trim()}
+          helperText="Shown on the Tracking Board and patients' visits list - e.g., 'UC', 'WC'"
+        />
+        <TextField
+          label="Code"
+          value={value.code}
+          onChange={(e) =>
+            setValue((v) => ({
+              ...v,
+              code: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+            }))
+          }
+          required
+          size="small"
+          fullWidth
+          error={codeIsTaken}
+          helperText={
+            codeIsTaken
+              ? `A service with the code "${value.code}" already exists. Choose a different code.`
+              : "URL-safe identifier — e.g., 'urgent-care', 'workers-comp'"
+          }
+        />
+        <TextField
+          label="Duration (minutes)"
+          type="number"
+          value={value.config.durationMinutes === 0 ? '' : value.config.durationMinutes}
+          onChange={(e) => {
+            const raw = e.target.value;
+            const n = parseInt(raw, 10);
+            setValue((v) => ({
+              ...v,
+              config: { ...v.config, durationMinutes: isNaN(n) ? 0 : n },
+            }));
+          }}
+          error={value.config.durationMinutes < 1}
+          helperText={value.config.durationMinutes < 1 ? 'Must be at least 1 minute' : undefined}
+          size="small"
+          fullWidth
+        />
+        {(() => {
+          // The slot generator's no-explicit-cadence fallback depends on
+          // duration — shared helper so the picker's "Default (X min)"
+          // label always matches what the admin will actually get.
+          const defaultLabel = `Default (${getDefaultCadenceMinutes(value.config.durationMinutes)} min)`;
+          return (
+            <FormControl size="small" fullWidth>
+              <InputLabel shrink>Cadence (start interval)</InputLabel>
+              <Select
+                value={value.config.cadenceMinutes ?? ''}
+                input={<OutlinedInput notched label="Cadence (start interval)" />}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const parsed = raw === '' ? undefined : Number(raw);
+                  setValue((v) => ({
+                    ...v,
+                    config: {
+                      ...v.config,
+                      cadenceMinutes: parsed === undefined || Number.isNaN(parsed) ? undefined : parsed,
+                    },
+                  }));
+                }}
+                renderValue={(selected) => (selected ? `${selected as number} min` : defaultLabel)}
+                displayEmpty
+              >
+                <MenuItem value="">{defaultLabel}</MenuItem>
+                <MenuItem value={15}>15 min</MenuItem>
+                <MenuItem value={30}>30 min</MenuItem>
+                <MenuItem value={60}>60 min</MenuItem>
+              </Select>
+            </FormControl>
+          );
+        })()}
+        <FormControl size="small" fullWidth>
+          <InputLabel>Service Modes</InputLabel>
+          <Select
+            multiple
+            value={value.config.serviceModes}
+            input={<OutlinedInput label="Service Modes" />}
             onChange={(e) =>
               setValue((v) => ({
                 ...v,
-                code: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+                config: {
+                  ...v.config,
+                  serviceModes: (typeof e.target.value === 'string'
+                    ? e.target.value.split(',')
+                    : e.target.value) as Array<'in-person' | 'virtual'>,
+                },
               }))
             }
-            required
-            size="small"
-            fullWidth
-            error={codeIsTaken}
-            helperText={
-              codeIsTaken
-                ? `A service with the code "${value.code}" already exists. Choose a different code.`
-                : "URL-safe identifier — e.g., 'urgent-care', 'workers-comp'"
+            renderValue={(selected) =>
+              (selected as string[]).map((s) => (s === 'in-person' ? 'In-Person' : 'Virtual')).join(', ')
             }
-          />
-          <TextField
-            label="Duration (minutes)"
-            type="number"
-            value={value.config.durationMinutes === 0 ? '' : value.config.durationMinutes}
-            onChange={(e) => {
-              const raw = e.target.value;
-              const n = parseInt(raw, 10);
+          >
+            <MenuItem value="in-person">
+              <Checkbox checked={value.config.serviceModes.includes('in-person')} />
+              <ListItemText primary="In-Person" />
+            </MenuItem>
+            <MenuItem value="virtual">
+              <Checkbox checked={value.config.serviceModes.includes('virtual')} />
+              <ListItemText primary="Virtual" />
+            </MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small" fullWidth>
+          <InputLabel>Booking Flows</InputLabel>
+          <Select
+            multiple
+            value={value.config.visitTypes}
+            input={<OutlinedInput label="Booking Flows" />}
+            onChange={(e) =>
               setValue((v) => ({
                 ...v,
-                config: { ...v.config, durationMinutes: isNaN(n) ? 0 : n },
-              }));
-            }}
-            error={value.config.durationMinutes < 1}
-            helperText={value.config.durationMinutes < 1 ? 'Must be at least 1 minute' : undefined}
-            size="small"
-            fullWidth
-          />
-          {(() => {
-            // The slot generator's no-explicit-cadence fallback depends on
-            // duration — shared helper so the picker's "Default (X min)"
-            // label always matches what the admin will actually get.
-            const defaultLabel = `Default (${getDefaultCadenceMinutes(value.config.durationMinutes)} min)`;
-            return (
-              <FormControl size="small" fullWidth>
-                <InputLabel shrink>Cadence (start interval)</InputLabel>
-                <Select
-                  value={value.config.cadenceMinutes ?? ''}
-                  input={<OutlinedInput notched label="Cadence (start interval)" />}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    const parsed = raw === '' ? undefined : Number(raw);
-                    setValue((v) => ({
-                      ...v,
-                      config: {
-                        ...v.config,
-                        cadenceMinutes: parsed === undefined || Number.isNaN(parsed) ? undefined : parsed,
-                      },
-                    }));
-                  }}
-                  renderValue={(selected) => (selected ? `${selected as number} min` : defaultLabel)}
-                  displayEmpty
-                >
-                  <MenuItem value="">{defaultLabel}</MenuItem>
-                  <MenuItem value={15}>15 min</MenuItem>
-                  <MenuItem value={30}>30 min</MenuItem>
-                  <MenuItem value={60}>60 min</MenuItem>
-                </Select>
-              </FormControl>
-            );
-          })()}
-          <FormControl size="small" fullWidth>
-            <InputLabel>Service Modes</InputLabel>
-            <Select
-              multiple
-              value={value.config.serviceModes}
-              input={<OutlinedInput label="Service Modes" />}
-              onChange={(e) =>
-                setValue((v) => ({
-                  ...v,
-                  config: {
-                    ...v.config,
-                    serviceModes: (typeof e.target.value === 'string'
-                      ? e.target.value.split(',')
-                      : e.target.value) as Array<'in-person' | 'virtual'>,
-                  },
-                }))
-              }
-              renderValue={(selected) =>
-                (selected as string[]).map((s) => (s === 'in-person' ? 'In-Person' : 'Virtual')).join(', ')
-              }
-            >
-              <MenuItem value="in-person">
-                <Checkbox checked={value.config.serviceModes.includes('in-person')} />
-                <ListItemText primary="In-Person" />
-              </MenuItem>
-              <MenuItem value="virtual">
-                <Checkbox checked={value.config.serviceModes.includes('virtual')} />
-                <ListItemText primary="Virtual" />
-              </MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl size="small" fullWidth>
-            <InputLabel>Booking Flows</InputLabel>
-            <Select
-              multiple
-              value={value.config.visitTypes}
-              input={<OutlinedInput label="Booking Flows" />}
-              onChange={(e) =>
-                setValue((v) => ({
-                  ...v,
-                  config: {
-                    ...v.config,
-                    visitTypes: (typeof e.target.value === 'string'
-                      ? e.target.value.split(',')
-                      : e.target.value) as Array<'prebook' | 'walk-in'>,
-                  },
-                }))
-              }
-              renderValue={(selected) =>
-                (selected as string[]).map((s) => (s === 'prebook' ? 'Prebook' : 'Walk-in')).join(', ')
-              }
-            >
-              <MenuItem value="prebook">
-                <Checkbox checked={value.config.visitTypes.includes('prebook')} />
-                <ListItemText primary="Prebook" />
-              </MenuItem>
-              <MenuItem value="walk-in">
-                <Checkbox checked={value.config.visitTypes.includes('walk-in')} />
-                <ListItemText primary="Walk-in" />
-              </MenuItem>
-            </Select>
-          </FormControl>
-          <TextField
-            label="Reasons for Visit"
-            multiline
-            minRows={4}
-            value={reasonsText}
-            onChange={(e) => setReasonsText(e.target.value)}
-            size="small"
-            fullWidth
-            helperText="One reason per line. Shown to patient during booking."
-          />
-          <FormControlLabel
-            control={
-              <Switch checked={value.active} onChange={(e) => setValue((v) => ({ ...v, active: e.target.checked }))} />
+                config: {
+                  ...v.config,
+                  visitTypes: (typeof e.target.value === 'string'
+                    ? e.target.value.split(',')
+                    : e.target.value) as Array<'prebook' | 'walk-in'>,
+                },
+              }))
             }
-            label={value.active ? 'Active' : 'Inactive'}
-          />
-        </Box>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={saving}>
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleSave}
-          disabled={saving || codeIsTaken}
-          startIcon={saving ? <CircularProgress size={16} /> : null}
-        >
-          Save
-        </Button>
-      </DialogActions>
-    </Dialog>
+            renderValue={(selected) =>
+              (selected as string[]).map((s) => (s === 'prebook' ? 'Prebook' : 'Walk-in')).join(', ')
+            }
+          >
+            <MenuItem value="prebook">
+              <Checkbox checked={value.config.visitTypes.includes('prebook')} />
+              <ListItemText primary="Prebook" />
+            </MenuItem>
+            <MenuItem value="walk-in">
+              <Checkbox checked={value.config.visitTypes.includes('walk-in')} />
+              <ListItemText primary="Walk-in" />
+            </MenuItem>
+          </Select>
+        </FormControl>
+        <TextField
+          label="Reasons for Visit"
+          multiline
+          minRows={4}
+          value={reasonsText}
+          onChange={(e) => setReasonsText(e.target.value)}
+          size="small"
+          fullWidth
+          helperText="One reason per line. Shown to patient during booking."
+        />
+        <FormControlLabel
+          control={
+            <Switch checked={value.active} onChange={(e) => setValue((v) => ({ ...v, active: e.target.checked }))} />
+          }
+          label={value.active ? 'Active' : 'Inactive'}
+        />
+      </Box>
+    </AppDialog>
   );
 };
 

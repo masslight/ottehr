@@ -5,7 +5,7 @@ import { AdminHeaderHost, outreachMocks } from './_outreach';
 export default defineStory({
   title: 'Delete outreach action',
   source: 'apps/ehr/src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Admin → Outreach → Patient outreach → Configuration → trash icon on an action row',
   notes: 'Real page with a mocked outreach config (3 actions); the first listed action is the one being deleted.',

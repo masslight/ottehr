@@ -16,7 +16,6 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
-  Dialog,
   Divider,
   FormControl,
   IconButton,
@@ -42,6 +41,7 @@ import { DateTime } from 'luxon';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getConversation } from 'src/api/api';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   OutreachActionDTO,
@@ -1400,19 +1400,15 @@ function SmsHistoryDialog({
   }, [oystehrZambda, patientId, timezone]);
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <Box sx={{ p: 2.5 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            SMS History — {patientName}
-          </Typography>
-          <IconButton size="small" onClick={onClose}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-        <Typography variant="caption" sx={{ color: 'text.secondary', mb: 1, display: 'block' }}>
-          Read-only view of SMS messages between the clinic and the patient.
-        </Typography>
+    <AppDialog
+      variant="form"
+      size="m"
+      open
+      onClose={onClose}
+      title={`SMS History — ${patientName}`}
+      subtitle="Read-only view of SMS messages between the clinic and the patient."
+    >
+      <>
         <Divider sx={{ mb: 1.5 }} />
         <Box
           sx={{
@@ -1474,8 +1470,8 @@ function SmsHistoryDialog({
             ))
           )}
         </Box>
-      </Box>
-    </Dialog>
+      </>
+    </AppDialog>
   );
 }
 
@@ -1594,19 +1590,15 @@ function EmailHistoryDialog({
   }, [oystehr, patientId]);
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <Box sx={{ p: 2.5 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Email History — {patientName}
-          </Typography>
-          <IconButton size="small" onClick={onClose}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-        <Typography variant="caption" sx={{ color: 'text.secondary', mb: 1, display: 'block' }}>
-          Outreach emails sent to the patient.
-        </Typography>
+    <AppDialog
+      variant="form"
+      size="m"
+      open
+      onClose={onClose}
+      title={`Email History — ${patientName}`}
+      subtitle="Outreach emails sent to the patient."
+    >
+      <>
         <Divider sx={{ mb: 1.5 }} />
         <Box
           sx={{
@@ -1675,8 +1667,8 @@ function EmailHistoryDialog({
             ))
           )}
         </Box>
-      </Box>
-    </Dialog>
+      </>
+    </AppDialog>
   );
 }
 
@@ -1805,19 +1797,15 @@ function PaperMailHistoryDialog({
   }, [oystehr, patientId]);
 
   return (
-    <Dialog open onClose={onClose} maxWidth="xs" fullWidth>
-      <Box sx={{ p: 2.5 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Paper Statements — {patientName}
-          </Typography>
-          <IconButton size="small" onClick={onClose}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-        <Typography variant="caption" sx={{ color: 'text.secondary', mb: 1, display: 'block' }}>
-          Mailed paper statements sent to the patient.
-        </Typography>
+    <AppDialog
+      variant="form"
+      size="m"
+      open
+      onClose={onClose}
+      title={`Paper Statements — ${patientName}`}
+      subtitle="Mailed paper statements sent to the patient."
+    >
+      <>
         <Divider sx={{ mb: 1.5 }} />
         <Box sx={{ maxHeight: 320, overflowY: 'auto' }}>
           {loading ? (
@@ -1868,7 +1856,7 @@ function PaperMailHistoryDialog({
             </Stack>
           )}
         </Box>
-      </Box>
-    </Dialog>
+      </>
+    </AppDialog>
   );
 }
