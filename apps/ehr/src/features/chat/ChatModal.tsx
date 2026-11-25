@@ -154,10 +154,18 @@ const ChatModal = memo(
         if (!messages) {
           return;
         }
+        // Polling also lands here, so this must not clear pendingMessageSend; the effect below does that once
+        // the sent message shows up in the conversation.
         _setMessages(messages);
-        setPendingMessageSend(undefined);
       }
     );
+
+    // Keep the pending state until the send finished and its message is in the fetched conversation.
+    useEffect(() => {
+      if (pendingMessageSend?.resolvedId && _messages.some((m) => m.id === pendingMessageSend.resolvedId)) {
+        setPendingMessageSend(undefined);
+      }
+    }, [_messages, pendingMessageSend]);
 
     const [messages]: [MessageModel[]] = useMemo(() => {
       const pending = pendingMessageSend ? [pendingMessageSend] : [];
@@ -199,7 +207,7 @@ const ChatModal = memo(
     const handleSendMessage = async (event: UIEvent, message: string): Promise<void> => {
       event.preventDefault();
 
-      if (message.trim() === '' || sendDisabled) {
+      if (message.trim() === '' || sendDisabled || sendMessagesMutation.isPending || pendingMessageSend !== undefined) {
         return;
       }
       if (!currentUser) {
