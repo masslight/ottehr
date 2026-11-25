@@ -1,18 +1,10 @@
-import { Coding, Coverage, CoverageEligibilityResponse } from 'fhir/r4b';
+import { Coding, CoverageEligibilityResponse } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import { CODE_SYSTEM_CPT_MODIFIER, EXTENSION_URL_CPT_MODIFIER } from '../helpers/rcm/constants';
-import { CoverageCheckWithDetails } from '../types/api/patient-account';
 import { InsuranceEligibilityCheckStatus } from '../types/data/paperwork/paperwork.types';
-import { PatientPaymentBenefit } from '../types/data/telemed/eligibility.types';
 import {
   extractCptCodeModifiersFromCoding,
-  formatEligibilityMoney,
-  formatPatientPaymentBenefitAmount,
   getCptBillableUnitsFromCoding,
-  getEligibilityCheckDetailsForCoverage,
-  getEligibilityErrorDetails,
-  getFinancialDetailSummary,
-  getPatientPaymentBenefitsByNetwork,
   INSURANCE_TYPE_CODE_TO_CANDID_CODE,
   mapInsuranceTypeCodeToCandidCode,
   parseCoverageEligibilityResponse,
@@ -212,119 +204,5 @@ describe('mapInsuranceTypeCodeToCandidCode', () => {
     );
 
     expect(unknownTargets).toEqual([]);
-  });
-});
-
-describe('getEligibilityCheckDetailsForCoverage', () => {
-  const coverage = (subscriberId: string, payer: string): Coverage => ({
-    resourceType: 'Coverage',
-    status: 'active',
-    beneficiary: { reference: 'Patient/patient-1' },
-    subscriberId,
-    payor: [{ reference: payer }],
-    class: [
-      {
-        type: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/coverage-class', code: 'plan' }] },
-        value: 'x',
-      },
-    ],
-  });
-  const check = (dateISO: string, subscriberId: string, payorRef: string): CoverageCheckWithDetails => ({
-    status: InsuranceEligibilityCheckStatus.eligibilityConfirmed,
-    dateISO,
-    subscriberId,
-    payorRef,
-  });
-  const AETNA = 'https://rcm-api.zapehr.com/v1/payer/60054';
-  const CIGNA = 'https://rcm-api.zapehr.com/v1/payer/62308';
-
-  it('returns the first matching check, the newest since checks arrive newest first', () => {
-    const checks = [check('2026-11-02T10:00:00.000Z', 'A-1', AETNA), check('2026-11-01T10:00:00.000Z', 'A-1', AETNA)];
-    expect(getEligibilityCheckDetailsForCoverage(coverage('A-1', AETNA), checks)).toBe(checks[0]);
-  });
-
-  it('skips checks that belong to another coverage', () => {
-    const checks = [check('2026-11-02T10:00:00.000Z', 'C-9', CIGNA), check('2026-11-01T10:00:00.000Z', 'A-1', AETNA)];
-    expect(getEligibilityCheckDetailsForCoverage(coverage('A-1', AETNA), checks)).toBe(checks[1]);
-  });
-
-  it('finds nothing once the coverage member ID no longer matches the earlier check', () => {
-    const checks = [check('2026-11-01T10:00:00.000Z', 'A-1', AETNA)];
-    expect(getEligibilityCheckDetailsForCoverage(coverage('A-2', AETNA), checks)).toBeUndefined();
-  });
-});
-
-describe('eligibility display helpers', () => {
-  const benefit = (overrides: Partial<PatientPaymentBenefit>): PatientPaymentBenefit =>
-    ({
-      amountInUSD: 0,
-      percentage: 0,
-      code: 'UC',
-      description: 'Urgent Care',
-      coverageCode: 'B',
-      coverageDescription: 'Co-Payment',
-      periodDescription: 'Visit',
-      periodCode: '27',
-      levelDescription: 'Individual',
-      levelCode: 'IND',
-      inNetwork: true,
-      ...overrides,
-    }) as PatientPaymentBenefit;
-
-  it('keeps only urgent care benefits and splits them by network', () => {
-    const inNetwork = benefit({ amountInUSD: 25 });
-    const outOfNetwork = benefit({ amountInUSD: 75, inNetwork: false });
-    const otherService = benefit({ code: '98', amountInUSD: 10 });
-    expect(getPatientPaymentBenefitsByNetwork([inNetwork, outOfNetwork, otherService])).toEqual({
-      inNetwork: [inNetwork],
-      outOfNetwork: [outOfNetwork],
-    });
-  });
-
-  it.each([
-    [{ coverageCode: 'B', amountInUSD: 25 }, '$25'],
-    [{ coverageCode: 'B', percentage: 20 }, '20%'],
-    [{ coverageCode: 'B' }, '$0'],
-    [{ coverageCode: 'A', percentage: 20, amountInUSD: 25 }, '20%'],
-    [{ coverageCode: 'A', amountInUSD: 25 }, '$25'],
-    [{ coverageCode: 'A' }, '0%'],
-  ] as const)('formats a %o benefit as %s', (overrides, expected) => {
-    expect(formatPatientPaymentBenefitAmount(benefit(overrides))).toBe(expected);
-  });
-
-  it('formats money as US dollars and an unknown amount as Unknown', () => {
-    expect(formatEligibilityMoney(1000)).toBe('$1,000.00');
-    expect(formatEligibilityMoney(0)).toBe('$0.00');
-    expect(formatEligibilityMoney(undefined)).toBe('Unknown');
-  });
-
-  it('summarizes a financial detail only when it has no positive amount', () => {
-    expect(getFinancialDetailSummary({ name: 'Individual Deductible', paid: 400, total: 1000, remaining: 600 })).toBe(
-      undefined
-    );
-    expect(getFinancialDetailSummary({ name: 'Family Deductible', paid: 0, total: undefined, remaining: 0 })).toBe(
-      '$0'
-    );
-    expect(
-      getFinancialDetailSummary({ name: 'Out-of-Pocket Max', paid: undefined, total: undefined, remaining: undefined })
-    ).toBe('Unspecified');
-  });
-
-  it('extracts error codes and messages with the fallbacks the Insurance card shows', () => {
-    expect(getEligibilityErrorDetails(undefined)).toBeUndefined();
-    expect(getEligibilityErrorDetails({ errors: [] })).toBeUndefined();
-    expect(
-      getEligibilityErrorDetails({
-        errors: [
-          { code: { coding: [{ code: 'ml-410' }], text: 'Not supported' } },
-          { code: { text: 'Only text' } },
-          { code: {} },
-        ],
-      })
-    ).toEqual([
-      { code: 'ml-410', text: 'Not supported' },
-      { code: 'Only text', text: 'Only text' },
-      { code: 'UNKNOWN', text: 'No error details available' },
-    ]);
   });
 });

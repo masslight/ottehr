@@ -21,7 +21,7 @@ import {
   EXTENSION_URL_CPT_MODIFIER,
 } from '../helpers/rcm/constants';
 import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../telemed/constants';
-import { CoverageCheckCoverageDetails, CoverageCheckWithDetails } from '../types/api/patient-account';
+import { CoverageCheckCoverageDetails } from '../types/api/patient-account';
 import { BillingProviderLicense } from '../types/data/billing/billing.types';
 import {
   CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL,
@@ -473,81 +473,6 @@ export const getCopayAndRemainingDeductible = (
   return { copayAmount, remainingDeductibleAmount };
 };
 
-// This set contains the service codes that are supported by the CopayWidget.
-// Currently, it only includes 'UC' (Urgent Care), but can be overwritten to include any from
-// the enumeration defined as BenefitCoverageCodes in packages/utils/lib/types/data/telemed/eligibility.types.ts
-const PATIENT_PAYMENT_SERVICE_CODES = new Set(['UC']);
-
-export const getPatientPaymentBenefitsByNetwork = (
-  copay: PatientPaymentBenefit[]
-): { inNetwork: PatientPaymentBenefit[]; outOfNetwork: PatientPaymentBenefit[] } => {
-  const filteredByService = copay.filter((benefit) => PATIENT_PAYMENT_SERVICE_CODES.has(benefit.code));
-  return {
-    inNetwork: filteredByService.filter((benefit) => benefit.inNetwork),
-    outOfNetwork: filteredByService.filter((benefit) => !benefit.inNetwork),
-  };
-};
-
-export const formatPatientPaymentBenefitAmount = (benefit: PatientPaymentBenefit): string => {
-  const amountInUSD = benefit.amountInUSD;
-  const percentage = benefit.percentage;
-
-  if (benefit.coverageCode === 'A') {
-    if (percentage > 0) {
-      return `${percentage}%`;
-    } else if (amountInUSD > 0) {
-      return `$${amountInUSD}`;
-    } else {
-      return '0%';
-    }
-  } else {
-    if (amountInUSD > 0) {
-      return `$${amountInUSD}`;
-    } else if (percentage > 0) {
-      return `${percentage}%`;
-    } else {
-      return '$0';
-    }
-  }
-};
-
-export const formatEligibilityMoney = (value: number | undefined): string => {
-  if (value === undefined) {
-    return 'Unknown';
-  }
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-};
-
-export const getFinancialDetailSummary = (detail: FinancialDetails): '$0' | 'Unspecified' | undefined => {
-  const values = [detail.paid, detail.total, detail.remaining];
-  if (values.some((value) => typeof value === 'number' && value > 0)) return undefined;
-  return values.some((value) => value === 0) ? '$0' : 'Unspecified';
-};
-
-export const getEligibilityErrorDetails = (
-  eligibilityCheck?: Pick<InsuranceCheckStatusWithDate, 'errors'>
-): Array<{ code: string; text: string }> | undefined => {
-  if (!eligibilityCheck) return undefined;
-
-  if (eligibilityCheck.errors && eligibilityCheck.errors.length > 0) {
-    return eligibilityCheck.errors.map((error) => {
-      const code = error.code?.coding?.[0]?.code || error.code?.text || 'UNKNOWN';
-      const text = error.code?.text || 'No error details available';
-      return { code, text };
-    });
-  }
-
-  return undefined;
-};
-
-/** "DOS MM/dd/yyyy" when a check was run for a date of service other than the day it was run, else undefined. */
-export const getDateOfServiceLabel = (servicedDate: string | undefined, checkedAtISO: string): string | undefined => {
-  if (!servicedDate) return undefined;
-  const serviced = DateTime.fromISO(servicedDate);
-  if (!serviced.isValid || serviced.toISODate() === DateTime.fromISO(checkedAtISO).toISODate()) return undefined;
-  return `DOS ${serviced.toFormat('MM/dd/yyyy')}`;
-};
-
 export const pullCoverageIdentifyingDetails = (coverage: Coverage): CoverageCheckCoverageDetails | undefined => {
   const subscriberId = coverage.subscriberId;
   const payorRef = coverage.payor?.[0]?.reference;
@@ -575,13 +500,6 @@ export const checkCoverageMatchesDetails = (coverage: Coverage, details: Coverag
   const payorRefMatches = payorRef === coveragePayorRef;
   const planIdMatches = planId === coveragePlanId;
   return subscriberIdMatches && payorRefMatches && planIdMatches;
-};
-
-export const getEligibilityCheckDetailsForCoverage = (
-  coverage: Coverage,
-  coverageChecks: CoverageCheckWithDetails[]
-): CoverageCheckWithDetails | undefined => {
-  return coverageChecks.find((check) => checkCoverageMatchesDetails(coverage, check));
 };
 
 export const getPlanIdFromCoverage = (coverage: Coverage): string | undefined => {

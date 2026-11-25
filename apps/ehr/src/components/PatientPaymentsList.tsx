@@ -34,6 +34,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, Fragment, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { STATUS_TO_STYLE_MAP } from 'src/features/visits/shared/components/patient/InsuranceContainer';
+import { getEligibilityCheckDetailsForCoverage } from 'src/features/visits/shared/components/patient/InsuranceSection';
 import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { structureQuestionnaireResponse } from 'src/helpers/qr-structure';
@@ -45,7 +46,7 @@ import { useGetChargeMasterEntryQuery } from 'src/rcm/state/charge-masters/charg
 import { useFindApplicableFeeScheduleQuery } from 'src/rcm/state/fee-schedules/fee-schedule.queries';
 import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
 import { getRefundState, RefundChip } from 'ui-components/lib/components/PaymentRefundChip';
-import { getCopayAndRemainingDeductible, getEligibilityCheckDetailsForCoverage } from 'utils/lib/fhir/billing';
+import { getCopayAndRemainingDeductible } from 'utils/lib/fhir/billing';
 import { CPT_CODE_SYSTEM, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import {
   getPaymentVariantFromEncounter,
