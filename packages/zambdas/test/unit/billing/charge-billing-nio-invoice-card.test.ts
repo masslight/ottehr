@@ -42,6 +42,9 @@ const INVOICE_ID = 'invoice-1';
 const PAYMENT_ID = 'payment-key-1';
 const STRIPE_ACCOUNT = 'acct_issuer';
 const NOW = DateTime.fromISO('2026-11-19T15:00:00.000Z');
+const IN_PROGRESS = BILLING_INVOICE_CONFLICT_ERROR(
+  'A card payment on invoice INV-00042 is in progress. Try again in a few minutes.'
+);
 
 const nioInvoice = (overrides: Partial<Invoice> = {}): Invoice => ({
   ...buildBillingInvoice({
@@ -385,6 +388,25 @@ describe('charge-billing-nio-invoice-card', () => {
     expect(reservationOf(resultsByType)).toBeUndefined();
   });
 
+  it('keeps the invoice reserved while another request with the same key is charging', async () => {
+    const { oystehr, stripe, createPaymentIntent, resultsByType } = setup();
+    createPaymentIntent.mockRejectedValueOnce({
+      type: 'StripeInvalidRequestError',
+      code: 'idempotency_key_in_use',
+      message: 'There is currently another in-progress request using this Idempotent Key.',
+    });
+
+    await expect(
+      performEffect({
+        oystehr,
+        stripe,
+        params,
+        now: NOW,
+      })
+    ).rejects.toEqual(IN_PROGRESS);
+    expect(reservationOf(resultsByType)?.paymentId).toBe(PAYMENT_ID);
+  });
+
   it('keeps the invoice reserved when Stripe does not answer, since the card may have been charged', async () => {
     const { oystehr, stripe, createPaymentIntent, resultsByType } = setup();
     createPaymentIntent.mockRejectedValueOnce({
@@ -399,7 +421,7 @@ describe('charge-billing-nio-invoice-card', () => {
         params,
         now: NOW,
       })
-    ).rejects.toBeDefined();
+    ).rejects.toEqual(IN_PROGRESS);
     expect(reservationOf(resultsByType)).toEqual({
       paymentId: PAYMENT_ID,
       reservedAt: NOW.toUTC().toISO(),
@@ -429,9 +451,7 @@ describe('charge-billing-nio-invoice-card', () => {
         params,
         now: NOW,
       })
-    ).rejects.toEqual(
-      BILLING_INVOICE_CONFLICT_ERROR('A card payment on invoice INV-00042 is in progress. Try again in a few minutes.')
-    );
+    ).rejects.toEqual(IN_PROGRESS);
     expect(createPaymentIntent).not.toHaveBeenCalled();
   });
 

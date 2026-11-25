@@ -15,7 +15,12 @@ import {
 } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
-import { getStripeClient, STRIPE_METADATA_KEYS, STRIPE_PAYMENT_ID_SYSTEM } from '../../shared/stripeIntegration';
+import {
+  getStripeClient,
+  isIdempotencyConflict,
+  STRIPE_METADATA_KEYS,
+  STRIPE_PAYMENT_ID_SYSTEM,
+} from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { releaseCardReservation, reserveCardPayment, settleOtherCardReservation } from '../invoice-card-reservation';
@@ -140,8 +145,12 @@ export async function performEffect({
       }
     );
   } catch (error) {
-    // after a timeout the card may be charged, so the next attempt settles the reservation
-    if (isStripeRefusal(error)) await release();
+    if (!isStripeRefusal(error)) {
+      // the card may be charged, so the reservation stays until a later attempt settles it
+      console.error(`Charge for invoice ${invoiceNumber} has an unknown outcome`, error);
+      throw cardPaymentInProgressError(invoice);
+    }
+    await release();
     throw parseStripeError(error);
   }
   if (paymentIntent.status === 'processing') throw cardPaymentInProgressError(invoice);
@@ -185,5 +194,5 @@ export async function performEffect({
 // declined or rejected, so nothing was charged
 const isStripeRefusal = (error: unknown): boolean => {
   const type = (error as { type?: string } | undefined)?.type;
-  return type === 'StripeCardError' || type === 'StripeInvalidRequestError';
+  return (type === 'StripeCardError' || type === 'StripeInvalidRequestError') && !isIdempotencyConflict(error);
 };

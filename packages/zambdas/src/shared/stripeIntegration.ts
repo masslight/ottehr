@@ -100,6 +100,17 @@ export const STRIPE_METADATA_KEYS = {
   invoicePaymentId: 'oystehr_invoice_payment_id',
 } as const;
 
+// Stripe refuses a key that another request is using, or used with other parameters: that request is
+// charging the payment, or charged the card with other parameters.
+export const isIdempotencyConflict = (error: unknown): boolean => {
+  const stripeError = error as { type?: string; rawType?: string; code?: string } | undefined;
+  return (
+    stripeError?.type === 'StripeIdempotencyError' ||
+    stripeError?.rawType === 'idempotency_error' ||
+    stripeError?.code === 'idempotency_key_in_use'
+  );
+};
+
 export const encounterIdFromStripeMetadata = (metadata: Stripe.Metadata | null | undefined): string | undefined =>
   metadata?.[STRIPE_METADATA_KEYS.encounterId] || metadata?.[STRIPE_METADATA_KEYS.legacyEncounterId] || undefined;
 
