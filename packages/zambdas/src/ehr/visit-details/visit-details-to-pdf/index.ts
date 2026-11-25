@@ -191,8 +191,8 @@ export const performEffect = async (
     token
   );
 
-  const signedMeanwhile = await signedCopyResponse();
-  if (signedMeanwhile) return signedMeanwhile;
+  const signedCopyBeforeSave = await signedCopyResponse();
+  if (signedCopyBeforeSave) return signedCopyBeforeSave;
 
   console.log(`Creating Visit details PDF Document Reference`);
   const documentReference = await makeVisitDetailsPdfDocumentReference(
