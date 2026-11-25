@@ -19,7 +19,7 @@ import { getStripeClient } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { invoiceHasPayment } from '../claim-amounts';
-import { CARD_RESERVATION_MAX_LIFETIME_MINUTES, settleOtherCardReservation } from '../invoice-card-reservation';
+import { settleOtherCardReservation } from '../invoice-card-reservation';
 import { cardPaymentInProgressError } from '../invoice-payments';
 import { fetchInvoicePaymentNotices } from '../invoices';
 import { resolveClaimActor } from '../provenance';
@@ -88,8 +88,6 @@ export async function performEffect({
       invoiceId,
       agent,
       secrets,
-      // a charge landing after the void can't be recorded
-      graceMinutes: CARD_RESERVATION_MAX_LIFETIME_MINUTES,
       now,
     });
     ({ invoice, notices } = await readInvoice(oystehr, invoiceId));

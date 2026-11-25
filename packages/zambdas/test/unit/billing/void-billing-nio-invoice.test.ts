@@ -11,10 +11,7 @@ import {
 } from 'utils/lib/fhir/billing-invoice';
 import { BILLING_INVOICE_CONFLICT_ERROR, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  CARD_RESERVATION_MAX_LIFETIME_MINUTES,
-  settleOtherCardReservation,
-} from '../../../src/billing/invoice-card-reservation';
+import { settleOtherCardReservation } from '../../../src/billing/invoice-card-reservation';
 import { cardPaymentInProgressError } from '../../../src/billing/invoice-payments';
 import { performEffect } from '../../../src/billing/void-billing-nio-invoice';
 
@@ -22,8 +19,7 @@ vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
 }));
-vi.mock('../../../src/billing/invoice-card-reservation', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
+vi.mock('../../../src/billing/invoice-card-reservation', () => ({
   settleOtherCardReservation: vi.fn(),
 }));
 
@@ -293,7 +289,6 @@ describe('void-billing-nio-invoice', () => {
       invoiceId: INVOICE_ID,
       agent: params.agent,
       secrets: params.secrets,
-      graceMinutes: CARD_RESERVATION_MAX_LIFETIME_MINUTES,
       now: NOW,
     });
     expect(transaction).not.toHaveBeenCalled();
