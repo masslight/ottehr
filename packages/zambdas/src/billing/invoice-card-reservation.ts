@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Invoice, ProvenanceAgent } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import { getInvoiceCardPaymentReservation } from 'utils/lib/fhir/billing-invoice';
+import { getInvoiceCardPaymentReservation, InvoiceCardPaymentReservation } from 'utils/lib/fhir/billing-invoice';
 import {
   getStripeCustomerIdFromAccount,
   patchWithOptimisticLock,
@@ -92,7 +92,7 @@ export async function settleOtherCardReservation({
   await releaseCardReservation({
     oystehr,
     invoiceId,
-    paymentId: reservation.paymentId,
+    reservation,
   });
 }
 
@@ -143,8 +143,7 @@ async function findPaymentIntentForPayment({
   return undefined;
 }
 
-// Reserves the invoice for this card payment, locked to the version its balance was read at. Undefined
-// when the payment is already recorded.
+// A retry renews its reservation so settlement can't release it mid-charge. Undefined once recorded
 export async function reserveCardPayment({
   oystehr,
   invoiceId,
@@ -157,7 +156,17 @@ export async function reserveCardPayment({
   paymentId: string;
   amountInCents: number;
   now?: DateTime;
-}): Promise<Invoice | undefined> {
+}): Promise<
+  | {
+      invoice: Invoice;
+      reservation: InvoiceCardPaymentReservation;
+    }
+  | undefined
+> {
+  const reservation = {
+    paymentId,
+    reservedAt: now.toUTC().toISO()!,
+  };
   return withVersionConflictRetries(async () => {
     const { invoice, recorded } = await readPayableInvoice({
       oystehr,
@@ -166,32 +175,32 @@ export async function reserveCardPayment({
       amountInCents,
     });
     if (recorded) return undefined;
-    if (getInvoiceCardPaymentReservation(invoice)?.paymentId === paymentId) return invoice;
     await oystehr.fhir.patch(
       {
         resourceType: 'Invoice',
         id: invoiceId,
-        operations: cardPaymentReservationOperations(invoice, {
-          paymentId,
-          reservedAt: now.toUTC().toISO()!,
-        }),
+        operations: cardPaymentReservationOperations(invoice, reservation),
       },
       {
         optimisticLockingVersionId: invoice.meta?.versionId,
       }
     );
-    return invoice;
+    return {
+      invoice,
+      reservation,
+    };
   });
 }
 
+// Releases only the reservation as it was read, so a renewed one stays.
 export async function releaseCardReservation({
   oystehr,
   invoiceId,
-  paymentId,
+  reservation,
 }: {
   oystehr: Oystehr;
   invoiceId: string;
-  paymentId: string;
+  reservation: InvoiceCardPaymentReservation;
 }): Promise<void> {
   await patchWithOptimisticLock(
     oystehr,
@@ -199,9 +208,11 @@ export async function releaseCardReservation({
       ...(await fetchById<Invoice>(oystehr, 'Invoice', invoiceId)),
       id: invoiceId,
     },
-    (current) =>
-      getInvoiceCardPaymentReservation(current)?.paymentId === paymentId
+    (current) => {
+      const held = getInvoiceCardPaymentReservation(current);
+      return held?.paymentId === reservation.paymentId && held.reservedAt === reservation.reservedAt
         ? cardPaymentReservationOperations(current, undefined)
-        : []
+        : [];
+    }
   );
 }

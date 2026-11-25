@@ -82,23 +82,24 @@ export async function performEffect({
     secrets,
     now,
   });
-  const invoice = await reserveCardPayment({
+  const reserved = await reserveCardPayment({
     oystehr,
     invoiceId,
     paymentId,
     amountInCents,
     now,
   });
-  if (!invoice) {
+  if (!reserved) {
     return {
       paymentId,
     };
   }
+  const { invoice, reservation } = reserved;
   const release = (): Promise<void> =>
     releaseCardReservation({
       oystehr,
       invoiceId,
-      paymentId,
+      reservation,
     });
 
   const { stripeAccount, nio } = await resolveInvoiceStripePayer({

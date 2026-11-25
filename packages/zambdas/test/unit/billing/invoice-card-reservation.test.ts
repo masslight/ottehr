@@ -15,7 +15,11 @@ import {
 } from 'utils/lib/fhir/constants';
 import { BILLING_INVOICE_CONFLICT_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { settleOtherCardReservation } from '../../../src/billing/invoice-card-reservation';
+import {
+  releaseCardReservation,
+  reserveCardPayment,
+  settleOtherCardReservation,
+} from '../../../src/billing/invoice-card-reservation';
 import { resolveInvoiceStripePayer } from '../../../src/billing/invoice-stripe';
 import { STRIPE_METADATA_KEYS } from '../../../src/shared/stripeIntegration';
 
@@ -292,5 +296,54 @@ describe('settleOtherCardReservation', () => {
     expect(options).toEqual({
       optimisticLockingVersionId: '5',
     });
+  });
+});
+
+describe('reserveCardPayment', () => {
+  it('renews the reservation a retry already holds', async () => {
+    const invoice = reservedInvoice(NOW.minus({ minutes: 10 }));
+    const { oystehr, patch } = setup({
+      invoice,
+    });
+
+    const reserved = await reserveCardPayment({
+      oystehr,
+      invoiceId: INVOICE_ID,
+      paymentId: OTHER_PAYMENT_ID,
+      amountInCents: 18000,
+      now: NOW,
+    });
+
+    const renewed = {
+      paymentId: OTHER_PAYMENT_ID,
+      reservedAt: NOW.toUTC().toISO(),
+    };
+    expect(reserved?.reservation).toEqual(renewed);
+    const [[{ operations }]] = patch.mock.calls;
+    expect(
+      getInvoiceCardPaymentReservation({
+        ...invoice,
+        extension: operations[0].value,
+      })
+    ).toEqual(renewed);
+  });
+});
+
+describe('releaseCardReservation', () => {
+  it('keeps a reservation renewed since it was read', async () => {
+    const { oystehr, patch } = setup({
+      invoice: reservedInvoice(NOW),
+    });
+
+    await releaseCardReservation({
+      oystehr,
+      invoiceId: INVOICE_ID,
+      reservation: {
+        paymentId: OTHER_PAYMENT_ID,
+        reservedAt: NOW.minus({ minutes: 10 }).toUTC().toISO()!,
+      },
+    });
+
+    expect(patch).not.toHaveBeenCalled();
   });
 });
