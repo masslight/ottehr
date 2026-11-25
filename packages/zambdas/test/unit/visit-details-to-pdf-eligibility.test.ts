@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { Coverage, DocumentReference, Organization, Patient } from 'fhir/r4b';
 import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
@@ -181,13 +181,13 @@ describe('visit-details-to-pdf eligibility loading', () => {
 });
 
 describe('visit-details-to-pdf signing-time copy', () => {
-  const SIGNED_COPY = {
+  const SIGNED_COPY: FhirResourceReturnValue<DocumentReference> = {
     resourceType: 'DocumentReference',
     id: 'signing-copy',
     status: 'current',
     docStatus: 'final',
     content: [],
-  } as DocumentReference;
+  };
 
   beforeEach(() => {
     vi.mocked(getAccountAndCoverageResourcesForPatient).mockResolvedValue({

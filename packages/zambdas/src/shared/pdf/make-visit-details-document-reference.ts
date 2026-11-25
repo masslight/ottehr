@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -60,7 +60,7 @@ export async function makeVisitDetailsPdfDocumentReference(
 export const findSignedVisitDetailsDocument = async (
   oystehr: Oystehr,
   encounterId: string
-): Promise<DocumentReference | undefined> =>
+): Promise<FhirResourceReturnValue<DocumentReference> | undefined> =>
   (
     await oystehr.fhir.search<DocumentReference>({
       resourceType: 'DocumentReference',
@@ -74,7 +74,8 @@ export const findSignedVisitDetailsDocument = async (
   )
     .unbundle()
     .find(
-      (doc) =>
+      (doc): doc is FhirResourceReturnValue<DocumentReference> =>
+        !!doc.id &&
         doc.docStatus === 'final' &&
         !!doc.type?.coding?.some((coding) => coding.system === 'http://loinc.org' && coding.code === VISIT_DETAILS_CODE)
     );
