@@ -2,6 +2,7 @@ import { Task } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
 import { OUTBOUND_DELIVERY_INPUT_CODES, OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
 import { getOutboundDeliveryInput, getOutboundDeliveryPacketSnapshot } from 'utils/lib/fhir/outbound-delivery';
+import { escapeHtml } from 'utils/lib/helpers/helpers';
 import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 import { DOCUMENT_LINK_AUDIENCE } from 'utils/lib/types/api/document-link.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -211,7 +212,9 @@ describe('document link token and email body', () => {
 
     expect(subject).toBe(`Documents from ${BRANDING_CONFIG.projectName}`);
     expect(content).toContain(
-      `Sam &quot;Doc&quot; Stone at ${BRANDING_CONFIG.projectName} sent you information from their Electronic Health Record system.`
+      `Sam &quot;Doc&quot; Stone at ${escapeHtml(
+        BRANDING_CONFIG.projectName
+      )} sent you information from their Electronic Health Record system.`
     );
     expect(content).toContain('<a href="https://patient.example.test/documents#t">Open documents</a>');
   });
@@ -229,7 +232,9 @@ describe('document link token and email body', () => {
     expect(content).toContain(
       "This is not an automated email. Sam Stone sent you these documents from within the practice's EHR."
     );
-    expect(content).toContain(`please delete it and contact ${BRANDING_CONFIG.projectName} at (212) 555-1111.`);
+    expect(content).toContain(
+      `please delete it and contact ${escapeHtml(BRANDING_CONFIG.projectName)} at (212) 555-1111.`
+    );
   });
 
   it('points the recipient at the sender when no contact phone is known', () => {
