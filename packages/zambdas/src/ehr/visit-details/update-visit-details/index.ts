@@ -32,9 +32,9 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { getNonInsuranceOrganizationById } from '../../../shared/nio-directory';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { accountMatchesType } from '../../shared/harvest';
-import { settledValueOrThrow } from '../../shared/settled';
 import { UpdateVisitDetailsValidatedInput, validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'update-visit-details';

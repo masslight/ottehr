@@ -19,11 +19,11 @@ import { getAuth0Token } from '../../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { lambdaResponse } from '../../../../shared/lambda';
 import { wrapHandler } from '../../../../shared/sentry';
+import { settledValueOrThrow } from '../../../../shared/settled';
 import { getStripeClient, stripeEncounterMetadata } from '../../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { safeJsonParse } from '../../../../shared/validation';
 import { getAccountAndCoverageResourcesForPatient } from '../../../shared/harvest';
-import { settledValueOrThrow } from '../../../shared/settled';
 
 const ZAMBDA_NAME = 'patient-payments-terminal-initiate-payment';
 

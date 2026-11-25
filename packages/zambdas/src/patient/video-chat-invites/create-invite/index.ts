@@ -119,39 +119,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const patientChosenName = chosenName || patient?.name?.[0].given?.[0] || 'Patient';
 
   const locationName = location ? getNameForOwner(location) ?? '' : '';
-  const notificationResults = await Promise.allSettled([
-    (async () => {
-      if (emailAddress) {
-        const emailClient = getEmailClient(secrets, oystehr);
-        await emailClient.sendVideoChatInvitationEmail(emailAddress, {
-          'join-visit-url': inviteUrl,
-          'patient-name': patientChosenName,
-          location: locationName,
-        });
-      }
-    })(),
-    (async () => {
-      if (relatedPerson) {
-        let rawPhone = relatedPerson.telecom?.find((telecom) => telecom.system === 'sms')?.value;
-        if (rawPhone) {
-          rawPhone = rawPhone.replace(/[()\s-]/g, '');
-          const phone = formatPhoneNumber(rawPhone);
-          const message = replaceTemplateVariablesArrows(TEXTING_CONFIG.telemed.inviteSms, {
-            patientName: patientChosenName,
-            inviteUrl: inviteUrl,
-          });
-          console.log(`Sms data: recipient: ${relatedPersonRef}; verifiedPhoneNumber: ${phone};`);
+  if (emailAddress) {
+    const emailClient = getEmailClient(secrets, oystehr);
+    await emailClient.sendVideoChatInvitationEmail(emailAddress, {
+      'join-visit-url': inviteUrl,
+      'patient-name': patientChosenName,
+      location: locationName,
+    });
+  }
 
-          const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-          await sendSms(message, relatedPersonRef, oystehr, ENVIRONMENT);
-        }
-      }
-    })(),
-  ]);
-  const notificationFailure = notificationResults.find(
-    (result): result is PromiseRejectedResult => result.status === 'rejected'
-  );
-  if (notificationFailure) throw notificationFailure.reason;
+  if (relatedPerson) {
+    let rawPhone = relatedPerson.telecom?.find((telecom) => telecom.system === 'sms')?.value;
+    if (rawPhone) {
+      rawPhone = rawPhone.replace(/[()\s-]/g, '');
+      const phone = formatPhoneNumber(rawPhone);
+      const message = replaceTemplateVariablesArrows(TEXTING_CONFIG.telemed.inviteSms, {
+        patientName: patientChosenName,
+        inviteUrl: inviteUrl,
+      });
+      console.log(`Sms data: recipient: ${relatedPersonRef}; verifiedPhoneNumber: ${phone};`);
+
+      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+      await sendSms(message, relatedPersonRef, oystehr, ENVIRONMENT);
+    }
+  }
 
   const result: VideoChatCreateInviteResponse = {
     inviteUrl: inviteUrl,

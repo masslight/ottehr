@@ -10,9 +10,9 @@ import { isDmeOrderDeleted, isDmeOrderExternal, parseDmeOrder } from '../../../s
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { sendFaxAttempt } from '../../../shared/send-fax-attempt';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
-import { settledValueOrThrow } from '../../shared/settled';
 import { getOrCreateDmeOrderForm } from '../get-dme-order-pdf/helpers';
 import { fetchDmeEncounterContext } from '../shared/order-helpers';
 

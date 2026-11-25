@@ -27,10 +27,10 @@ import {
   writeInventoryStockEntry,
 } from '../../../../shared/medication-inventory';
 import { wrapHandler } from '../../../../shared/sentry';
+import { settledValueOrThrow } from '../../../../shared/settled';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { validateWithSchema } from '../../../../shared/validation';
 import { performEffect as listActiveLocations } from '../../../locations/list-active-locations';
-import { settledValueOrThrow } from '../../../shared/settled';
 
 let m2mToken: string;
 

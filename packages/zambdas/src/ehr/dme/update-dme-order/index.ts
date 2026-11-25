@@ -8,11 +8,11 @@ import { checkOrCreateM2MClientToken, getUserToken } from '../../../shared/auth'
 import { DME_ORDER_SEARCH_TAG, isDmeOrderDeleted, makeDmeProvenance } from '../../../shared/dme';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { createOwnerReference } from '../../../shared/tasks';
 import { ZambdaInput } from '../../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../../shared/validation';
 import { assertVisitIsEditable } from '../../easy-chart-shared/visit-lock';
-import { settledValueOrThrow } from '../../shared/settled';
 import {
   fetchDmeBillingProcedures,
   fetchDmeEncounterContext,
