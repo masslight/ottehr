@@ -16,6 +16,7 @@ const lookups: ClaimLookups = {
   claimResponsesByClaimId: new Map(),
   patientPaidByClaimId: new Map(),
   writeOffs: new Map(),
+  nioPaidByClaimId: new Map(),
 };
 
 const pccn = (value: string, insurance?: string): Identifier => ({

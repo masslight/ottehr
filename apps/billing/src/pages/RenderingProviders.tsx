@@ -36,6 +36,7 @@ const columns: GridColDef[] = [
     headerName: 'Name',
     flex: 1,
     minWidth: 200,
+    display: 'flex',
     renderCell: (params) => (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '100%' }}>
         {params.row.name}

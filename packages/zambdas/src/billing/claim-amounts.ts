@@ -10,7 +10,11 @@ import {
   Provenance,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getPaymentNoticeInvoiceId } from 'utils/lib/fhir/billing-invoice';
+import {
+  getPaymentNoticeInvoiceId,
+  NIO_INVOICE_PAYMENT_ID_SYSTEM,
+  PAYMENT_REFERENCE_IDENTIFIER_SYSTEM,
+} from 'utils/lib/fhir/billing-invoice';
 import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
@@ -21,7 +25,7 @@ import {
   X12_ADJUSTMENT_GROUP_CODE,
   X12AdjustmentGroupCode,
 } from 'utils/lib/types/data/billing/billing.constants';
-import { ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
+import { ClaimNioPayment, ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { fetchAllPages } from '../shared/fhir';
 import { PATIENT_PAYMENT_IDENTIFIER_FILTER } from './payments';
@@ -51,6 +55,7 @@ export interface ClaimPaymentSummary {
   insurancePaid: number;
   patientResp: number | null;
   patientPaid: number;
+  nioPaid: number;
   writeOffsTotal: number;
   balance: number;
   adjudicated: boolean;
@@ -306,8 +311,8 @@ export function patientRespRemit(claimResponses: ClaimResponse[]): ClaimResponse
   );
 }
 
-// The claim's payment summary: the balances after its last remit, plus what the patient paid and
-// the write-offs recorded on the claim.
+// The claim's payment summary: the balances after its last remit, plus what the patient and the
+// claim's non-insurance payer paid and the write-offs recorded on the claim.
 //
 // While every remit is a denial (see isDenial), nobody has said what the patient owes: the claim's
 // balance is whatever is still open (billed less what was paid and written off on the claim),
@@ -316,7 +321,8 @@ export function summarizeClaimPayments(
   claimResponses: ClaimResponse[],
   billed: number,
   patientPaid = 0,
-  writeOffsTotal = 0
+  writeOffsTotal = 0,
+  nioPaid = 0
 ): ClaimPaymentSummary {
   const steps = claimBalanceSteps(claimResponses, billed);
   const balances = steps.at(-1)?.balances;
@@ -326,8 +332,9 @@ export function summarizeClaimPayments(
       insurancePaid: 0,
       patientResp: null,
       patientPaid,
+      nioPaid,
       writeOffsTotal,
-      balance: billed - patientPaid - writeOffsTotal,
+      balance: billed - patientPaid - writeOffsTotal - nioPaid,
       adjudicated: false,
     };
   }
@@ -338,11 +345,12 @@ export function summarizeClaimPayments(
     insurancePaid: balances.insurancePaid,
     patientResp,
     patientPaid,
+    nioPaid,
     writeOffsTotal,
     balance:
       patientResp === null
-        ? billed - balances.insurancePaid - patientPaid - writeOffsTotal
-        : patientResp - patientPaid - writeOffsTotal,
+        ? billed - balances.insurancePaid - patientPaid - writeOffsTotal - nioPaid
+        : patientResp - patientPaid - writeOffsTotal - nioPaid,
     adjudicated: true,
   };
 }
@@ -408,6 +416,24 @@ export function toClaimPatientPayment(notice: PaymentNotice): ClaimPatientPaymen
     description: reconciliation?.disposition ?? '',
     checkNumber: reconciliation?.paymentIdentifier?.value,
     status: notice.status,
+  };
+}
+
+export const getInvoicePaymentReference = (notice: PaymentNotice): string | undefined =>
+  getContainedReconciliation(notice)?.identifier?.find(
+    (identifier) => identifier.system === PAYMENT_REFERENCE_IDENTIFIER_SYSTEM
+  )?.value;
+
+export function claimNioPaymentFromNotice(notice: PaymentNotice): ClaimNioPayment {
+  const { paymentNoticeId, paymentDate, amount, method, status } = toClaimPatientPayment(notice);
+  return {
+    paymentNoticeId,
+    invoiceId: getPaymentNoticeInvoiceId(notice) ?? '',
+    paymentDate,
+    amount,
+    method,
+    reference: getInvoicePaymentReference(notice),
+    status,
   };
 }
 
@@ -575,6 +601,32 @@ export async function fetchPatientPaymentsByClaimId({
     paymentsByClaimId.set(claimId, paymentsByEncounter.get(encounterId) ?? []);
   }
   return paymentsByClaimId;
+}
+
+export async function fetchNioPaymentsByClaimIds(
+  oystehr: Oystehr,
+  claimIds: string[]
+): Promise<Map<string, PaymentNotice[]>> {
+  return fetchResourcesGrouped<PaymentNotice>({
+    oystehr,
+    resourceType: 'PaymentNotice',
+    ids: claimIds,
+    buildParam: (batch) => [
+      {
+        name: 'request',
+        value: batch.map((id) => `Claim/${id}`).join(','),
+      },
+      {
+        name: 'identifier',
+        value: `${NIO_INVOICE_PAYMENT_ID_SYSTEM}|`,
+      },
+    ],
+    groupKeyOf: (notice) => getIdFromReference(notice.request?.reference, 'Claim'),
+  });
+}
+
+export async function fetchNioPaidByClaimId(oystehr: Oystehr, claimIds: string[]): Promise<Map<string, number>> {
+  return sumPatientPaymentsByClaimId(await fetchNioPaymentsByClaimIds(oystehr, claimIds));
 }
 
 export const sumPatientPaymentsByClaimId = (paymentsByClaimId: Map<string, PaymentNotice[]>): Map<string, number> =>

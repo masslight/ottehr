@@ -5,7 +5,7 @@ import {
   Button,
   CircularProgress,
   FormControl,
-  Grid,
+  GridLegacy as Grid,
   InputLabel,
   MenuItem,
   OutlinedInput,

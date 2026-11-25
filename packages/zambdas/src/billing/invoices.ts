@@ -3,9 +3,11 @@ import { Claim, DocumentReference, Invoice, Location, Organization, PaymentNotic
 import {
   getBillingInvoiceClaims,
   getBillingInvoiceDueDate,
+  getBillingInvoiceKind,
   getHostedInvoiceUrl,
   INVOICE_CLAIM_TAG_SYSTEM,
   INVOICE_PAYMENT_TAG_SYSTEM,
+  NIO_INVOICE_PAYMENT_ID_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
@@ -19,8 +21,15 @@ import {
 import { BillingInvoiceListItem, BillingInvoiceSummary } from 'utils/lib/types/data/billing/billing.types';
 import { getClaimStatusValues, isInvoiceableClaimStatus } from 'utils/lib/types/data/billing/claim-status';
 import { INVALID_INPUT_ERROR, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
-import { invoiceAttachmentOwner, ownedAttachmentLocation, presignAttachment } from './attachments';
-import { copySourceId, fetchById, findById } from './shared';
+import {
+  AttachmentOwner,
+  buildAttachmentDocumentReference,
+  invoiceAttachmentOwner,
+  ownedAttachmentLocation,
+  presignAttachment,
+  resolveAttachmentContentType,
+} from './attachments';
+import { BILLING_APP_BUCKET, copySourceId, fetchById, findById } from './shared';
 
 // The claim points at its own copy of the service facility. The copy records which facility it came from.
 export async function getServiceFacilityId(oystehr: Oystehr, claim: Claim): Promise<string | undefined> {
@@ -72,6 +81,109 @@ export const invoicePdfParams = (invoiceId: string): SearchParam[] => [
     value: 'current',
   },
 ];
+
+export function assertInvoiceTakesRecordedPayments(invoice: Invoice): void {
+  if (getBillingInvoiceKind(invoice) !== 'nio') {
+    throw INVALID_INPUT_ERROR('Only non-insurance payer invoices take recorded payments');
+  }
+}
+
+// A payment's attachment is stored in the invoice's folder but related to one of the payment's
+// notices, so the invoice's PDF lookup never finds it.
+const invoicePaymentAttachmentOwner = (
+  invoiceId: string,
+  paymentNoticeReference: string,
+  secrets: Secrets
+): AttachmentOwner => ({
+  ...invoiceAttachmentOwner(invoiceId, secrets),
+  reference: paymentNoticeReference,
+});
+
+export function buildInvoicePaymentAttachment({
+  invoiceId,
+  paymentId,
+  paymentNoticeReference,
+  path,
+  fileName,
+  mimeType,
+  secrets,
+}: {
+  invoiceId: string;
+  paymentId: string;
+  paymentNoticeReference: string;
+  path: string;
+  fileName: string;
+  mimeType?: string;
+  secrets: Secrets;
+}): DocumentReference {
+  const owner = invoicePaymentAttachmentOwner(invoiceId, paymentNoticeReference, secrets);
+  const documentReference: DocumentReference = {
+    ...buildAttachmentDocumentReference({
+      location: {
+        bucketName: BILLING_APP_BUCKET(owner.projectId),
+        path,
+      },
+      projectApi: owner.projectApi,
+      title: fileName,
+      contentType: resolveAttachmentContentType(fileName, mimeType),
+      relatedReference: owner.reference,
+    }),
+    identifier: [
+      {
+        system: NIO_INVOICE_PAYMENT_ID_SYSTEM,
+        value: paymentId,
+      },
+    ],
+  };
+  ownedAttachmentLocation(documentReference, owner);
+  return documentReference;
+}
+
+export async function fetchInvoicePaymentAttachments(
+  oystehr: Oystehr,
+  paymentIds: string[]
+): Promise<DocumentReference[]> {
+  if (paymentIds.length === 0) return [];
+  return getAllFhirSearchPages<DocumentReference>(
+    {
+      resourceType: 'DocumentReference',
+      params: [
+        {
+          name: 'identifier',
+          value: paymentIds.map((paymentId) => `${NIO_INVOICE_PAYMENT_ID_SYSTEM}|${paymentId}`).join(','),
+        },
+        {
+          name: 'status',
+          value: 'current',
+        },
+      ],
+    },
+    oystehr
+  );
+}
+
+export async function getInvoicePaymentAttachmentDownloadUrl({
+  oystehr,
+  invoiceId,
+  documentReference,
+  paymentNoticeReferences,
+  secrets,
+}: {
+  oystehr: Oystehr;
+  invoiceId: string;
+  documentReference: DocumentReference;
+  paymentNoticeReferences: string[];
+  secrets: Secrets;
+}): Promise<string> {
+  const paymentNoticeReference = documentReference.context?.related?.find(
+    (related) => related.reference && paymentNoticeReferences.includes(related.reference)
+  )?.reference;
+  if (!paymentNoticeReference) {
+    throw INVALID_INPUT_ERROR(`DocumentReference ${documentReference.id} is not attached to this payment`);
+  }
+  const owner = invoicePaymentAttachmentOwner(invoiceId, paymentNoticeReference, secrets);
+  return presignAttachment(oystehr, ownedAttachmentLocation(documentReference, owner), 'download');
+}
 
 export async function findInvoicePdf(oystehr: Oystehr, invoiceId: string): Promise<DocumentReference | undefined> {
   const documentReferences = (

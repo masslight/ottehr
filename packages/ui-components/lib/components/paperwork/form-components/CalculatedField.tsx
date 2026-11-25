@@ -1,4 +1,4 @@
-import { Grid, Typography } from '@mui/material';
+import { GridLegacy as Grid, Typography } from '@mui/material';
 import { FC, useMemo } from 'react';
 import { formatCalculatedValue } from 'utils/lib/helpers/paperwork/calculated-answers';
 import { evaluateEnabledCalculatedItems } from 'utils/lib/helpers/paperwork/calculated-expressions';

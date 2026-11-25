@@ -1,0 +1,290 @@
+﻿54        |adenovirus, type 4|adenovirus vaccine, type 4, live, oral||Inactive|False|2010/05/28
+55        |adenovirus, type 7|adenovirus vaccine, type 7, live, oral||Inactive|False|2010/05/28
+82        |adenovirus, unspecified formulation|adenovirus vaccine, unspecified formulation|This CVX code allows reporting of a vaccination when formulation is unknown (for example, when recording a adenovirus vaccination when noted on a vaccination card)|Inactive|False|2010/09/30
+24        |Anthrax, pre-exposure prophylaxis, post-exposure prophylaxis|Anthrax vaccine, adsorbed, pre-exposure and post-exposure prophylaxis||Active|False|2024/01/25
+19        |BCG|Bacillus Calmette-Guerin vaccine||Active|False|2010/05/28
+27        |botulinum antitoxin|botulinum antitoxin||Active|True|2020/09/04
+26        |cholera, unspecified formulation|cholera vaccine, unspecified formulation||Inactive|False|2016/06/17
+29        |CMVIG|cytomegalovirus immune globulin, intravenous||Active|True|2020/09/04
+56        |dengue fever tetravalent|dengue fever vaccine, tetravalent|Applies to tetravalent product (e.g. DENGVAXIA)|Active|False|2024/12/11
+12        |diphtheria antitoxin|diphtheria antitoxin||Active|True|2020/09/04
+28        |DT (pediatric)|diphtheria and tetanus toxoids, adsorbed for pediatric use|Retired effective 04/30/2023.  All vaccine NDCs retired.  No further vaccines expected for this formulation.|Inactive|False|2024/12/06
+20        |DTaP|diphtheria, tetanus toxoids and acellular pertussis vaccine||Active|False|2010/05/28
+106       |DTaP, 5 pertussis antigens|diphtheria, tetanus toxoids and acellular pertussis vaccine, 5 pertussis antigens||Active|False|2010/05/28
+107       |DTaP, unspecified formulation|diphtheria, tetanus toxoids and acellular pertussis vaccine, unspecified formulation|This CVX code allows reporting of a vaccination when formulation is unknown (for example, when recording a DTaP vaccination when noted on a vaccination card)|Inactive|False|2010/09/30
+110       |DTaP-Hep B-IPV|DTaP-hepatitis B and poliovirus vaccine||Active|False|2010/05/28
+50        |DTaP-Hib|DTaP-Haemophilus influenzae type b conjugate vaccine||Inactive|False|2017/03/20
+120       |DTaP-Hib-IPV|diphtheria, tetanus toxoids and acellular pertussis vaccine, Haemophilus influenzae type b conjugate, and poliovirus vaccine, inactivated (DTaP-Hib-IPV)||Active|False|2010/05/28
+130       |DTaP-IPV|Diphtheria, tetanus toxoids and acellular pertussis vaccine, and poliovirus vaccine, inactivated||Active|False|2010/05/28
+01        |DTP|diphtheria, tetanus toxoids and pertussis vaccine||Inactive|False|2010/05/28
+22        |DTP-Hib|DTP-Haemophilus influenzae type b conjugate vaccine||Inactive|False|2017/03/23
+102       |DTP-Hib-Hep B|DTP- Haemophilus influenzae type b conjugate and hepatitis b vaccine|This CVX has been corrected. This non-US vaccine contained DTP, Hib and Hep B. It was withdrawn in 2007 .|Non-US|False|2016/05/20
+57        |hantavirus|hantavirus vaccine||Never Active|False|2020/09/09
+52        |Hep A, adult|hepatitis A vaccine, adult dosage||Active|False|2010/05/28
+83        |Hep A, ped/adol, 2 dose|hepatitis A vaccine, pediatric/adolescent dosage, 2 dose schedule||Active|False|2010/05/28
+84        |Hep A, ped/adol, 3 dose|hepatitis A vaccine, pediatric/adolescent dosage, 3 dose schedule|This vaccine formulation is inactive and should not be used, except to record historic vaccinations with this formulation.|Inactive|False|2010/05/28
+31        |Hep A, pediatric, unspecified formulation|hepatitis A vaccine, pediatric dosage, unspecified formulation|Do NOT use this code.  If formulation is unknown, use CVX 85.  There is only one formulation of Hep A, peds.|Inactive|False|2010/09/30
+85        |Hep A, unspecified formulation|hepatitis A vaccine, unspecified formulation|This CVX code allows reporting of a vaccination when formulation is unknown (for example, when recording HepA vaccination noted on a vaccination card).|Inactive|False|2026/07/22
+104       |Hep A-Hep B|hepatitis A and hepatitis B vaccine||Active|False|2010/05/28
+30        |HBIG|hepatitis B immune globulin||Active|True|2020/09/04
+08        |Hep B, adolescent or pediatric|hepatitis B vaccine, pediatric or pediatric/adolescent dosage|This code applies to any standard pediatric formulation of Hepatitis B vaccine. It should not be used for the 2-dose hepatitis B schedule for adolescents (11-15 year olds). Use code 43 for that vaccine.|Active|False|2024/12/16
+42        |Hep B, adolescent/high risk infant|hepatitis B vaccine, adolescent/high risk infant dosage|As of August 27, 1998, Merck ceased distribution of their adolescent/high risk infant hepatitis B vaccine dosage. Code 42 should only be used to record historical records. For current administration of hepatitis B vaccine, pediatric/adolescent dosage, use code 08.|Inactive|False|2010/05/28
+43        |Hep B, adult|hepatitis B vaccine, adult dosage|This code applies to any standard adult dose and schedule. Also use CVX 43 for the FDA approved Recombivax HB 2-dose hepatitis B schedule for adolescents (11-15 year olds) using the adult formulation. |Active|False|2024/12/12
+44        |Hep B, high-dosage, dialysis or IC|Hepatitis B vaccine (Hep B), high-dosage, dialysis or immunocompromised patient|This code is used record patient high dosage vaccine administration for dialysis or immunocompromised patients. For NDCs that are used for both regular vaccine and dialysis/IC high-dosage schedules (e.g. Engerix-B), are mapped to both CVX 43 and CVX 44. CVX code 44 should be utilized to record dialysis/IC dosing.|Active|False|2024/12/13
+45        |Hep B, unspecified formulation|hepatitis B vaccine, unspecified formulation|This CVX code allows reporting of a vaccination when formulation is unknown (for example, when recording HepB vaccination noted on a vaccination card).|Inactive|False|2026/07/22
+58        |Hep C|hepatitis C vaccine||Never Active|False|2020/09/09
+59        |Hep E|hepatitis E vaccine||Never Active|False|2020/09/09
+60        |herpes simplex 2|herpes simplex virus, type 2 vaccine||Never Active|False|2020/09/09
+46        |Hib (PRP-D)|Haemophilus influenzae type b vaccine, PRP-D conjugate||Inactive|False|2010/05/28
+47        |Hib (HbOC)|Haemophilus influenzae type b vaccine, HbOC conjugate||Inactive|False|2010/05/28
+48        |Hib (PRP-T)|Haemophilus influenzae type b vaccine, PRP-T conjugate||Active|False|2010/05/28
+49        |Hib (PRP-OMP)|Haemophilus influenzae type b vaccine, PRP-OMP conjugate||Active|False|2010/05/28
+17        |Hib, unspecified formulation|Haemophilus influenzae type b vaccine, conjugate unspecified formulation||Inactive|False|2010/09/30
+51        |Hib-Hep B|Haemophilus influenzae type b conjugate and Hepatitis B vaccine|This vaccine may still be in use until the existing lots expire on 8/19/16.|Inactive|False|2016/03/11
+61        |HIV|human immunodeficiency virus vaccine||Never Active|False|2020/09/09
+118       |HPV, bivalent|human papilloma virus vaccine, bivalent||Inactive|False|2010/05/28
+62        |HPV, quadrivalent|human papilloma virus vaccine, quadrivalent||Active|False|2020/06/02
+86        |IG|immune globulin, intramuscular||Active|True|2020/09/04
+87        |IGIV|immune globulin, intravenous||Active|True|2020/09/04
+14        |IG, unspecified formulation|immune globulin, unspecified formulation||Inactive|True|2023/03/09
+111       |Influenza, live, trivalent, intranasal, PF|Influenza, live, trivalent, intranasal, preservative free|HCP administered, trivalent code reactivated for 2024/2025 season|Active|False|2025/07/15
+15        |influenza, split (incl. purified surface antigen)|influenza virus vaccine, split virus (incl. purified surface antigen)-retired CODE|This code is being retired. It will still be found in older immunization records. It included both preservative free and non-preservative free.|Inactive|False|2010/09/30
+16        |influenza, whole|influenza virus vaccine, whole virus||Inactive|False|2010/05/28
+88        |influenza, unspecified formulation|influenza virus vaccine, unspecified formulation|This CVX code allows reporting of a vaccination when formulation is unknown (for example, when recording influenza vaccination noted on a vaccination card).|Inactive|False|2026/07/22
+123       |influenza, H5N1-1203|influenza virus vaccine, H5N1, A/Vietnam/1203/2004 (national stockpile)||Inactive|False|2010/05/28
+10        |IPV|poliovirus vaccine, inactivated||Active|False|2010/05/28
+02        |OPV, trivalent|trivalent poliovirus vaccine, live, oral|This is the OPV used in the US from June 1963 through Dec 1999 and globally through April 2016|Inactive|False|2025/06/26
+89        |polio, unspecified formulation|poliovirus vaccine, unspecified formulation|This CVX code allows reporting of a vaccination when formulation is unknown (for example, when recording a polio vaccination when noted on a vaccination card)|Inactive|False|2010/09/30
+39        |Japanese encephalitis SC|Japanese Encephalitis Vaccine SC||Inactive|False|2015/09/24
+63        |Junin virus|Junin virus vaccine||Never Active|False|2020/09/09
+64        |leishmaniasis|leishmaniasis vaccine||Never Active|False|2020/09/09
+65        |leprosy|leprosy vaccine||Never Active|False|2020/09/09
+66        |Lyme disease|Lyme disease vaccine||Inactive|False|2010/05/28
+03        |MMR|measles, mumps and rubella virus vaccine||Active|False|2010/05/28
+04        |M/R|measles and rubella virus vaccine||Inactive|False|2010/05/28
+94        |MMRV|measles, mumps, rubella, and varicella virus vaccine||Active|False|2010/05/28
+67        |malaria|malaria vaccine||Never Active|False|2020/09/09
+05        |measles|measles virus vaccine||Inactive|False|2010/08/31
+68        |melanoma|melanoma vaccine||Never Active|False|2020/09/09
+32        |meningococcal MPSV4|meningococcal polysaccharide vaccine (MPSV4)||Inactive|False|2017/10/27
+103       |meningococcal C conjugate|meningococcal C conjugate vaccine||Inactive|False|2010/05/28
+114       |meningococcal MCV4P|meningococcal polysaccharide (groups A, C, Y and W-135) diphtheria toxoid conjugate vaccine (MCV4P)||Active|False|2010/05/28
+108       |meningococcal ACWY, unspecified formulation|meningococcal ACWY vaccine, unspecified formulation|Unspecified CVX used to record historic meningococcal vaccine administration for known serogroups A,C,Y and W (W-135) but unknown other formulation characteristics (conjugate, polysaccharide, oligosaccharide). |Inactive|False|2026/07/22
+07        |mumps|mumps virus vaccine||Inactive|False|2015/06/18
+69        |parainfluenza-3|parainfluenza-3 virus vaccine||Inactive|False|2025/01/09
+11        |pertussis|pertussis vaccine||Inactive|False|2010/05/28
+23        |plague|plague vaccine||Inactive|False|2018/05/17
+33        |pneumococcal polysaccharide PPV23|pneumococcal polysaccharide vaccine, 23 valent||Active|False|2010/05/28
+100       |pneumococcal conjugate PCV 7|pneumococcal conjugate vaccine, 7 valent||Inactive|False|2014/06/26
+109       |pneumococcal, unspecified formulation|pneumococcal vaccine, unspecified formulation|This CVX code allows reporting of a vaccination when formulation is unknown (for example, when recording a pneumococcal vaccination when noted on a vaccination card)|Inactive|False|2010/09/30
+70        |Q fever|Q fever vaccine||Never Active|False|2020/09/09
+18        |rabies, intramuscular injection|rabies vaccine, for intramuscular injection RETIRED CODE|This CVX code has been retired. It is replace by CVX 175,  or CVX 176. It will continue to be found in historic records.|Inactive|False|2016/10/18
+40        |rabies, intradermal injection|rabies vaccine, for intradermal injection||Inactive|False|2015/06/18
+90        |rabies, unspecified formulation|rabies vaccine, unspecified formulation|This CVX code allows reporting of a vaccination when formulation is unknown (for example, when recording rabies vaccination noted on a vaccination card).|Inactive|False|2026/07/22
+72        |rheumatic fever|rheumatic fever vaccine||Never Active|False|2020/09/09
+73        |Rift Valley fever|Rift Valley fever vaccine||Never Active|False|2020/09/09
+34        |RIG|rabies immune globulin||Active|True|2020/09/04
+119       |rotavirus, monovalent|rotavirus, live, monovalent vaccine||Active|False|2010/05/28
+122       |rotavirus, unspecified formulation|rotavirus vaccine, unspecified formulation||Inactive|False|2010/09/30
+116       |rotavirus, pentavalent|rotavirus, live, pentavalent vaccine||Active|False|2010/05/28
+74        |rotavirus, tetravalent|rotavirus, live, tetravalent vaccine||Inactive|False|2010/05/28
+71        |RSV-IGIV|respiratory syncytial virus immune globulin, intravenous|No active NDCs or CPT codes associated to this CVX|Inactive|True|2023/07/19
+93        |RSV-MAb|respiratory syncytial virus monoclonal antibody (palivizumab), intramuscular||Active|True|2020/09/04
+06        |rubella|rubella virus vaccine||Inactive|False|2015/06/18
+38        |rubella/mumps|rubella and mumps virus vaccine||Inactive|False|2010/05/28
+76        |Staphylococcus bacterio lysate|Staphylococcus bacteriophage lysate||Inactive|True|2023/03/09
+113       |Td (adult), 5 Lf tetanus toxoid, preservative free, adsorbed|tetanus and diphtheria toxoids, adsorbed, preservative free, for adult use (5 Lf of tetanus toxoid and 2 Lf of diphtheria toxoid)||Active|False|2024/01/25
+09        |Td (adult), 2 Lf tetanus toxoid, preservative free, adsorbed|tetanus and diphtheria toxoids, adsorbed, preservative free, for adult use (2 Lf of tetanus toxoid and 2 Lf of diphtheria toxoid)||Active|False|2017/10/27
+115       |Tdap|tetanus toxoid, reduced diphtheria toxoid, and acellular pertussis vaccine, adsorbed||Active|False|2010/05/28
+35        |tetanus toxoid, adsorbed|tetanus toxoid, adsorbed||Inactive|False|2015/08/14
+112       |tetanus toxoid, unspecified formulation|tetanus toxoid, unspecified formulation||Inactive|False|2010/09/30
+77        |Tick-borne encephalitis vaccine (non-US)|Tick-borne encephalitis vaccine (non-US)|Non-US vaccine|Non-US|False|2022/03/04
+13        |TIG|tetanus immune globulin||Active|True|2020/09/04
+95        |TST-OT tine test|tuberculin skin test; old tuberculin, multipuncture device|TB Skin test is not vaccine.|Inactive|True|2023/03/09
+96        |TST-PPD intradermal|tuberculin skin test; purified protein derivative solution, intradermal|TB Skin test is not vaccine.|Inactive|True|2023/03/09
+97        |TST-PPD tine test|tuberculin skin test; purified protein derivative, multipuncture device|TB Skin test is not vaccine.|Inactive|True|2023/03/09
+98        |TST, unspecified formulation|tuberculin skin test; unspecified formulation|TB Skin test is not vaccine.|Inactive|True|2023/03/09
+78        |tularemia vaccine|tularemia vaccine||Inactive|False|2010/05/28
+91        |typhoid, unspecified formulation|typhoid vaccine, unspecified formulation|This CVX code allows reporting of a vaccination when formulation is unknown (for example, when recording a typhoid vaccination when noted on a vaccination card)|Inactive|False|2010/09/30
+25        |typhoid, oral|typhoid vaccine, live, oral||Active|False|2010/05/28
+41        |typhoid, parenteral|typhoid vaccine, parenteral, other than acetone-killed, dried||Inactive|False|2015/08/13
+53        |typhoid, parenteral, AKD (U.S. military)|typhoid vaccine, parenteral, acetone-killed, dried (U.S. military)||Inactive|False|2015/06/18
+101       |typhoid, ViCPs|typhoid Vi capsular polysaccharide vaccine||Active|False|2010/05/28
+75        |Vaccinia (smallpox, monkeypox), live|Vaccinia (smallpox, monkeypox) vaccine, live||Active|False|2025/11/19
+105       |vaccinia (smallpox) diluted|vaccinia (smallpox) vaccine, diluted||Inactive|False|2010/05/28
+79        |vaccinia immune globulin|vaccinia immune globulin||Active|True|2020/09/04
+21        |varicella|varicella virus vaccine||Active|False|2010/05/28
+81        |VEE, inactivated|Venezuelan equine encephalitis, inactivated||Inactive|False|2010/05/28
+80        |VEE, live|Venezuelan equine encephalitis, live, attenuated||Inactive|False|2010/05/28
+92        |VEE, unspecified formulation|Venezuelan equine encephalitis vaccine, unspecified formulation|This CVX code allows reporting of a vaccination when formulation is unknown (for example, when recording a VEE vaccination when noted on a vaccination card)|Inactive|False|2010/09/30
+36        |VZIG|varicella zoster immune globulin||Active|True|2020/09/04
+117       |VZIG (IND)|varicella zoster immune globulin (Investigational New Drug)||Never Active|True|2020/09/09
+37        |yellow fever live|yellow fever vaccine live|This is the YF vaccine that has been available in the US for years. It is stabilized with sorbitol and gelatin.|Active|False|2024/03/07
+121       |zoster live|zoster vaccine, live|Zostavax vaccine associated to this CVX Code retired 10/2022|Inactive|False|2024/12/17
+998       |no vaccine administered|no vaccine administered|Code 998 was added for use in VXU HL7 messages where the OBX segment is nested with the RXA segment, but the message does not contain information about a vaccine administration. An example of this use is to report the vaccines due next for a patient when no vaccine administration is being reported.|Inactive|True|2023/03/09
+999       |unknown|unknown vaccine or immune globulin|This CVX code has little utility and should rarely be used.|Inactive|True|2020/10/27
+99        |RESERVED - do not use|RESERVED - do not use|Code 99 will not be used in this table to avoid confusion with code 999.|Inactive|True|2020/09/09
+133       |Pneumococcal conjugate PCV 13|pneumococcal conjugate vaccine, 13 valent||Active|False|2010/05/28
+134       |Japanese Encephalitis IM|Japanese Encephalitis vaccine for intramuscular administration||Active|False|2010/05/28
+137       |HPV, unspecified formulation|HPV, unspecified formulation|This CVX code allows reporting of a vaccination when formulation is unknown (for example, when recording a HPV vaccination when noted on a vaccination card)|Inactive|False|2010/09/30
+136       |Meningococcal MCV4O|meningococcal oligosaccharide (groups A, C, Y and W-135) diphtheria toxoid conjugate vaccine (MCV4O)||Active|False|2010/05/28
+135       |Influenza, high-dose, trivalent, PF|Influenza, high-dose, split virus, trivalent, injectable, preservative free|Trivalent code reactivated for 2024/2025 season|Active|False|2024/05/02
+131       |typhus, historical|Historical record of a typhus vaccination||Inactive|False|2010/05/28
+132       |DTaP-IPV-HIB-HEP B, historical|Historical diphtheria and tetanus toxoids and acellular pertussis, poliovirus, Haemophilus b conjugate and hepatitis B (recombinant) vaccine.|This is not the same as CVX 146, Hexavalent vaccine.|Inactive|False|2018/05/10
+128       |Novel Influenza-H1N1-09, all formulations|Novel influenza-H1N1-09, all formulations|This code is used whenever the actual formulation is not determined or when aggregating all Novel H1N1 Influenza-09 immunizations for reporting to CRA. It should not be used for seasonal influenza vaccine that is not otherwise specified. (NOS)|Inactive|False|2010/08/28
+125       |Novel Influenza-H1N1-09, nasal|Novel Influenza-H1N1-09, live virus for nasal administration||Inactive|False|2010/08/28
+126       |Novel influenza-H1N1-09, preservative-free|Novel influenza-H1N1-09, preservative-free, injectable||Inactive|False|2010/08/28
+127       |Novel influenza-H1N1-09|Novel influenza-H1N1-09, injectable||Inactive|False|2010/08/28
+138       |Td (adult)|tetanus and diphtheria toxoids, not adsorbed, for adult use|Note that this Td is not adsorbed.|Inactive|False|2010/09/30
+139       |Td(adult) unspecified formulation|Td(adult) unspecified formulation|This CVX code allows reporting of a historic vaccination when the formulation is unknown (for example, when recording a Td vaccination when noted on a vaccination card)|Inactive|False|2019/08/27
+140       |Influenza, split virus, trivalent, PF|Influenza, split virus, trivalent, injectable, preservative free|Trivalent code reactivated for 2024/2025 season|Active|False|2024/05/02
+129       |Japanese Encephalitis, unspecified formulation|Japanese Encephalitis vaccine, unspecified formulation|This CVX code allows reporting of a vaccination when formulation is unknown (for example, when recording a JE vaccination when noted on a vaccination card)|Inactive|False|2010/09/30
+141       |Influenza, split virus, trivalent, preservative|Influenza, split virus, trivalent, injectable, contains preservative|Trivalent code reactivated for 2024/2025 season|Active|False|2024/05/02
+142       |tetanus toxoid, not adsorbed|tetanus toxoid, not adsorbed||Inactive|False|2015/08/14
+143       |Adenovirus types 4 and 7|Adenovirus, type 4 and type 7, live, oral|This vaccine is administered as 2 tablets.|Active|False|2011/03/20
+144       |influenza, seasonal, intradermal, preservative free|seasonal influenza, intradermal, preservative free|IIV3. No US product available since 2014/2015 flu season|Inactive|False|2022/12/15
+145       |RSV-MAb (new)|respiratory syncytial virus monoclonal antibody (motavizumab), intramuscular||Never Active|True|2020/09/09
+146       |DTaP,IPV,Hib,HepB|Diphtheria and Tetanus Toxoids and Acellular Pertussis Adsorbed, Inactivated Poliovirus, Haemophilus b Conjugate (Meningococcal Protein Conjugate), and Hepatitis B (Recombinant) Vaccine.|This vaccine is different from CVX 132. Code may be used to document non-US vaccines (e.g. Hexamin) of the same component formulation|Active|False|2022/08/10
+147       |meningococcal MCV4, unspecified formulation|Meningococcal, MCV4, unspecified conjugate formulation(groups A, C, Y and W-135)|Unspecified CVX used to record historic meningococcal vaccine administration for known serogroups A,C,Y and W (W-135), known conjugate formulation, but unknown saccharide characteristics (polysaccharide, oligosaccharide). Use less specific CVX code 108 if the serogroups are known to be ACWY but there is doubt about the other formulation characteristics.|Inactive|False|2026/07/23
+148       |Meningococcal C/Y-HIB PRP|Meningococcal Groups C and Y and Haemophilus b Tetanus Toxoid Conjugate Vaccine||Inactive|False|2018/05/11
+149       |Influenza, live, quadrivalent, intranasal|Influenza, live, quadrivalent, intranasal|Quadrivalent code starting 2013/2014 season|Active|False|2024/05/15
+150       |Influenza, split virus, quadrivalent, PF|Influenza, split virus, quadrivalent, injectable, preservative free|Quadrivalent code starting 2013/2014 season|Active|False|2024/05/15
+151       |influenza nasal, unspecified formulation|influenza nasal, unspecified formulation|This CVX should only be used for historical records where the formulation of nasal flu vaccine is not known.|Inactive|False|2013/01/28
+152       |Pneumococcal Conjugate, unspecified formulation|Pneumococcal Conjugate, unspecified formulation|This CVX should only be used for historical records where the formulation of pneumococcal conjugate vaccine is not known.|Inactive|False|2013/01/28
+153       |Influenza, MDCK, trivalent, PF|Influenza, Madin Darby Canine Kidney, subunit, trivalent, injectable, preservative free|Trivalent code reactivated for 2024/2025 season|Active|False|2024/05/06
+154       |Hep A, IG|Hepatitis A immune globulin|Do not use this code. This product may be used for Hep A and other viral infections. The correct vaccine / CVX is 86 (IG).|Never Active|True|2020/09/09
+155       |Influenza, recombinant, trivalent, PF|Influenza, recombinant, trivalent, injectable, preservative free|Trivalent code reactivated for 2024/2025 season|Active|False|2024/05/06
+156       |Rho(D)-IG|Rho(D) Immune globulin- IV or IM|This immune globulin may be administered either IM or IV.|Active|True|2020/09/04
+157       |Rho(D) -IG IM|Rho(D) Immune globulin - IM|This immune globulin may be administered IM only.|Active|True|2020/09/04
+158       |Influenza, split virus, quadrivalent, preservative|Influenza, split virus, quadrivalent, injectable, contains preservative|Quadrivalent code starting 2013/2014 season|Active|False|2024/05/15
+159       |Rho(D) - Unspecified formulation|Rho(D) Unspecified formulation||Inactive|True|2023/03/09
+160       |Influenza A monovalent (H5N1), ADJUVANTED-2013|Influenza A monovalent (H5N1), adjuvanted, National stockpile 2013|Approved by FDA 2013, adjuvant is mixed at point of administration.|Active|False|2014/05/27
+801       |AS03 Adjuvant|AS03 Adjuvant|This is the adjuvant that is packaged with H5N1 vaccine, adjuvanted|Active|True|2020/10/27
+161       |Influenza, injectable,quadrivalent, preservative free, pediatric|Influenza, injectable,quadrivalent, preservative free, pediatric||Active|False|2024/07/29
+162       |meningococcal B, recombinant|meningococcal B vaccine, fully recombinant||Active|False|2014/11/03
+163       |meningococcal B, OMV|meningococcal B vaccine, recombinant, OMV, adjuvanted||Active|False|2015/02/02
+164       |meningococcal B, unspecified|meningococcal B, unspecified formulation||Inactive|False|2014/11/03
+165       |HPV9|Human Papillomavirus 9-valent vaccine||Active|False|2014/12/11
+166       |influenza, intradermal, quadrivalent, preservative free|influenza, intradermal, quadrivalent, preservative free, injectable|No US product available since 2017/2018 flu season|Inactive|False|2022/12/15
+167       |meningococcal, unknown serogroups|meningococcal vaccine of unknown formulation and unknown serogroups|Unspecified CVX used to record historic meningococcal vaccine administration where there is no information regarding the serogroups or formulation characteristics (conjugate, polysaccharide, oligosaccharide).|Inactive|False|2026/07/22
+168       |Influenza, adjuvanted, trivalent, PF|Influenza, adjuvanted, inactivated, trivalent, injectable, preservative free|Trivalent code reactivated for 2024/2025 season|Active|False|2024/05/06
+169       |Hep A, live attenuated|Hep A, live attenuated-IM|This vaccine is not available in the US.|Non-US|False|2016/05/10
+170       |DTAP/IPV/HIB - non-US|non-US diphtheria, tetanus toxoids and acellular pertussis vaccine, Haemophilus influenzae type b conjugate, and poliovirus vaccine, inactivated (DTaP-Hib-IPV)|This CVX was split off from CVX 102, to correctly identify the contents of the vaccine.|Non-US|False|2016/05/20
+171       |Influenza, MDCK, quadrivalent, PF|Influenza, Madin Darby Canine Kidney, subunit, quadrivalent, injectable, preservative free|Quadrivalent code starting 2016/2017 season|Active|False|2024/05/15
+172       |cholera, WC-rBS|cholera, WC-rBS||Non-US|False|2016/06/17
+173       |cholera, BivWC|cholera, BivWC||Non-US|False|2016/06/17
+174       |cholera, live attenuated|cholera, live attenuated||Active|False|2016/06/17
+175       |Rabies - IM Diploid cell culture|Human Rabies vaccine from human diploid cell culture||Active|False|2016/10/18
+176       |Rabies - IM fibroblast culture|Human rabies vaccine from Chicken fibroblast culture||Active|False|2016/10/18
+177       |PCV10|pneumococcal conjugate vaccine, 10 valent|This is a foreign vaccine|Non-US|False|2016/12/19
+178       |OPV bivalent|Non-US bivalent oral polio vaccine (types 1 and 3)|This is a non-US vaccine that may be seen in some immunization histories.|Non-US|False|2017/01/17
+179       |OPV ,monovalent, unspecified|Non-US monovalent oral polio vaccine, unspecified formulation|This is a non-US vaccine that may be seen in some immunization histories. It is composed of either Type 1, Type 2 or Type 3 oral polio vaccine.|Non-US|False|2017/01/17
+180       |tetanus immune globulin|tetanus immune globulin|This record duplicates CVX 13 (TIG). Do not use CVX 180.|Inactive|True|2020/09/09
+181       |anthrax immune globulin|anthrax immune globulin||Active|True|2020/09/04
+182       |OPV, Unspecified|Oral Polio Vaccine, Unspecified formulation|This code represents an oral polio vaccine where the specific formulation is unknown.|Inactive|False|2017/01/17
+183       |Yellow fever vaccine live - alt|Yellow fever vaccine live - alternative formulation for vaccine shortage|This CVX is associated to an FDA unapproved drug to be used when there is a drug shortage. Stabilized with sorbitol and lactose and has been used outside the US for some time.|Active|False|2024/03/07
+184       |Yellow fever, unspecified|Yellow fever vaccine, unspecified formulation||Inactive|False|2024/03/07
+185       |Influenza, recombinant, quadrivalent, PF|Influenza, recombinant, quadrivalent, injectable, preservative free|Quadrivalent code starting 2017/2018 season|Active|False|2024/05/15
+186       |Influenza, MDCK, quadrivalent, preservative|Influenza, Madin Darby Canine Kidney, subunit, quadrivalent, injectable, contains preservative|Quadrivalent code starting 2017/2018 season|Active|False|2024/05/15
+187       |zoster recombinant|zoster vaccine recombinant||Active|False|2017/10/27
+188       |zoster, unspecified formulation|zoster vaccine, unspecified formulation|This CVX code allows reporting of a vaccination when formulation is unknown (for example, when recording a zoster vaccination when noted on a vaccination card)|Inactive|False|2017/10/27
+189       |HepB-CpG|Hepatitis B vaccine (recombinant), CpG adjuvanted||Active|False|2018/05/10
+190       |Typhoid conjugate vaccine (TCV)|Typhoid conjugate vaccine (non-US)||Non-US|False|2023/01/17
+191       |meningococcal A polysaccharide (non-US)|meningococcal A polysaccharide vaccine (non-US)||Non-US|False|2018/05/10
+192       |meningococcal AC polysaccharide (non-US)|meningococcal AC polysaccharide vaccine (non-US)||Non-US|False|2018/05/10
+193       |Hep A-Hep B, pediatric/adolescent|hepatitis A and hepatitis B vaccine, pediatric/adolescent (non-US)|e.g. Twinrix Junior available in Canada|Non-US|False|2018/08/21
+194       |Influenza, Southern Hemisphere|influenza, Southern Hemisphere, unspecified formulation|This CVX code should be used to record administration of Southern Hemisphere influenza vaccine where formulation is unknown|Inactive|False|2020/07/16
+195       |DT, IPV adsorbed|Diphtheria, Tetanus, Poliomyelitis adsorbed|This code should be used to document non-US vaccines for DT,IPV such as Revaxis|Non-US|False|2023/01/17
+196       |Td, adsorbed, preservative free, adult use, Lf unspecified|tetanus and diphtheria toxoids, adsorbed, preservative free, for adult use, Lf unspecified|Used when Td Lf specification is unknown|Active|False|2019/08/15
+197       |Influenza, high-dose, quadrivalent, PF|Influenza, high-dose, split virus, quadrivalent, injectable, preservative free|Quadrivalent code starting season 2020/2021|Active|False|2024/05/15
+200       |influenza, Southern Hemisphere, pediatric, preservative free|influenza, seasonal, Southern Hemisphere, quadrivalent, pediatric 0.25mL dose, preservative free|Pediatric dose for ages 6-35 months|Active|False|2023/01/17
+201       |Influenza, Southern Hemisphere, quadrivalent, PF|Influenza, seasonal, Southern Hemisphere, quadrivalent, 0.5 mL dose, preservative free|Represents single dose vial|Active|False|2025/04/22
+202       |influenza, Southern Hemisphere, quadrivalent, with preservative|influenza, seasonal, Southern Hemisphere, quadrivalent, 0.5mL dose, with preservative|Represents multi-dose vial|Active|False|2023/01/17
+198       |DTP-hepB-Hib Pentavalent Non-US|Diphtheria, pertussis, tetanus, hepatitis B, Haemophilus Influenza Type b, (Pentavalent)|This represents the non-US pentavalent vaccine.  Should be used for historic documentation in US|Non-US|False|2023/01/17
+203       |meningococcal conjugate quadrivalent, MenACWY-TT (MCV4)|meningococcal polysaccharide (groups A, C, Y, W-135) tetanus toxoid conjugate vaccine 0.5mL dose, preservative free||Active|False|2023/01/26
+205       |Influenza, adjuvanted, quadrivalent, PF|Influenza, adjuvanted, inactivated, quadrivalent, injectable, preservative free|Quadrivalent code starting 2020/2021 season|Active|False|2024/05/15
+206       |Vaccinia, smallpox monkeypox vaccine live, PF, SQ or ID injection|Vaccinia, smallpox monkeypox vaccine, live attenuated, preservative free, subcutaneous or intradermal injection|Associated to FDA US Licensed product JYNNEOS, non-US tradenames IMVANEX, IMVAMUNE. Review CDC & FDA guidance for updates regarding administration|Active|False|2025/11/19
+207       |COVID-19, mRNA, LNP-S, PF, 100 mcg/0.5mL dose or 50 mcg/0.25mL dose|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, 100 mcg/0.5mL dose or 50 mcg/0.25mL dose|Original monovalent Moderna adult vaccine. FDA rescinded all doses for US use 4/18/2023. Continue to used to record historic US Moderna vaccines and those administered in non-US locations (includes tradename Spikevax)|Inactive|False|2023/10/24
+208       |COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, 30 mcg/0.3mL dose|Original monovalent Pfizer adult vaccine (12+ yrs). FDA rescinded all doses for US use 4/18/2023.  Continue to use to record historic US Pfizer vaccines and Non-US vaccines administered (includes tradename Comirnaty)|Inactive|False|2023/11/14
+213       |SARS-COV-2 (COVID-19) vaccine, UNSPECIFIED|SARS-COV-2 (COVID-19) vaccine, UNSPECIFIED|Unspecified code for COVID-19 not to be used to record patient US administration. May be used to record historic US administration if product not known.  CVX code 500 should be used to record Non-US vaccine where product is not known.|Inactive|False|2025/09/09
+210       |COVID-19 vaccine, vector-nr, rS-ChAdOx1, PF, 0.5 mL|SARS-COV-2 (COVID-19) vaccine, vector non-replicating, recombinant spike protein-ChAdOx1, preservative free, 0.5 mL|WHO authorized pandemic vaccine.  Recognized towards immunity in US.  AstraZeneca vaccine non-US WHO authorized tradenames/identifiers include VAXZEVRIA, AZD1222, ChAdOx1 nCoV-19, COVISHIELD|Non-US|False|2024/01/03
+212       |COVID-19 vaccine, vector-nr, rS-Ad26, PF, 0.5 mL|SARS-COV-2 (COVID-19) vaccine, vector non-replicating, recombinant spike protein-Ad26, preservative free, 0.5 mL|Original monovalent Janssen/J&J adult vaccine. All NDCs expired 6/20/2023, not reauthorized by FDA for Fall 2023 US doses. Continue to use to record Jansses/J&J Non-US vaccines administered vaccines administered|Inactive|False|2023/10/26
+204       |Ebola Zaire vaccine, live, recombinant, 1mL dose|Ebola Zaire vaccine, live, recombinant, 1mL dose|FDA Approved ERVEBO Vaccine. |Active|False|2024/01/03
+214       |Ebola, unspecified|Ebola, unspecified||Inactive|False|2021/04/06
+211       |COVID-19, subunit, rS-nanoparticle+Matrix-M1 Adjuvant, PF, 0.5 mL|SARS-COV-2 (COVID-19) vaccine, subunit, recombinant spike protein-nanoparticle+Matrix-M1 Adjuvant, preservative free, 0.5mL dose|Original monovalent Novavax vaccine (12+ years), FDA rescinded for US doses 10/03/2023. Continue to use to record Novavax Non-US vaccines administered (includes tradenames NUVAXOVID, COVOVAX)|Inactive|False|2023/10/24
+500       |COVID-19 Non-US Vaccine, UNSPECIFIED|SARS-COV-2 (COVID-19) Non-US Vaccine, UNSPECIFIED|Unspecified code to be used to record historic Non-US COVID-19 administration.  May be used if the specific product or CVX code is not known.|Non-US|False|2025/09/09
+501       |COVID-19 IV Non-US Vaccine (QAZCOVID-IN)|SARS-COV-2 COVID-19 Inactivated Virus Non-US Vaccine Product (QAZCOVID-IN)|Pandemic Non-US Vaccine not Authorized by WHO - not counted toward  immunity in US|Non-US|False|2021/07/15
+502       |COVID-19 IV Non-US Vaccine (COVAXIN)|SARS-COV-2 COVID-19 Inactivated Virus Non-US Vaccine Product (COVAXIN)|Pandemic Non-US Vaccine Authorized by WHO 11-3-2021, recognized toward immunity in US, https://extranet.who.int/pqweb/vaccines/who-recommendation-bharat-biotech-international-ltd-covid-19-vaccine-whole-virion|Non-US|False|2021/11/19
+503       |COVID-19 LAV Non-US Vaccine (COVIVAC)|SARS-COV-2 COVID-19 Live Attenuated Virus Non-US Vaccine Product (COVIVAC)|Pandemic Non-US Vaccine not Authorized by WHO - not counted toward  immunity in US|Non-US|False|2024/01/03
+504       |COVID-19 VVnr Non-US Vaccine (Sputnik Light)|SARS-COV-2 COVID-19 Viral Vector Non-replicating Non-US Vaccine Product (Sputnik Light)|Pandemic Non-US Vaccine not Authorized by WHO - not counted toward  immunity in US|Non-US|False|2021/07/15
+505       |COVID-19 VVnr Non-US Vaccine (Sputnik V)|SARS-COV-2 COVID-19 Viral Vector Non-replicating Non-US Vaccine Product (Sputnik V)|Pandemic Non-US Vaccine not Authorized by WHO - not counted toward  immunity in US|Non-US|False|2021/07/15
+506       |COVID-19 VVnr Non-US Vaccine (CanSino Biological Inc./Beijing Institute of Biotechnology|SARS-COV-2 COVID-19 Viral Vector Non-replicating Non-US Vaccine Product (CONVIDECIA), CanSino Biological Inc./Beijing Institute of Biotechnology|Pandemic Non-US Vaccine. Authorized by WHO 5/19/2022 - Counted toward immunity in US|Non-US|False|2022/12/16
+507       |COVID-19 PS Non-US Vaccine (Anhui Zhifei Longcom Biopharm + Inst of Micro, Chinese Acad of Sciences)|SARS-COV-2 COVID-19 Protein Subunit Non-US Vaccine Product (Anhui Zhifei Longcom Biopharmaceutical + Institute of Microbiology, Chinese Academy of Sciences)|Pandemic Non-US Vaccine not Authorized by WHO - not counted toward immunity in US|Non-US|False|2021/08/18
+508       |COVID-19 PS Non-US Vaccine (Jiangsu Province Centers for Disease Control and Prevention)|SARS-COV-2 COVID-19 Protein Subunit Non-US Vaccine Product (Jiangsu Province Centers for Disease Control and Prevention)|Pandemic Non-US Vaccine not Authorized by WHO - not counted toward  immunity in US|Non-US|False|2024/01/03
+509       |COVID-19 PS Non-US Vaccine (EpiVacCorona)|SARS-COV-2 COVID-19 Protein Subunit Non-US Vaccine Product (EpiVacCorona)|Pandemic Non-US Vaccine not Authorized by WHO - not counted toward  immunity in US|Non-US|False|2021/07/15
+510       |COVID-19 IV Non-US Vaccine (BIBP, Sinopharm)|SARS-COV-2 COVID-19 Inactivated Virus Non-US Vaccine Product (BIBP, Sinopharm)|Pandemic Non-US Vaccine. Authorized by WHO - Counted toward immunity in US|Non-US|False|2022/11/15
+511       |COVID-19 IV Non-US Vaccine (CoronaVac, Sinovac)|SARS-COV-2 COVID-19 Inactivated Virus Non-US Vaccine Product (CoronaVac, Sinovac)|Pandemic Non-US Vaccine. Authorized by WHO - Counted toward immunity in US|Non-US|False|2022/11/15
+215       |Pneumococcal conjugate PCV15, polysaccharide CRM197 conjugate, adjuvant, PF|Pneumococcal conjugate vaccine 15-valent (PCV15), polysaccharide CRM197 conjugate, adjuvant, preservative free||Active|False|2021/08/18
+216       |Pneumococcal conjugate PCV20, polysaccharide CRM197 conjugate, adjuvant, PF|Pneumococcal conjugate vaccine 20-valent (PCV20), polysaccharide CRM197 conjugate, adjuvant, preservative free||Active|False|2023/03/09
+219       |COVID-19, mRNA, LNP-S, PF, 3 mcg/0.2 mL dose, tris-sucrose|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, 3 mcg/0.2mL dose, tris-sucrose formulation|Original monovalent Pfizer tris-sucrose formulation (6 mo through 4 yrs), FDA rescinded 4/18/2023 |Inactive|False|2023/10/26
+217       |COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose, tris-sucrose|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, 30 mcg/0.3mL dose, tris-sucrose formulation|Original monovalent Pfizer tris-sucrose formulation FDA EUA (12+ yrs) and BLA (16+ yrs), FDA rescinded monovalent use 08/31/2022, BLA NDCs not retired until 09/11/2023. |Inactive|False|2023/11/02
+218       |COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL dose, tris-sucrose|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, 10 mcg/0.2mL dose, tris-sucrose formulation|Original monovalent Pfizer tris-sucrose formulation (5 yrs through 11 yrs), FDA rescinded 4/18/2023 |Inactive|False|2023/10/25
+220       |HepB recombinant, 3-antigen, Al(OH)3|Hepatitis B vaccine (recombinant), 3-antigen, Al(OH)3 adjuvanted|Manufacturer VBI has ceased operations - Prehevbrio Hep B vaccine voluntary recall effective 11/15/2024|Inactive|False|2024/12/11
+221       |COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL dose|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, 50 mcg/0.5 mL dose|Original monovalent Moderna, (Adult) FDA rescinded 4/18/2023, (6 yrs through 11 yrs) FDA rescinded 04/18/2023|Inactive|False|2023/10/25
+222       |Tick-borne encephalitis, unspecified|Tick-borne encephalitis vaccine, unspecified|Unspecified Code - should only be used when specific vaccine administered is unknown|Inactive|False|2022/03/16
+223       |Tick-borne encephalitis, inactivated, PF, 0.25mL|Tick-borne encephalitis vaccine, inactivated, preservative free, 0.25mL dose|Pediatric dose vaccine|Active|False|2022/03/03
+224       |Tick-borne encephalitis, inactivated, PF, 0.5mL|Tick-borne encephalitis vaccine, inactivated, preservative free, 0.5mL dose|Adult dose vaccine|Active|False|2022/03/04
+225       |COVID-19, D614, recomb, preS dTM, AS03 adjuvant add, PF, 5mcg/0.5mL|SARS-COV-2 (COVID-19) vaccine, D614, prefusion spike recombinant protein subunit (CoV2 preS dTM), AS03 adjuvant added, preservative free, 5mcg/0.5mL dose|EUA submission withdrawn by Sanofi|Never Active|False|2023/03/09
+226       |COVID-19, D614, recomb, preS dTM, AS03 adjuvant add, PF, 10mcg/0.5mL|SARS-COV-2 (COVID-19) vaccine, D614, prefusion spike recombinant protein subunit (CoV2 preS dTM), AS03 adjuvant added, preservative free, 10mcg/0.5mL dose|EUA submission withdrawn by Sanofi|Never Active|False|2023/03/09
+512       |SARS-COV-2 COVID-19 VLP Non-US Vaccine (Medicago, Covifenz)|SARS-COV-2 COVID-19 Virus Like Particle (VLP) Non-US Vaccine Product (Medicago, Covifenz)|Pandemic Non-US Vaccine not Authorized by WHO - ACIP does recognize towards immunity in US|Non-US|False|2022/04/12
+513       |SARS-COV-2 COVID-19 PS Non-US Vaccine (Anhui Zhifei Longcom, Zifivax)|SARS-COV-2 COVID-19 Protein Subunit Non-US Vaccine Product (Anhui Zhifei Longcom, Zifivax)|Pandemic Non-US Vaccine not Authorized by WHO - not counted toward immunity in US|Non-US|False|2022/04/12
+514       |SARS-COV-2 COVID-19 DNA Non-US Vaccine (Zydus Cadila, ZyCoV-D)|SARS-COV-2 COVID-19 DNA Non-US Vaccine Product (Zydus Cadila, ZyCoV-D)|Pandemic Non-US Vaccine not Authorized by WHO - not counted toward immunity in US|Non-US|False|2022/04/12
+515       |SARS-COV-2 COVID-19 PS Non-US Vaccine (Medigen, MVC-COV1901)|SARS-COV-2 COVID-19 Protein Subunit Non-US Vaccine Product (Medigen, MVC-COV1901)|Pandemic Non-US Vaccine not Authorized by WHO - not counted toward immunity in US|Non-US|False|2022/04/12
+516       |COV-2 COVID-19 Inactivated Non-US Vaccine Product (Minhai Biotechnology Co, KCONVAC)|SARS-COV-2 COVID-19 Inactivated Non-US Vaccine Product (Minhai Biotechnology Co, KCONVAC)|Pandemic Non-US Vaccine not Authorized by WHO - not counted toward immunity in US|Non-US|False|2022/04/12
+517       |SARS-COV-2 COVID-19 PS Non-US Vaccine (Biological E Limited, Corbevax)|SARS-COV-2 COVID-19 Protein Subunit Non-US Vaccine Product (Biological E Limited, Corbevax)|Pandemic Non-US Vaccine not Authorized by WHO - not counted toward immunity in US|Non-US|False|2022/04/12
+227       |COVID-19, mRNA, LNP-S, PF, pediatric 50 mcg/0.5 mL dose|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, pediatric 50 mcg/0.5 mL dose|Original monovalent Moderna pediatric vaccine (FDA rescinded 4/18/2023). Inactivated 6/14/2022 to use CVX code 221 product instead|Inactive|False|2023/10/26
+228       |COVID-19, mRNA, LNP-S, PF, pediatric 25 mcg/0.25 mL dose|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, pediatric 25 mcg/0.25 mL dose|Original monovalent Moderna pediatric vaccine (6 mo through 5 yrs), FDA rescinded 4/18/2023|Inactive|False|2023/10/27
+229       |COVID-19, mRNA, LNP-S, bivalent, PF, 50 mcg/0.5 mL or 25mcg/0.25 mL dose|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, bivalent, preservative free, 50 mcg/0.5 mL or 25 mcg/0.25 mL dose|Original strain + omicron BA.4/BA.5 bivalent Moderna vaccine (6 mo and older), FDA rescinded 9/11/2023.  Continue to use to record Non-US vaccines administered (tradename Spikevax Bivalent)|Inactive|False|2023/10/26
+301       |COVID-19, mRNA, LNP-S, bivalent, PF, 10 mcg/0.2 mL dose|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, bivalent, preservative free, 10 mcg/0.2 mL dose, tris-sucrose formulation|Original strain + omicron BA.4/BA.5 bivalent Pfizer vaccine (5 yrs through 11 yrs), FDA rescinded 9/11/2023|Inactive|False|2023/10/26
+300       |COVID-19, mRNA, LNP-S, bivalent, PF, 30 mcg/0.3 mL dose|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, bivalent, preservative free, 30 mcg/0.3 mL dose, tris-sucrose formulation|Original strain + omicron BA.4/BA.5 bivalent Pfizer vaccine (12 yrs and older). FDA rescinded 09/11/2023.  Continue to use to record Non-US vaccines administered (tradename Comirnaty Bivalent)|Inactive|False|2023/10/26
+230       |COVID-19, mRNA, LNP-S, bivalent, PF, 10 mcg/0.2 mL|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, bivalent, preservative free, 10 mcg/0.2 mL dose|Original strain + omicron BA.4/BA.5 bivalent Moderna vaccine (6 mo through 5 yrs), FDA rescinded 9/11/2023|Inactive|False|2023/10/26
+518       |COVID-19 Inactivated, Non-US Vaccine (VLA2001, Valneva)|SARS-COV-2 COVID-19 Inactivated, Non-US Vaccine (VLA2001, Valneva)|Pandemic Non-US Vaccine not Authorized by WHO - not counted toward immunity in US|Non-US|False|2022/11/17
+519       |COVID-19 mRNA, bivalent, original/Omicron BA.1, Non-US Vaccine (Spikevax Bivalent), Moderna|SARS-COV-2 COVID-19 mRNA, bivalent, original/Omicron BA.1, Non-US Vaccine (Spikevax Bivalent), Moderna|Pandemic Non-US Vaccine not Authorized by WHO - Is authorized by EU and counted toward immunity in US|Non-US|False|2022/11/17
+520       |COVID-19 mRNA, bivalent, original/Omicron BA.1, Non-US Vaccine Product, Pfizer-BioNTech|SARS-COV-2 COVID-19 mRNA, bivalent, original/Omicron BA.1, Non-US Vaccine Product (Comirnaty Bivalent), Pfizer-BioNTech|Pandemic Non-US Vaccine. Authorized by WHO 10/19/2022 - Counted toward immunity in US|Non-US|False|2022/12/19
+521       |COVID-19 SP, protein-based, adjuvanted (VidPrevtyn Beta), Sanofi-GSK|SARS-COV-2 (COVID-19) vaccine SP, protein-based, adjuvanted, B.1.351 strain (VidPrevtyn Beta), Sanofi-GSK|Pandemic Non-US Vaccine not Authorized by WHO - not counted toward immunity in US|Non-US|False|2024/01/03
+231       |influenza, Southern Hemisphere, high-dose, quadrivalent|influenza, seasonal, Southern Hemisphere, high-dose, quadrivalent, 0.7mL dose, preservative free|Target population 65 and older, starting Southern Hemisphere season 2023|Active|False|2023/03/14
+303       |RSV, recombinant, protein subunit RSVpreF, adjuvant reconstituted, 0.5 mL, PF|Respiratory syncytial virus (RSV), vaccine, recombinant, protein subunit RSV prefusion F, adjuvant reconstituted, 0.5 mL, preservative free|Adults 60 years and older|Active|False|2023/06/06
+304       |Respiratory syncytial virus (RSV), unspecified|Respiratory syncytial virus (RSV), unspecified|Unspecified, for historic records where it is not known if RSV vaccine or RSV MAB was administered|Inactive|False|2024/01/03
+305       |RSV, bivalent, protein subunit RSVpreF, diluent reconstituted, 0.5 mL, PF|Respiratory syncytial virus (RSV), vaccine, bivalent, protein subunit RSV prefusion F, diluent reconstituted, 0.5 mL, preservative free|Adults 60 years and older, pregnant individuals|Active|False|2024/08/07
+306       |RSV, mAb, nirsevimab-alip, 0.5 mL, neonate to 24 months|Respiratory syncytial virus (RSV) monoclonal antibody, IgG1κ, (nirsevimab-alip), 0.5 mL, neonates and children to 24 months|RSV monoclonal antibody (Beyfortus)|Active|False|2023/07/25
+307       |RSV, mAb, nirsevimab-alip, 1 mL, neonate to 24 months|Respiratory syncytial virus (RSV) monoclonal antibody, IgG1κ, (nirsevimab-alip), 1 mL, neonates and children to 24 months|RSV monoclonal antibody (Beyfortus)|Active|False|2023/08/09
+313       |COVID-19, subunit, rS-nanoparticle, adjuvanted, PF, 5 mcg/0.5 mL|SARS-COV-2 (COVID-19) vaccine, subunit, recombinant spike protein-nanoparticle+Matrix-M1 Adjuvant, preservative free, 5 mcg/0.5 mL dose|Novavax Fall Seasonal 12 years and older|Active|False|2024/09/05
+308       |COVID-19, mRNA, LNP-S, PF, tris-sucrose, 3 mcg/0.3 mL|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, tris-sucrose, 3 mcg/0.3 mL dose|EUA Revoked 08/27/2024.  Pfizer 6 months through 4 years of age.|Inactive|False|2025/09/09
+309       |COVID-19, mRNA, LNP-S, PF, tris-sucrose, 30 mcg/0.3 mL|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, tris-sucrose, 30 mcg/0.3 mL dose|Pfizer Fall Seasonal 12 years and older|Active|False|2024/08/30
+310       |COVID-19, mRNA, LNP-S, PF, tris-sucrose, 10 mcg/0.3 mL|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, tris-sucrose, 10 mcg/0.3 mL dose|Pfizer Fall Seasonal 5 years through 11 years of age|Active|False|2024/08/30
+312       |COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, 50 mcg/0.5 mL dose|Moderna Fall Seasonal 12 years and older|Active|False|2024/08/30
+311       |COVID-19, mRNA, LNP-S, PF, 25 mcg/0.25 mL|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, 25 mcg/0.25 mL dose|Moderna Fall Seasonal 6 months through 11 years of age|Active|False|2024/08/30
+315       |Respiratory syncytial virus (RSV) MAB, unspecified|Respiratory syncytial virus (RSV) monoclonal antibody (MAB), unspecified|Unspecified, for historic records where the specific RSV MAB administered is not known|Inactive|False|2023/09/19
+314       |Respiratory syncytial virus (RSV) vaccine, unspecified|Respiratory syncytial virus (RSV) vaccine, unspecified|Unspecified, for historic records where the specific vaccine administered is not known|Inactive|False|2023/09/19
+316       |Meningococcal polysaccharide (MenACWY-TT conjugate), (MenB), PF|Meningococcal polysaccharide (groups A, C, Y, W) tetanus toxoid conjugate, meningococcal B recombinant vaccine, 0.5mL, preservative free|Meningococcal pentavalent vaccine strains ABCW and Y|Active|False|2024/01/25
+317       |Chikungunya live attenuated vaccine, 0.5 mL, PF|Chikungunya, live attenuated vaccine, 0.5 mL, preservative free|Chikungunya Vaccine|Active|False|2023/12/20
+318       |Anthrax, post-exposure prophylaxis|Anthrax vaccine, adsorbed, adjuvanted, post-exposure prophylaxis|National stockpile vaccine (Cyfendus)|Active|False|2024/01/25
+319       |Anthrax vaccine, unspecified|Anthrax vaccine, unspecified|Unspecified code to record historic administration when specific product is unknown|Inactive|False|2024/03/15
+320       |Influenza, MDCK, trivalent, preservative|Influenza, Madin Darby Canine Kidney, subunit, trivalent, injectable, contains preservative|Trivalent code starting 2024/2025 season|Active|False|2024/05/15
+321       |Influenza-avian, H5N8, monovalent, PF|Influenza-avian, H5N8, viral-vector, monovalent, injectable, preservative free|Novel Bird Flu H5N8 Vaccine 2024|Active|False|2024/06/12
+322       |Influenza-avian, H5N8, monovalent, preservative|Influenza-avian, H5N8, viral-vector, monovalent, injectable, contains preservative|Novel Bird Flu H5N8 Vaccine 2024|Active|False|2024/06/12
+324       |Poliovirus, inactivated, fractional-dose (fIPV)|Poliovirus, inactivated, fractional-dose (fIPV)|Non-US polio vaccine administered since 2016|Non-US|False|2024/06/05
+323       |Influenza-avian, H5, unspecified formulation|Influenza-avian, H5, unspecified formulation|Unspecified code H5xx vaccines to be used when specific formulation is unknown - for vaccines administered starting 2024 |Inactive|False|2024/06/06
+326       |RSV, mRNA, injectable, PF|Respiratory syncytial virus (RSV), mRNA, injectable, preservative free|mRNA RSV vaccine added 2024|Active|False|2024/08/30
+327       |Pneumococcal conjugate PCV21, polysaccharide CRM197 conjugate, PF|Pneumococcal conjugate vaccine, 21 valent (PCV21), polysaccharide CRM197 conjugate, preservative free||Active|False|2024/07/11
+328       |Meningococcal oligosaccharide (MenACWY), (MenB), PF|Meningococcal oligosaccharide conjugated (groups A, C, W, Y) and group B, 0.5 mL, preservative free|Meningococcal pentavalent vaccine strains ABCW and Y|Active|False|2025/03/18
+329       |Chikungunya, VLP, recombinant, 0.8 mL, PF|Chikungunya, virus-like particle (VLP), recombinant vaccine, 0.8 mL, preservative free||Active|False|2025/03/18
+330       |Dengue fever, unspecified|Dengue fever, unspecified formulation|Use this CVX for historical records where; the formulation of the dengue vaccine administered is not known, or is a non-US product without an associated CVX code.|Inactive|False|2025/04/30
+331       |Influenza, Southern Hemisphere, trivalent, PF|Influenza, seasonal, Southern Hemisphere, trivalent, 0.5 mL dose, preservative free|Represents single dose vial|Active|False|2025/04/30
+325       |Vaccinia (smallpox, monkeypox), unspecified|Vaccinia (smallpox, monkeypox), unspecified|Use this CVX for historical records where; the formulation administered is not known, or is a non-US product without an associated CVX code.|Inactive|False|2025/11/19
+332       |RSV, mAb, clesrovimab-cfor, 0.7 mL, neonate and infant, PF|Respiratory syncytial virus (RSV), monoclonal antibody, IgG1κ, (clesrovimab-cfor), 0.7 mL, neonate and infant, preservative free|RSV mAb for neonates and infants born during or entering first RSV season (Enflonsia)|Active|False|2025/07/03
+333       |Influenza, live, trivalent, intranasal, self/caregiver admin, PF|Influenza, live, trivalent, intranasal, self or caregiver administered, preservative free|Self or caregiver administered, new starting 2025/2026 season|Active|False|2025/07/15
+334       |COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, 10 mcg/0.2 mL dose|Moderna monovalent new formulation mNEXSPIKE, starting Fall 2025, ages 12 yrs and older, BLA|Active|False|2025/08/28
+337       |Influenza, Southern Hemisphere, high-dose, trivalent, PF|Influenza, Southern Hemisphere, high-dose, split virus, trivalent, 0.5 mL, injectable, preservative free|Code created starting 2026 Southern Hemisphere season|Active|False|2026/04/09
+338       |Influenza, mRNA, trivalent, PF|Influenza, mRNA lipid nanoparticle, trivalent, injectable, 0.38 mL dose, preservative-free|mRNA influenza vaccine FDA approved 08/05/2026 starting with Fall 2026/2027 season|Active|False|2026/08/12
+302       |COVID-19, mRNA, LNP-S, bivalent, PF, 3 mcg/0.2 mL dose|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, bivalent, preservative free, 3 mcg/0.2 mL dose, tris-sucrose formulation|Original strain + omicron BA.4/BA.5 bivalent Pfizer vaccine (6 mo through 4 yrs), FDA rescinded 09/11/2023|Inactive|False|2026/09/10

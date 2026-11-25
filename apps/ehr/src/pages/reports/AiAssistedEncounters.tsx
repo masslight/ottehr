@@ -364,6 +364,7 @@ export default function AiAssistedEncounters(): React.ReactElement {
         headerName: 'Appointment ID',
         width: 320,
         sortable: true,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const appointmentId = params.value;
 
@@ -390,6 +391,7 @@ export default function AiAssistedEncounters(): React.ReactElement {
         headerName: 'AI Type',
         width: 250,
         sortable: true,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const aiType = params.value as string;
           if (!aiType) return <span>-</span>;
@@ -410,6 +412,7 @@ export default function AiAssistedEncounters(): React.ReactElement {
         headerName: 'Status',
         width: 160,
         sortable: true,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => (
           <Chip
             label={params.value}
@@ -424,6 +427,7 @@ export default function AiAssistedEncounters(): React.ReactElement {
         headerName: 'Appointment Time',
         width: 180,
         sortable: true,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const visitType = params.row.visitType;
           const locationId = params.row.locationId;

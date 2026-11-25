@@ -4,7 +4,6 @@ import { randomUUID } from 'crypto';
 import { Communication, Reference, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getAccountForUser, UserAccount } from 'utils/lib/auth/user-auth.helper';
-import { TASK_LOCATION_SYSTEM } from 'utils/lib/fhir/constants';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
@@ -18,11 +17,14 @@ import { wrapHandler } from '../../../shared/sentry';
 import { resolveStep } from '../../../shared/support-chat/bot';
 import {
   buildRequestTask,
+  canAutoAssign,
   findOpenTasks,
   getAttachOperations,
   getTaskPatientId,
+  getVisitProviderOwner,
   getVisits,
   hasUnreadTag,
+  moveRequestTask,
 } from '../../../shared/support-chat/request-task';
 import {
   buildThreadMessage,
@@ -89,6 +91,7 @@ export const index = wrapHandler(
       const defaultVisit = lastPatient ? visits.find((v) => v.patient.id === lastPatient.id) : visits[0];
       const visit = appointmentId ? visits.find((v) => v.appointmentId === appointmentId) : defaultVisit;
       const patient = visit?.patient ?? lastPatient ?? account.patients[0];
+      const owner = await getVisitProviderOwner(oystehr, visit);
       taskReference = `urn:uuid:${randomUUID()}`;
       patientId = patient.id;
 
@@ -96,7 +99,7 @@ export const index = wrapHandler(
         method: 'POST',
         url: '/Task',
         fullUrl: taskReference,
-        resource: buildRequestTask({ code, threadId, patient, visit, text, details }),
+        resource: buildRequestTask({ code, threadId, patient, visit, owner, text, details }),
       });
     } else if (step.task?.type === 'set-visit') {
       const { appointmentId, text } = step.task;
@@ -106,36 +109,26 @@ export const index = wrapHandler(
       if (!visit || !taskId) throw INVALID_INPUT_ERROR('The visit is not available for selection');
 
       const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId });
+      const reassign = canAutoAssign(task, visits);
+      const owner = reassign ? await getVisitProviderOwner(oystehr, visit) : undefined;
 
       const next = buildRequestTask({
         code: PATIENT_REQUEST_TASK.code.followUp,
         threadId,
         patient: visit.patient,
         visit,
+        owner,
         text,
       });
 
       taskReference = `Task/${taskId}`;
       patientId = visit.patient.id;
 
-      const keptTags = (task.meta?.tag ?? []).filter((tag) => tag.system !== TASK_LOCATION_SYSTEM);
-
-      const addedTags = (next.meta?.tag ?? []).filter(
-        (tag) => !keptTags.some((kept) => kept.system === tag.system && kept.code === tag.code)
-      );
-
       requests.push({
         method: 'PUT',
         url: taskReference,
         ifMatch: makeOptimisticLockIfMatchHeader(task),
-        resource: {
-          ...task,
-          description: next.description,
-          encounter: next.encounter,
-          location: next.location,
-          input: next.input,
-          meta: { ...task.meta, tag: [...keptTags, ...addedTags] },
-        },
+        resource: moveRequestTask(task, next, reassign),
       });
     } else if (step.task?.type === 'attach' && openTask) {
       taskReference = `Task/${openTask.id}`;

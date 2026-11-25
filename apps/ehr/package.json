@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.48.0",
+  "version": "1.48.7",
   "private": true,
   "type": "module",
   "engines": {
@@ -59,9 +59,10 @@
     "@fullcalendar/list": "^5.11.3",
     "@fullcalendar/react": "^5.11.3",
     "@fullcalendar/timegrid": "^5.11.3",
-    "@mui/icons-material": "^5.14.9",
-    "@mui/x-data-grid-pro": "^6.3.0",
-    "@mui/x-date-pickers-pro": "^6.3.0",
+    "@mui/icons-material": "^7.3.11",
+    "@mui/x-data-grid-pro": "^7.29.13",
+    "@mui/x-date-pickers-pro": "^7.29.4",
+    "@mui/x-license": "^7.29.1",
     "@stripe/react-stripe-js": "^3.0.0",
     "@stripe/stripe-js": "^3.5.0",
     "@twilio/conversations": "^2.4.1",

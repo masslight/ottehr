@@ -32,6 +32,7 @@ import { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useSt
 import { useNavigate } from 'react-router-dom';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { CODE_SYSTEM_CLAIM_TYPE_CODES } from 'utils/lib/helpers/rcm/constants';
+import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { EXPORT_CLAIMS_MATCH_LIMIT } from 'utils/lib/types/data/billing/billing.constants';
 import {
   CLAIM_SORT_FIELDS,
@@ -116,6 +117,11 @@ const CLAIM_TYPE_OPTIONS: { value: ClaimTypeCode; label: string }[] = [
   { value: 'institutional', label: 'Institutional' },
 ];
 
+const PLAN_TYPE_OPTIONS: { value: string; label: string }[] = VALUE_SETS.insuranceTypeOptions.map((option) => ({
+  value: option.candidCode,
+  label: option.label,
+}));
+
 interface Filters {
   searchText?: string;
   arStage?: string[];
@@ -123,6 +129,7 @@ interface Filters {
   tag?: string[];
   tagMatch?: ClaimTagMatch;
   excludeTag?: string[];
+  planType?: string[];
   createdFrom?: string;
   createdTo?: string;
   serviceDateFrom?: string;
@@ -145,6 +152,7 @@ function toSearchParams(filters: Filters): ExportBillingClaimsInput {
   if (filters.tag?.length) params.tag = filters.tag;
   if (filters.tag?.length && filters.tagMatch === 'all') params.tagMatch = 'all';
   if (filters.excludeTag?.length) params.excludeTag = filters.excludeTag;
+  if (filters.planType?.length) params.planType = filters.planType;
   if (filters.createdFrom) params.createdFrom = filters.createdFrom;
   if (filters.createdTo) params.createdTo = filters.createdTo;
   if (filters.serviceDateFrom) params.serviceDateFrom = filters.serviceDateFrom;
@@ -192,6 +200,7 @@ interface StoredClaimsListFilters {
   // Optional: filters kept before tags could be excluded or all-matched don't have them.
   tagMatch?: ClaimTagMatch;
   excludeTagFilter?: string[];
+  planTypeFilter?: string[];
   createdFrom: string;
   createdTo: string;
   serviceDateFrom: string;
@@ -241,6 +250,7 @@ function storedToFilters(stored: StoredClaimsListFilters): ClaimsListFilters {
     tag: stored.tagFilter,
     tagMatch: stored.tagMatch,
     excludeTag: Array.isArray(stored.excludeTagFilter) ? stored.excludeTagFilter : [],
+    planType: Array.isArray(stored.planTypeFilter) ? stored.planTypeFilter : [],
     type: stored.typeFilter,
     service: stored.selectedServices.map((sv) => sv.name),
     cptCode: storedList(stored.cptCodeFilter),
@@ -264,6 +274,7 @@ function stateToStored({ filters, layout, paginationModel }: ClaimsListViewState
     tagFilter: filters.tag ?? [],
     tagMatch: filters.tagMatch,
     excludeTagFilter: filters.excludeTag ?? [],
+    planTypeFilter: filters.planType ?? [],
     createdFrom: filters.createdFrom ?? '',
     createdTo: filters.createdTo ?? '',
     serviceDateFrom: filters.serviceDateFrom ?? '',
@@ -352,7 +363,7 @@ const currencyCol = (field: string, headerName: string, width: number): GridColD
   width,
   align: 'right',
   headerAlign: 'right',
-  valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+  valueFormatter: (value: number) => formatCurrency(value),
 });
 
 const statusColumns: GridColDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
@@ -360,7 +371,8 @@ const statusColumns: GridColDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
   headerName: field.label,
   width: field.key === 'arStage' ? 170 : 160,
   sortable: false,
-  valueGetter: (params) => (params.row as BillingClaimItem).statuses?.[field.key] ?? '',
+  valueGetter: (_value, row: BillingClaimItem) => row.statuses?.[field.key] ?? '',
+  display: 'flex',
   renderCell: ({ value }) => <ClaimStatusValueChip field={field} code={value as string} />,
 }));
 
@@ -375,24 +387,25 @@ const allColumns: GridColDef[] = [
     field: 'type',
     headerName: 'Claim Type',
     minWidth: 130,
-    valueFormatter: (params: { value: string }) => formatAntCaseString(params.value),
+    valueFormatter: (value: string) => formatAntCaseString(value),
   },
   {
     field: 'service',
     headerName: 'Service',
     minWidth: 130,
-    valueFormatter: (params: { value: string }) => formatAntCaseString(params.value),
+    valueFormatter: (value: string) => formatAntCaseString(value),
   },
   currencyCol('billed', 'Billed', 100),
   currencyCol('allowed', 'Allowed', 100),
   currencyCol('insurancePaid', 'Insurance Paid', 120),
   {
     ...currencyCol('patientResp', 'Patient Resp', 110),
-    valueFormatter: (params: { value: number | null }) => formatPatientResp(params.value),
+    valueFormatter: (value: number | null) => formatPatientResp(value),
   },
   currencyCol('patientPaid', 'Patient Paid', 110),
   {
     ...currencyCol('claimBalance', 'Claim Balance', 120),
+    display: 'flex',
     renderCell: ({ value, row }) => {
       const hint = provisionalBalanceHint(row as BillingClaimItem);
       return (
@@ -548,6 +561,7 @@ export function ClaimsListView({
     (initialFilters?.patients ?? []).map(toBillingPatientOption)
   );
   const [typeFilter, setTypeFilter] = useState<ClaimTypeCode[]>(initialFilters?.type ?? []);
+  const [planTypeFilter, setPlanTypeFilter] = useState<string[]>(initialFilters?.planType ?? []);
   const [selectedServices, setSelectedServices] = useState<BillingService[]>(
     (initialFilters?.service ?? []).map((name) => ({ name }))
   );
@@ -644,6 +658,7 @@ export function ClaimsListView({
       nonInsurancePayerId: overrides?.nonInsurancePayerId ?? selectedNios.map((n) => n.id),
       patientId: overrides?.patientId ?? patientIds(selectedPatients),
       type: overrides?.type ?? typeFilter,
+      planType: overrides?.planType ?? planTypeFilter,
       service: overrides?.service ?? selectedServices.map((sv) => sv.name),
       cptCode: overrides?.cptCode ?? serviceLineFilter.cptCode,
       modifier: overrides?.modifier ?? serviceLineFilter.modifier,
@@ -664,6 +679,7 @@ export function ClaimsListView({
       selectedNios,
       selectedPatients,
       typeFilter,
+      planTypeFilter,
       selectedServices,
       serviceLineFilter,
     ]
@@ -696,6 +712,7 @@ export function ClaimsListView({
         tagMatch,
         excludeTag: excludeTagFilter,
         type: typeFilter,
+        planType: planTypeFilter,
         service: selectedServices.map((sv) => sv.name),
         cptCode: serviceLineFilter.cptCode,
         modifier: serviceLineFilter.modifier,
@@ -717,6 +734,7 @@ export function ClaimsListView({
       tagMatch,
       excludeTagFilter,
       typeFilter,
+      planTypeFilter,
       selectedServices,
       serviceLineFilter,
       createdFrom,
@@ -785,6 +803,7 @@ export function ClaimsListView({
     setSelectedNios([]);
     setSelectedPatients([]);
     setTypeFilter([]);
+    setPlanTypeFilter([]);
     setSelectedServices([]);
     setServiceLineFilter(EMPTY_SERVICE_LINE_FILTER);
     const resetPage = { ...paginationModel, page: 0 };
@@ -810,6 +829,7 @@ export function ClaimsListView({
     selectedNios.length ||
     selectedPatients.length ||
     typeFilter.length ||
+    planTypeFilter.length ||
     selectedServices.length ||
     hasServiceLineFilterValue(serviceLineFilter);
 
@@ -1079,6 +1099,17 @@ export function ClaimsListView({
           onChange={(value) => {
             setTypeFilter(value);
             applyFilters({ type: value });
+          }}
+        />
+
+        <MultiSelectFilter
+          label="Plan Type"
+          options={PLAN_TYPE_OPTIONS}
+          value={planTypeFilter}
+          minWidth={160}
+          onChange={(value) => {
+            setPlanTypeFilter(value);
+            applyFilters({ planType: value });
           }}
         />
 

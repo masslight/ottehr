@@ -1,13 +1,13 @@
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
+  Button,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   // MenuItem,
   // Select,
@@ -642,7 +642,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
           >
             Cancel
           </RoundedButton>
-          <LoadingButton
+          <Button
             loading={isSavingData}
             type="submit"
             variant="contained"
@@ -652,7 +652,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
             disabled={!formState.isValid}
           >
             Save
-          </LoadingButton>
+          </Button>
         </DialogActions>
         {error && (
           <Typography color="error" variant="body2" my={1} mx={2}>

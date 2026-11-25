@@ -16,6 +16,7 @@ import {
   claimMatchesInMemoryFilters,
   enrichAndMapClaims,
   fetchClaimsPageByIds,
+  filterClaimsByPrimaryPlanType,
   hasInMemoryClaimFilter,
   searchClaimsBySearchText,
 } from '../../../billing/claim-search';
@@ -106,6 +107,9 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
 
   // Service date and service line filters have no search parameter; both read the dates' elements.
   const filteringInMemory = hasInMemoryClaimFilter(filters);
+  // Claim has no search parameter for its coverage's plan type, so each batch is narrowed in memory.
+  const keepPlanTypes = async <T extends Claim>(claims: T[]): Promise<T[]> =>
+    filters.planType?.length ? filterClaimsByPrimaryPlanType({ oystehr, claims, planTypes: filters.planType }) : claims;
   const rows: string[][] = [];
   const exported = new Set<string>();
 
@@ -135,10 +139,12 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
       searchText: filters.searchText,
       filterParams,
       withServiceDateElements: filteringInMemory,
+      withInsuranceElements: Boolean(filters.planType?.length),
     });
-    const matching = filteringInMemory
+    const inMemoryMatches = filteringInMemory
       ? matched.claims.filter((claim) => claimMatchesInMemoryFilters(claim, filters))
       : matched.claims;
+    const matching = await keepPlanTypes(inMemoryMatches);
     const claimIds = matching.map((claim) => claim.id);
     const withinLimit = claimIds.slice(0, EXPORT_CLAIMS_MATCH_LIMIT);
 
@@ -193,7 +199,9 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
     if (claims.length === 0) break;
 
     await addPage(
-      filteringInMemory ? claims.filter((claim) => claimMatchesInMemoryFilters(claim, filters)) : claims,
+      await keepPlanTypes(
+        filteringInMemory ? claims.filter((claim) => claimMatchesInMemoryFilters(claim, filters)) : claims
+      ),
       includedResources
     );
     offset += claims.length;

@@ -200,7 +200,8 @@ const ServiceCategoryDialog: FC<{
                   value={value.config.cadenceMinutes ?? ''}
                   input={<OutlinedInput notched label="Cadence (start interval)" />}
                   onChange={(e) => {
-                    const raw = e.target.value;
+                    // the empty option's value is '', which Number() would turn into 0
+                    const raw = String(e.target.value);
                     const parsed = raw === '' ? undefined : Number(raw);
                     setValue((v) => ({
                       ...v,

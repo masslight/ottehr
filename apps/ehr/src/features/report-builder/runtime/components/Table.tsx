@@ -7,8 +7,6 @@ import {
   GridToolbarContainer,
   GridToolbarDensitySelector,
   GridToolbarFilterButton,
-  GridValueFormatterParams,
-  GridValueGetterParams,
   useGridApiRef,
 } from '@mui/x-data-grid-pro';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -129,10 +127,11 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
         ...(numeric ? { headerAlign: 'right' as const, align: 'right' as const } : {}),
         ...(numeric
           ? {
-              valueGetter: (params: GridValueGetterParams) => cellValue(field, params.row),
-              valueFormatter: ({ value }: GridValueFormatterParams) => exactNumberText(value),
+              valueGetter: (_value: unknown, row: Record<string, unknown>) => cellValue(field, row),
+              valueFormatter: (value: unknown) => exactNumberText(value),
             }
-          : { valueGetter: (params: GridValueGetterParams) => cellText(cellValue(field, params.row)) }),
+          : { valueGetter: (_value: unknown, row: Record<string, unknown>) => cellText(cellValue(field, row)) }),
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const raw = cellValue(field, params.row);
           if (React.isValidElement(raw)) return raw;
@@ -221,11 +220,10 @@ export function Table({ rows, columns, links, title, pageSize = 25, onRowClick }
           apiRef={apiRef}
           aria-label={title}
           autoHeight
-          density="compact"
           getRowId={(r) => (r as GridRow)[ROW_ID_KEY]}
           columns={gridColumns}
           rows={gridRows}
-          initialState={{ pagination: { paginationModel: { pageSize } } }}
+          initialState={{ density: 'compact', pagination: { paginationModel: { pageSize } } }}
           pagination
           pageSizeOptions={[10, 25, 50, 100]}
           slots={{ toolbar: Toolbar }}

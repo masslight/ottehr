@@ -1,5 +1,5 @@
 import ClearIcon from '@mui/icons-material/Clear';
-import { Box, Grid, IconButton, Pagination, Paper, Typography } from '@mui/material';
+import { Box, GridLegacy as Grid, IconButton, Pagination, Paper, Typography } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';

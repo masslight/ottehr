@@ -6,6 +6,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { sortQuickPicks, useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { BASE_ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { findCvxVaccine } from 'utils/lib/types/data/immunization/cvx-vaccine-lookup';
 
 interface UseImmunizationQuickPickManagementProps {
   methods: UseFormReturn;
@@ -44,12 +45,13 @@ export const useImmunizationQuickPickManagement = ({
 
   const onQuickPickSelect = (quickPick: ImmunizationQuickPickData): void => {
     const currentValues = methods.getValues();
+    const vaccine = findCvxVaccine(quickPick.vaccine?.id);
     methods.reset({
       ...currentValues,
       ...(applyOrderDetails && {
         details: {
           ...currentValues.details,
-          medication: quickPick.vaccine,
+          medication: vaccine ? { id: vaccine.cvx, name: vaccine.name } : null,
           dose: quickPick.dose,
           units: quickPick.units,
           route: quickPick.route,

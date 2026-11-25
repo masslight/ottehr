@@ -1,5 +1,6 @@
 import { Practitioner } from 'fhir/r4b';
 import { getNPIIdentifier } from 'utils/lib/fhir/patient';
+import { isValidErxPhoneNumber } from 'utils/lib/helpers/helpers';
 
 export const getPractitionerMissingFields = (practitioner: Practitioner): string[] => {
   const missingFields: string[] = [];
@@ -7,11 +8,13 @@ export const getPractitionerMissingFields = (practitioner: Practitioner): string
   if (!practitioner?.birthDate) {
     missingFields.push('birth date');
   }
-  if (!practitioner?.telecom?.find((telecom) => telecom.system === 'phone')?.value) {
-    missingFields.push('phone');
+  const phone = practitioner.telecom?.find((telecom) => telecom.system === 'phone')?.value;
+  if (!isValidErxPhoneNumber(phone)) {
+    missingFields.push(phone ? 'valid phone' : 'phone');
   }
-  if (!practitioner?.telecom?.find((telecom) => telecom.system === 'fax')?.value) {
-    missingFields.push('fax');
+  const fax = practitioner.telecom?.find((telecom) => telecom.system === 'fax')?.value;
+  if (!isValidErxPhoneNumber(fax)) {
+    missingFields.push(fax ? 'valid fax' : 'fax');
   }
   if (!practitioner?.address?.find((address) => address.line?.length)) {
     missingFields.push('Address line 1');

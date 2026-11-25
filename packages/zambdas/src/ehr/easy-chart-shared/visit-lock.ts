@@ -4,8 +4,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter } from 'fhir/r4b';
 import { EASY_CHART_VISIT_LOCKED_MESSAGE } from 'utils/lib/easy-chart/access';
-import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
-import { isAppointmentLocked, isEncounterLocked } from 'utils/lib/fhir/helpers';
+import { isVisitChartLocked } from 'utils/lib/fhir/visit-lock';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 
 /**
@@ -24,9 +23,8 @@ export async function isVisitLocked(oystehr: Oystehr, encounterId: string): Prom
   ).unbundle();
   const encounter = resources.find((r): r is Encounter => r.resourceType === 'Encounter');
   if (!encounter) throw INVALID_INPUT_ERROR('The visit could not be found');
-  if (getEncounterVisitType(encounter) === 'follow-up') return isEncounterLocked(encounter);
   const appointment = resources.find((r): r is Appointment => r.resourceType === 'Appointment');
-  return appointment ? isAppointmentLocked(appointment) : false;
+  return isVisitChartLocked(encounter, appointment);
 }
 
 /** Refuses the request when the visit is signed and locked. Applies to every caller, the service client included. */

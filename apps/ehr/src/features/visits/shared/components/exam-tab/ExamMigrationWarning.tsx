@@ -1,7 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import ErrorOutlineOutlined from '@mui/icons-material/ErrorOutlineOutlined';
-import { LoadingButton } from '@mui/lab';
-import { FormControl, FormControlLabel, Radio, RadioGroup, Typography, useTheme } from '@mui/material';
+import { Button, FormControl, FormControlLabel, Radio, RadioGroup, Typography, useTheme } from '@mui/material';
 import { Stack } from '@mui/system';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
@@ -112,7 +111,7 @@ export const ExamMigrationWarning: FC<ExamMigrationWarningProps> = ({ unmatchedF
           </FormControl>
         </Stack>
       )}
-      <LoadingButton
+      <Button
         variant="contained"
         size="small"
         onClick={handleMigrate}
@@ -121,7 +120,7 @@ export const ExamMigrationWarning: FC<ExamMigrationWarningProps> = ({ unmatchedF
         sx={{ textTransform: 'none', borderRadius: '16px', ml: '32px' }}
       >
         Migrate Exam Data
-      </LoadingButton>
+      </Button>
     </Stack>
   );
 };

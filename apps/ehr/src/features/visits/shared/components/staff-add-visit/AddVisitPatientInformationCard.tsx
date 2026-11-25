@@ -1,9 +1,8 @@
-import { LoadingButton } from '@mui/lab';
 import {
   Button,
   FormControl,
   FormHelperText,
-  Grid,
+  GridLegacy as Grid,
   InputLabel,
   MenuItem,
   Select,
@@ -314,7 +313,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                   }}
                 />
                 <Grid item xs={12} display="flex" justifyContent="flex-end">
-                  <LoadingButton
+                  <Button
                     data-testid={dataTestIds.addPatientPage.searchForPatientsButton}
                     type="submit"
                     loading={searching}
@@ -324,7 +323,7 @@ export const AddVisitPatientInformationCard: FC<AddVisitPatientInformationCardPr
                     onClick={handlePatientSearchClick}
                   >
                     Search for Patients
-                  </LoadingButton>
+                  </Button>
                 </Grid>
               </Grid>
             </Grid>

@@ -38,6 +38,7 @@ const columns: GridColDef[] = [
     headerName: 'Name',
     flex: 1,
     minWidth: 200,
+    display: 'flex',
     renderCell: (params) => (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '100%' }}>
         {params.row.name}
@@ -52,6 +53,7 @@ const columns: GridColDef[] = [
     field: 'taxId',
     headerName: 'Tax ID / EIN',
     width: 140,
+    display: 'flex',
     renderCell: (params) => <>{formatTaxId(params.value ?? '')}</>,
   },
   { field: 'address', headerName: 'Address', flex: 1, minWidth: 200 },

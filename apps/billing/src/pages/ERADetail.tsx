@@ -58,7 +58,7 @@ const currencyCol = (field: string, headerName: string, width: number): GridColD
   width,
   align: 'right',
   headerAlign: 'right',
-  valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+  valueFormatter: (value: number) => formatCurrency(value),
 });
 
 export default function ERADetail(): ReactElement {
@@ -91,6 +91,7 @@ export default function ERADetail(): ReactElement {
       field: 'claimId',
       headerName: 'Claim ID',
       width: 320,
+      display: 'flex',
       renderCell: ({ value, row }) => {
         if (!row.matched) {
           if (voided) return '—';
@@ -117,7 +118,7 @@ export default function ERADetail(): ReactElement {
     currencyCol('posted', 'Posted', 100),
     {
       ...currencyCol('patientResp', 'Patient Resp', 110),
-      valueFormatter: (params: { value: number | null }) => formatPatientResp(params.value),
+      valueFormatter: (value: number | null) => formatPatientResp(value),
     },
     {
       // whether the remit claim is matched to a claim in the system; the FHIR outcome every ERA
@@ -125,7 +126,8 @@ export default function ERADetail(): ReactElement {
       field: 'matched',
       headerName: 'Status',
       width: 140,
-      valueGetter: (params: { row: EraClaimListItem }) => (params.row.matched ? 'Matched' : 'Unmatched'),
+      valueGetter: (_value: unknown, row: EraClaimListItem) => (row.matched ? 'Matched' : 'Unmatched'),
+      display: 'flex',
       renderCell: ({ row }) => (
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Chip

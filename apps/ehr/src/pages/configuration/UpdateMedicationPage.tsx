@@ -1,13 +1,13 @@
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Autocomplete,
   Box,
+  Button,
   debounce,
   FormControl,
   FormHelperText,
-  Grid,
+  GridLegacy as Grid,
   InputAdornment,
   InputLabel,
   MenuItem,
@@ -599,7 +599,7 @@ export default function UpdateMedicationPage(): ReactElement {
               ))}
               {canEditSetup ? (
                 <Grid item xs={12}>
-                  <LoadingButton
+                  <Button
                     type="submit"
                     variant="contained"
                     loading={loading}
@@ -607,7 +607,7 @@ export default function UpdateMedicationPage(): ReactElement {
                     sx={{ textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
                   >
                     Update Medication
-                  </LoadingButton>
+                  </Button>
                 </Grid>
               ) : null}
             </Grid>
@@ -618,14 +618,14 @@ export default function UpdateMedicationPage(): ReactElement {
           <Paper sx={{ padding: 2, marginTop: 2 }}>
             <Typography variant="h4">Receive shipment</Typography>
             <Typography variant="body1">Add a lot of this medication to a location's stock.</Typography>
-            <LoadingButton
+            <Button
               variant="contained"
               sx={{ marginTop: 2, textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
               onClick={() => setReceiveOpen(true)}
               data-testid={dataTestIds.updateMedicationPage.receiveShipmentButton}
             >
               Receive Shipment
-            </LoadingButton>
+            </Button>
             {receiveOpen ? (
               <ReceiveShipmentDialog
                 open={receiveOpen}
@@ -647,7 +647,7 @@ export default function UpdateMedicationPage(): ReactElement {
                 ? 'Removing this medication will make it so it can no longer be ordered for a visit. It will not affect any medications that have already been ordered.'
                 : 'Activating this medication will add it to the list of in-house medications that can be ordered for a visit.'}
             </Typography>
-            <LoadingButton
+            <Button
               variant="contained"
               color={status === 'active' ? 'error' : 'success'}
               sx={{ marginTop: 2, textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
@@ -655,7 +655,7 @@ export default function UpdateMedicationPage(): ReactElement {
               loading={loading}
             >
               {status === 'active' ? 'Remove' : 'Activate'} Medication
-            </LoadingButton>
+            </Button>
           </Paper>
         ) : null}
       </>

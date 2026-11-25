@@ -3,7 +3,7 @@ import {
   Button,
   Checkbox,
   FormControlLabel,
-  Grid,
+  GridLegacy as Grid,
   Paper,
   Stack,
   Switch,

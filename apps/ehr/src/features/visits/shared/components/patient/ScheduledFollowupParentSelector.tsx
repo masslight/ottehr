@@ -1,4 +1,3 @@
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Box,
@@ -7,7 +6,7 @@ import {
   CircularProgress,
   FormControlLabel,
   FormGroup,
-  Grid,
+  GridLegacy as Grid,
   TextField,
   Tooltip,
   Typography,
@@ -308,7 +307,7 @@ export default function ScheduledFollowupParentSelector({
           >
             Cancel
           </Button>
-          <LoadingButton
+          <Button
             variant="contained"
             onClick={handleContinue}
             loading={isChartDataLoading || convertMutation.isPending}
@@ -316,7 +315,7 @@ export default function ScheduledFollowupParentSelector({
             sx={{ borderRadius: 100, textTransform: 'none', fontWeight: 600 }}
           >
             {convertFrom ? 'Convert to Follow-up' : 'Continue to Add Visit'}
-          </LoadingButton>
+          </Button>
         </Box>
       </Grid>
     </Grid>

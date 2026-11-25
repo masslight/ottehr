@@ -260,6 +260,7 @@ export default function RecentPatients(): React.ReactElement {
           flex: 1,
           minWidth: 120,
           sortable: true,
+          display: 'flex',
           renderCell: (params) => {
             const patientId = params.value as string;
             return (
@@ -289,6 +290,7 @@ export default function RecentPatients(): React.ReactElement {
           flex: 1,
           minWidth: 140,
           sortable: true,
+          display: 'flex',
           renderCell: (params) => {
             const value = params.value as string;
             if (!value) return '';
@@ -319,6 +321,7 @@ export default function RecentPatients(): React.ReactElement {
           flex: 0.8,
           minWidth: 130,
           sortable: true,
+          display: 'flex',
           renderCell: (params) => (
             <Chip
               label={params.value === 'new' ? 'New' : 'Existing'}

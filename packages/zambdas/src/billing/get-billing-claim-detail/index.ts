@@ -37,11 +37,13 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
+  claimNioPaymentFromNotice,
   extractClaimResponseAmounts,
   extractRemitAdjustments,
   fetchClaimEraLinks,
   fetchClaimFirstSubmittedDate,
   fetchClaimResponsesByClaimIds,
+  fetchNioPaymentsByClaimIds,
   fetchPatientPaymentsByEncounterIds,
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
@@ -142,6 +144,7 @@ export async function performEffect(
     nonInsurancePayer,
     writeOffResources,
     invoices,
+    nioPaymentsByClaimId,
   ] = await Promise.all([
     fetchOtherClaims(oystehr, patient?.id, claimId),
     fetchClaimResponsesByClaimIds(oystehr, [claimId]),
@@ -154,6 +157,7 @@ export async function performEffect(
     isOttehrBillingInvoicingInBillingApp(params.secrets)
       ? fetchClaimInvoices(oystehr, claimId)
       : Promise.resolve<Invoice[]>([]),
+    fetchNioPaymentsByClaimIds(oystehr, [claimId]),
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
@@ -168,6 +172,10 @@ export async function performEffect(
   const patientPaid = sumPatientPayments(patientPaymentNotices);
   const patientPayments = patientPaymentNotices
     .map(toClaimPatientPayment)
+    .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
+  const nioPaymentNotices = nioPaymentsByClaimId.get(claimId) ?? [];
+  const nioPayments = nioPaymentNotices
+    .map(claimNioPaymentFromNotice)
     .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
 
   const writeOffsTotal = sumWriteOffs(writeOffResources);
@@ -198,7 +206,13 @@ export async function performEffect(
   const quaternaryPayerClaimControlNumber = getPayerClaimControlNumber(claim, 'quaternary');
 
   const billed = claim.total?.value ?? 0;
-  const payments = summarizeClaimPayments(claimResponses, billed, patientPaid, writeOffsTotal);
+  const payments = summarizeClaimPayments(
+    claimResponses,
+    billed,
+    patientPaid,
+    writeOffsTotal,
+    sumPatientPayments(nioPaymentNotices)
+  );
   const remits = [...claimResponses].reverse().map((cr) => {
     const amounts = extractClaimResponseAmounts(cr);
     const era = paymentReconciliationById.get(paymentReconciliationIdByClaimResponseId.get(cr.id ?? '') ?? '');
@@ -371,6 +385,7 @@ export async function performEffect(
     insurancePaid: payments.insurancePaid,
     patientResp: payments.patientResp,
     patientPaid: payments.patientPaid,
+    nioPaid: payments.nioPaid,
     writeOffsTotal: payments.writeOffsTotal,
     balance: payments.balance,
     adjudicated: payments.adjudicated,
@@ -378,6 +393,7 @@ export async function performEffect(
     remits,
     insurancePayments,
     patientPayments,
+    nioPayments,
     writeOffs,
     // An NIO invoice covers several claims, so each claim shows only its own amount.
     invoices: invoices.map((invoice) => {
