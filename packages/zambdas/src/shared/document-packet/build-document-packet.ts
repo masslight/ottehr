@@ -12,8 +12,8 @@ import {
   DocumentPacketSource,
   formatRecipientName,
 } from 'utils/lib/types/api/document-packet.types';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { getMimeType } from 'utils/lib/utils/file';
-import { mapWithConcurrency } from '../concurrency';
 import { makeDocumentPacketDocumentReference } from '../pdf/make-document-packet-document-reference';
 import {
   createFaxAttachmentPlaceholderPdf,

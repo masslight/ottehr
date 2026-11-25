@@ -7,7 +7,7 @@ import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import { DocumentPacketSource, PACKET_DOCUMENT_ORDER } from 'utils/lib/types/api/document-packet.types';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { mapWithConcurrency } from '../concurrency';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { PacketCoverSheetSubject } from '../pdf/types';
 import { getAppointmentAndRelatedResources } from '../pdf/visit-details-pdf/get-video-resources';
 import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
@@ -263,7 +263,7 @@ const buildVisitSubject = (visitResources: {
 };
 
 /** The patient's document folders, so a packet lands in the Docs UI like any other document. */
-const getPatientFolders = async (oystehr: Oystehr, patientId: string): Promise<List[]> =>
+export const getPatientFolders = async (oystehr: Oystehr, patientId: string): Promise<List[]> =>
   (
     await oystehr.fhir.search<List>({
       resourceType: 'List',
