@@ -1,5 +1,5 @@
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import { Box, ButtonBase, IconButton, Tooltip, Typography } from '@mui/material';
+import { alpha, Box, ButtonBase, IconButton, Tooltip, Typography } from '@mui/material';
 import { UseMutationResult } from '@tanstack/react-query';
 import { Attachment } from 'fhir/r4b';
 import React, { ReactNode, useState } from 'react';
@@ -10,9 +10,9 @@ import FloatingCardPreview, { CardPreviewFace } from './FloatingCardPreview';
 import ImageUploader from './ImageUploader';
 
 /** Standard aspect ratio for ID and insurance cards. */
-const ASPECT_RATIO = 1.57;
+const ASPECT_RATIO = 1.6;
 /** Width of each face's thumbnail / upload placeholder (wraps to stacked when there isn't room). */
-const FACE_WIDTH = 220;
+const FACE_WIDTH = 130;
 
 export interface CardThumbnailProps {
   /** The saved card images (front/back) for one card (a coverage's insurance card or the photo ID). */
@@ -89,7 +89,6 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
     return (
       <ImageUploader
         fileName={fileType}
-        itemLabel={title}
         appointmentId={appointmentID}
         disabled={imagesLoading}
         isUploading={uploadingFileType === fileType}
@@ -178,17 +177,33 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
               width: FACE_WIDTH,
               aspectRatio: String(ASPECT_RATIO),
               boxSizing: 'border-box',
-              border: '2px dashed',
+              border: '1.5px dashed',
               borderColor: 'primary.main',
               borderRadius: 1,
-              backgroundColor: 'action.hover',
+              backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.04),
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              p: 1,
             }}
           >
-            <Box sx={{ width: '100%', maxWidth: 160 }}>{uploaderFor(faceFileType(face))}</Box>
+            <Box
+              sx={{
+                width: FACE_WIDTH,
+                // Plain text-style Upload / Scan buttons: no outline, no pill, no wrapping.
+                '& .MuiButton-root': {
+                  border: 'none',
+                  borderRadius: 1,
+                  whiteSpace: 'nowrap',
+                  fontWeight: 500,
+                  fontSize: 15,
+                  justifyContent: 'center',
+                  padding: 0,
+                  '&:hover': { border: 'none', backgroundColor: 'transparent', opacity: 0.8 },
+                },
+              }}
+            >
+              {uploaderFor(faceFileType(face))}
+            </Box>
           </Box>
         )}
       </Box>
