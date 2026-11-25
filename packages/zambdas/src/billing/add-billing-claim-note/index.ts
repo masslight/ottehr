@@ -22,13 +22,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
 
-  console.group('complexValidation');
-  const agent = await complexValidation(oystehr, params, userToken);
-  console.groupEnd();
-  console.debug('complexValidation success');
-
   console.group('performEffect');
-  const response = await performEffect(oystehr, params, agent);
+  const response = await performEffect(oystehr, params, complexValidation(oystehr, params, userToken));
   console.groupEnd();
   console.debug('performEffect success', truncateForLog(response));
 
@@ -49,9 +44,9 @@ async function complexValidation(
 export async function performEffect(
   oystehr: Oystehr,
   params: AddClaimNoteParams,
-  agent: ProvenanceAgent
+  callerAgent: ProvenanceAgent | Promise<ProvenanceAgent>
 ): Promise<OkResponse> {
-  const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
+  const [claim, agent] = await Promise.all([fetchById<Claim>(oystehr, 'Claim', params.claimId), callerAgent]);
   await commitClaimNote(oystehr, claim, params.message, agent);
 
   return { ok: true };

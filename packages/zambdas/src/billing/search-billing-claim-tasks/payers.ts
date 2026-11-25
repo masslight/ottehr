@@ -5,6 +5,7 @@ import { ACCOUNT_TYPE_CODE_SYSTEM, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhi
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { extractPayerIdFromUrl } from 'utils/lib/helpers/helpers';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import {
   findOccupationalMedicineAccount,
   findRef,
@@ -13,6 +14,8 @@ import {
   resolvePayersByRef,
   selectClaimCoverages,
 } from '../shared';
+
+const COVERAGE_CHUNK_CONCURRENCY = 5;
 
 export async function getClaimTaskPayerNames(
   clinical: Oystehr,
@@ -39,19 +42,36 @@ export async function getClaimTaskPayerNames(
   const patientRefs = [
     ...new Set(visits.flatMap((v) => (v.needsEmployerAccount ? v.encounter.subject?.reference || [] : []))),
   ];
-  const employerAccounts = patientRefs.length
-    ? await getAllFhirSearchPages<Account>(
+  const accounts = visits.flatMap((v) => v.accounts);
+  const coverageRefs = accounts.flatMap((a) => a.coverage ?? []);
+  const coverageIds = [...new Set(coverageRefs.flatMap((c) => c.coverage.reference?.split('/')[1] || []))];
+  const [employerAccounts, coverageChunks] = await Promise.all([
+    patientRefs.length
+      ? getAllFhirSearchPages<Account>(
+          {
+            resourceType: 'Account',
+            params: [
+              { name: 'patient', value: patientRefs.join(',') },
+              { name: 'status', value: 'active' },
+              { name: 'type', value: `${ACCOUNT_TYPE_CODE_SYSTEM}|OCCUPATIONALMEDICINEACCT` },
+            ],
+          },
+          clinical
+        )
+      : [],
+    mapWithConcurrency(chunkThings(coverageIds, 100), COVERAGE_CHUNK_CONCURRENCY, (ids) =>
+      getAllFhirSearchPages<Coverage | Organization>(
         {
-          resourceType: 'Account',
+          resourceType: 'Coverage',
           params: [
-            { name: 'patient', value: patientRefs.join(',') },
-            { name: 'status', value: 'active' },
-            { name: 'type', value: `${ACCOUNT_TYPE_CODE_SYSTEM}|OCCUPATIONALMEDICINEACCT` },
+            { name: '_id', value: ids.join(',') },
+            { name: '_include', value: 'Coverage:payor' },
           ],
         },
         clinical
       )
-    : [];
+    ),
+  ]);
   for (const visit of visits) {
     if (visit.needsEmployerAccount) {
       const account = employerAccounts.find(
@@ -60,23 +80,7 @@ export async function getClaimTaskPayerNames(
       visit.payer = getNonInsurancePayerReference(visit.encounter, account);
     }
   }
-  const accounts = visits.flatMap((v) => v.accounts);
-  const coverageRefs = accounts.flatMap((a) => a.coverage ?? []);
-  const coverageIds = [...new Set(coverageRefs.flatMap((c) => c.coverage.reference?.split('/')[1] || []))];
-  const coverageResources: (Coverage | Organization)[] = [];
-  for (const ids of chunkThings(coverageIds, 100)) {
-    const chunk = await getAllFhirSearchPages<Coverage | Organization>(
-      {
-        resourceType: 'Coverage',
-        params: [
-          { name: '_id', value: ids.join(',') },
-          { name: '_include', value: 'Coverage:payor' },
-        ],
-      },
-      clinical
-    );
-    coverageResources.push(...chunk);
-  }
+  const coverageResources = coverageChunks.flat();
   const coverages = coverageResources.filter(
     (r): r is Coverage =>
       r.resourceType === 'Coverage' &&

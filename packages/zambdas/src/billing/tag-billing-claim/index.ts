@@ -21,10 +21,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateWithSchema(TagBillingClaimInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
-
-  await complexValidation(oystehr, params);
-  const response = await performEffect(oystehr, params, agent);
+  const [agent, , claim] = await Promise.all([
+    resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets),
+    complexValidation(oystehr, params),
+    fetchById<Claim>(oystehr, 'Claim', params.claimId),
+  ]);
+  const response = await performEffect(oystehr, params, claim, agent);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
@@ -43,10 +45,9 @@ export async function complexValidation(oystehr: Oystehr, params: TagBillingClai
 async function performEffect(
   oystehr: Oystehr,
   params: TagBillingClaimParams,
+  claim: Claim,
   agent: ProvenanceAgent
 ): Promise<{ ok: true }> {
-  const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
-
   const existingTags = claim.meta?.tag ?? [];
   const hasTag = existingTags.some((t) => t.system === CLAIM_TAG_SYSTEM && t.code === params.tagName);
 

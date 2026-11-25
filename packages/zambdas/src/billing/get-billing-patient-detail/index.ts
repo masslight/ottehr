@@ -44,18 +44,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): Promise<PatientDetailResponse> {
-  const patient = await fetchById<Patient>(oystehr, 'Patient', params.patientId);
-
-  const { claims, balance } = await fetchPatientClaims(oystehr, params.patientId);
-
-  const {
-    clinicalId,
-    clinicalFriendlyId,
-    workingCopyParentId: workingCopyReferenceResourceId,
-  } = await resolveClinicalPatientIds({
-    oystehr,
-    patient,
-  });
+  const [
+    { patient, clinicalId, clinicalFriendlyId, workingCopyParentId: workingCopyReferenceResourceId },
+    { claims, balance },
+  ] = await Promise.all([
+    fetchById<Patient>(oystehr, 'Patient', params.patientId).then(async (patient) => ({
+      patient,
+      ...(await resolveClinicalPatientIds({
+        oystehr,
+        patient,
+      })),
+    })),
+    fetchPatientClaims(oystehr, params.patientId),
+  ]);
   const phone = patient.telecom?.find((t) => t.system === 'phone')?.value ?? '';
   const email = patient.telecom?.find((t) => t.system === 'email')?.value ?? '';
   const addr = patient.address?.[0];

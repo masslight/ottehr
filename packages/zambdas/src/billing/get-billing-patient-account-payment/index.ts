@@ -63,15 +63,14 @@ export const getAccountPayment = async (params: {
 }): Promise<BillingPatientAccountPayment> => {
   const { billingOystehr, clinicalPatientId, encounterId, paymentId, stripeClient } = params;
 
-  // the EHR only returns the visit when it is the patient's, so another patient's payment is never found
-  const ehrData = await getPatientPaymentVisits(billingOystehr, clinicalPatientId, encounterId);
-  const visit = ehrData.visits.find((candidate) => candidate.encounterId === encounterId);
-  if (!visit) throw FHIR_RESOURCE_NOT_FOUND('Encounter');
-
-  const [billingNoticesByEncounter, claimsByEncounter] = await Promise.all([
+  const [ehrData, billingNoticesByEncounter, claimsByEncounter] = await Promise.all([
+    getPatientPaymentVisits(billingOystehr, clinicalPatientId, encounterId),
     fetchPatientPaymentsByEncounterIds(billingOystehr, [encounterId]),
     fetchClaimsByEncounter(billingOystehr, [encounterId]),
   ]);
+  // the EHR only returns the visit when it is the patient's, so another patient's payment is never found
+  const visit = ehrData.visits.find((candidate) => candidate.encounterId === encounterId);
+  if (!visit) throw FHIR_RESOURCE_NOT_FOUND('Encounter');
   const notices = mergeBillingAndLegacyPaymentNotices(
     billingNoticesByEncounter.get(encounterId) ?? [],
     visit.legacyPaymentNotices

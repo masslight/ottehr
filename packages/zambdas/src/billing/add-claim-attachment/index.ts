@@ -12,7 +12,7 @@ import { resolveClaimActor } from '../provenance';
 import { createBillingClient, fetchById } from '../shared';
 
 type AddClaimAttachmentParams = ValidatedZambdaInput<typeof AddClaimAttachmentInputSchema> & {
-  agent: ProvenanceAgent;
+  agent: ProvenanceAgent | Promise<ProvenanceAgent>;
 };
 
 let m2mToken: string;
@@ -21,11 +21,9 @@ export const index = wrapHandler('add-claim-attachment', async (input: ZambdaInp
   const params = validateWithSchema(AddClaimAttachmentInputSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
-
   const result = await performEffect(oystehr, {
     ...params,
-    agent,
+    agent: resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets),
   });
   return { statusCode: 200, body: JSON.stringify(result) };
 });
@@ -34,7 +32,7 @@ export async function performEffect(
   oystehr: Oystehr,
   params: AddClaimAttachmentParams
 ): Promise<AddClaimAttachmentResponse> {
-  const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
+  const [claim, agent] = await Promise.all([fetchById<Claim>(oystehr, 'Claim', params.claimId), params.agent]);
   return attachClaimDocument({
     oystehr,
     claim,
@@ -43,6 +41,6 @@ export async function performEffect(
     reportTypeCode: params.reportTypeCode,
     contentType: params.mimeType,
     secrets: params.secrets,
-    agent: params.agent,
+    agent,
   });
 }

@@ -61,26 +61,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Promise<EraDetailResponse> {
-  const bundle = await oystehr.fhir.search<PaymentReconciliation>({
-    resourceType: 'PaymentReconciliation',
-    params: [{ name: '_id', value: params.eraId }],
-  });
+  const [bundle, attachments] = await Promise.all([
+    oystehr.fhir.search<PaymentReconciliation>({
+      resourceType: 'PaymentReconciliation',
+      params: [{ name: '_id', value: params.eraId }],
+    }),
+    fetchEraAttachments(oystehr, params.eraId),
+  ]);
   const pr = bundle.unbundle().find((r) => r.id === params.eraId);
   if (!pr) throw FHIR_RESOURCE_NOT_FOUND('PaymentReconciliation');
 
   // ClaimResponses linked to this ERA via its era-processing Provenance
   const claimResponses: ClaimResponse[] =
     (await fetchClaimResponsesByPaymentReconciliations(oystehr, [pr])).get(params.eraId) ?? [];
-
-  // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on the
-  // ClaimResponses
-  const payersByRef = await resolvePayersByRef(oystehr, [
-    pr.paymentIssuer?.reference,
-    ...claimResponses.map((cr) => cr.insurer?.reference),
-  ]);
-  const payerRef =
-    pr.paymentIssuer?.reference ?? claimResponses.find((cr) => cr.insurer?.reference)?.insurer?.reference;
-  const payerOrg = payerRef ? payersByRef.get(payerRef) : undefined;
 
   // Group matched responses by claim id; an ERA can adjudicate the same claim more than once
   // (reversal + correction), and unmatched responses only carry a contained '#request' claim so
@@ -96,51 +89,66 @@ export async function performEffect(oystehr: Oystehr, params: GetEraDetailParams
   }
   const uniqueClaimIds = [...responsesByClaimId.keys()];
 
-  const claims: Claim[] = [];
-  const patients: Patient[] = [];
-  if (uniqueClaimIds.length > 0) {
-    const claimResult = await oystehr.fhir.search<Claim | Patient>({
-      resourceType: 'Claim',
-      params: [
-        { name: '_id', value: uniqueClaimIds.join(',') },
-        { name: '_include', value: 'Claim:patient' },
-      ],
-    });
-    const claimResources = claimResult.unbundle();
-    claims.push(...claimResources.filter((r): r is Claim => r.resourceType === 'Claim'));
-    patients.push(...claimResources.filter((r): r is Patient => r.resourceType === 'Patient'));
-  }
-
   const unmatchedResponses = claimResponses.filter((claimResponse) => !isMatchedToClaim(claimResponse));
 
-  const referencedPatientsById = await fetchResourcesGrouped<Patient>({
-    oystehr,
-    resourceType: 'Patient',
-    ids: unmatchedResponses
-      .map((claimResponse) => getIdFromReference(claimResponse.patient?.reference, 'Patient'))
-      .filter((id): id is string => !!id),
-    buildParam: (batch) => [
-      {
-        name: '_id',
-        value: batch.join(','),
-      },
-    ],
-    groupKeyOf: (patient) => patient.id,
-  });
+  const [payersByRef, { claims, patients, coverages }, referencedPatientsById] = await Promise.all([
+    // process-era PaymentReconciliations carry no paymentIssuer; fall back to the payer on the
+    // ClaimResponses
+    resolvePayersByRef(oystehr, [pr.paymentIssuer?.reference, ...claimResponses.map((cr) => cr.insurer?.reference)]),
+    (async () => {
+      const claims: Claim[] = [];
+      const patients: Patient[] = [];
+      if (uniqueClaimIds.length > 0) {
+        const claimResult = await oystehr.fhir.search<Claim | Patient>({
+          resourceType: 'Claim',
+          params: [
+            { name: '_id', value: uniqueClaimIds.join(',') },
+            { name: '_include', value: 'Claim:patient' },
+          ],
+        });
+        const claimResources = claimResult.unbundle();
+        claims.push(...claimResources.filter((r): r is Claim => r.resourceType === 'Claim'));
+        patients.push(...claimResources.filter((r): r is Patient => r.resourceType === 'Patient'));
+      }
+
+      const coverages: Coverage[] = [];
+      const coverageIds = [
+        ...new Set(
+          [...claims, ...unmatchedResponses.map(containedClaim)].map(focalCoverageId).filter((id): id is string => !!id)
+        ),
+      ];
+      if (coverageIds.length > 0) {
+        const coverageResult = await oystehr.fhir.search<Coverage>({
+          resourceType: 'Coverage',
+          params: [{ name: '_id', value: coverageIds.join(',') }],
+        });
+        coverages.push(...coverageResult.unbundle());
+      }
+      return { claims, patients, coverages };
+    })(),
+    fetchResourcesGrouped<Patient>({
+      oystehr,
+      resourceType: 'Patient',
+      ids: unmatchedResponses
+        .map((claimResponse) => getIdFromReference(claimResponse.patient?.reference, 'Patient'))
+        .filter((id): id is string => !!id),
+      buildParam: (batch) => [
+        {
+          name: '_id',
+          value: batch.join(','),
+        },
+      ],
+      groupKeyOf: (patient) => patient.id,
+    }),
+  ]);
+  const payerRef =
+    pr.paymentIssuer?.reference ?? claimResponses.find((cr) => cr.insurer?.reference)?.insurer?.reference;
+  const payerOrg = payerRef ? payersByRef.get(payerRef) : undefined;
+
   const referencedPatients = [...referencedPatientsById.values()].flat();
 
   unmatchedResponses.forEach((claimResponse) => {
-    const claim = claimResponse.contained?.find((resource) => resource.resourceType === 'Claim') ?? {
-      resourceType: 'Claim',
-      created: '',
-      insurance: [],
-      patient: { display: 'Unknown' },
-      priority: codeableConcept('normal', CODE_SYSTEM_PROCESS_PRIORITY, 'Normal'),
-      provider: { display: 'Unknown' },
-      status: 'active',
-      type: codeableConcept('unknown', CODE_SYSTEM_CLAIM_TYPE, 'Unknown'),
-      use: 'claim',
-    };
+    const claim = containedClaim(claimResponse);
     const patient: Patient = claimResponse.contained?.find((resource) => resource.resourceType === 'Patient') ?? {
       resourceType: 'Patient',
     };
@@ -160,20 +168,8 @@ export async function performEffect(oystehr: Oystehr, params: GetEraDetailParams
   // Self-pay stubs use logical references (no Coverage/<id>), so they drop out here.
   const coverageIdByClaimId = new Map<string, string>();
   for (const claim of claims) {
-    const coverageRef = [...sortClaimInsurance(claim)]
-      .sort((a, b) => (b.focal ? 1 : 0) - (a.focal ? 1 : 0))
-      .map((entry) => entry.coverage?.reference)
-      .find((ref): ref is string => !!ref && ref.startsWith('Coverage/'));
-    if (claim.id && coverageRef) coverageIdByClaimId.set(claim.id, coverageRef.replace('Coverage/', ''));
-  }
-  const coverages: Coverage[] = [];
-  const coverageIds = [...new Set(coverageIdByClaimId.values())];
-  if (coverageIds.length > 0) {
-    const coverageResult = await oystehr.fhir.search<Coverage>({
-      resourceType: 'Coverage',
-      params: [{ name: '_id', value: coverageIds.join(',') }],
-    });
-    coverages.push(...coverageResult.unbundle());
+    const coverageId = focalCoverageId(claim);
+    if (claim.id && coverageId) coverageIdByClaimId.set(claim.id, coverageId);
   }
 
   const claimItems = claims.map((claim) => {
@@ -218,10 +214,9 @@ export async function performEffect(oystehr: Oystehr, params: GetEraDetailParams
   const counts = countEraClaims(claimResponses);
   const source = getEraSource(pr);
   const manual = source === ERA_SOURCE.manual;
-  const [payee, attachments, provenance] = await Promise.all([
+  const [payee, provenance] = await Promise.all([
     // a manual remit names its billing provider; converters only replicate the payee onto unmatched remits
     requestorPayee(oystehr, pr).then((fromRequestor) => fromRequestor ?? resolveEraPayee(claimResponses)),
-    fetchEraAttachments(oystehr, params.eraId),
     // its author keyed a manual remit in
     manual
       ? fetchEraProcessingProvenances(oystehr, [`PaymentReconciliation/${params.eraId}`]).then(([first]) => first)
@@ -253,6 +248,30 @@ export async function performEffect(oystehr: Oystehr, params: GetEraDetailParams
     attachments,
     ...(manual ? { manualEntry: manualEraEntryFromFhir(pr, claimResponses, provenance) } : {}),
   };
+}
+
+function containedClaim(claimResponse: ClaimResponse): Claim {
+  return (
+    claimResponse.contained?.find((resource): resource is Claim => resource.resourceType === 'Claim') ?? {
+      resourceType: 'Claim',
+      created: '',
+      insurance: [],
+      patient: { display: 'Unknown' },
+      priority: codeableConcept('normal', CODE_SYSTEM_PROCESS_PRIORITY, 'Normal'),
+      provider: { display: 'Unknown' },
+      status: 'active',
+      type: codeableConcept('unknown', CODE_SYSTEM_CLAIM_TYPE, 'Unknown'),
+      use: 'claim',
+    }
+  );
+}
+
+function focalCoverageId(claim: Claim): string | undefined {
+  return [...sortClaimInsurance(claim)]
+    .sort((a, b) => (b.focal ? 1 : 0) - (a.focal ? 1 : 0))
+    .map((entry) => entry.coverage?.reference)
+    .find((ref): ref is string => !!ref && ref.startsWith('Coverage/'))
+    ?.replace('Coverage/', '');
 }
 
 async function requestorPayee(oystehr: Oystehr, pr: PaymentReconciliation): Promise<EraPayee | null> {

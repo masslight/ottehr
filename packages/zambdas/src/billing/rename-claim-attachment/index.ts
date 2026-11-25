@@ -15,7 +15,7 @@ import { claimEventProvenanceRequest, resolveClaimActor } from '../provenance';
 import { createBillingClient, fetchById } from '../shared';
 
 type RenameClaimAttachmentParams = ValidatedZambdaInput<typeof RenameClaimAttachmentInputSchema> & {
-  agent: ProvenanceAgent;
+  agent: ProvenanceAgent | Promise<ProvenanceAgent>;
 };
 
 let m2mToken: string;
@@ -26,22 +26,19 @@ export const index = wrapHandler(
     const params = validateWithSchema(RenameClaimAttachmentInputSchema, input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
     const oystehr = createBillingClient(m2mToken, params.secrets);
-    const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
-
     await performEffect(oystehr, {
       ...params,
-      agent,
+      agent: resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets),
     });
     return { statusCode: 200, body: JSON.stringify({ ok: true }) };
   }
 );
 
 export async function performEffect(oystehr: Oystehr, params: RenameClaimAttachmentParams): Promise<void> {
-  const documentReference = await fetchById<DocumentReference>(
-    oystehr,
-    'DocumentReference',
-    params.documentReferenceId
-  );
+  const [documentReference, agent] = await Promise.all([
+    fetchById<DocumentReference>(oystehr, 'DocumentReference', params.documentReferenceId),
+    params.agent,
+  ]);
   // a deletion retires the document before removing it, and a rename in between would outlive it
   if (documentReference.status === RETIRED_ATTACHMENT_STATUS) {
     throw INVALID_INPUT_ERROR(`DocumentReference ${documentReference.id} was deleted`);
@@ -55,7 +52,7 @@ export async function performEffect(oystehr: Oystehr, params: RenameClaimAttachm
     claimId: attachedClaimId(documentReference),
     before: documentReference,
     after: renamed,
-    agent: params.agent,
+    agent,
     activity: 'update',
   });
   const requests: BatchInputRequest<FhirResource>[] = [

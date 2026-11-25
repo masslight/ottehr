@@ -122,20 +122,24 @@ async function getTaskRows(
 ): Promise<BillingClaimTaskItem[]> {
   const encounterIds = [...new Set(taskResources.flatMap((task) => task.encounter?.reference?.split('/')[1] || []))];
   const patientIds = [...new Set(taskResources.flatMap((task) => task.for?.reference?.split('/')[1] || []))];
-  const [visitResources, patients] = await Promise.all([
-    encounterIds.length
-      ? clinicalOystehr.fhir
-          .search<Encounter | Appointment | Account>({
-            resourceType: 'Encounter',
-            params: [
-              { name: '_id', value: encounterIds.join(',') },
-              { name: '_include', value: 'Encounter:appointment' },
-              { name: '_include', value: 'Encounter:account' },
-              { name: '_count', value: String(encounterIds.length) },
-            ],
-          })
-          .then((result) => result.unbundle())
-      : [],
+  const [{ visitResources, payerNames }, patients] = await Promise.all([
+    (async () => {
+      const visitResources = encounterIds.length
+        ? (
+            await clinicalOystehr.fhir.search<Encounter | Appointment | Account>({
+              resourceType: 'Encounter',
+              params: [
+                { name: '_id', value: encounterIds.join(',') },
+                { name: '_include', value: 'Encounter:appointment' },
+                { name: '_include', value: 'Encounter:account' },
+                { name: '_count', value: String(encounterIds.length) },
+              ],
+            })
+          ).unbundle()
+        : [];
+      const payerNames = await getClaimTaskPayerNames(clinicalOystehr, oystehr, visitResources, payerCache);
+      return { visitResources, payerNames };
+    })(),
     patientIds.length
       ? clinicalOystehr.fhir
           .search<Patient>({
@@ -154,7 +158,6 @@ async function getTaskRows(
   }
   const patientsById = new Map(patients.map((patient) => [patient.id, patient]));
   const appointmentStarts = buildAppointmentStartMap(visitResources);
-  const payerNames = await getClaimTaskPayerNames(clinicalOystehr, oystehr, visitResources, payerCache);
   return taskResources.map((task) => {
     const encounterId = getIdFromReference(task.encounter?.reference);
     const patientId = getIdFromReference(task.for?.reference);

@@ -56,8 +56,8 @@ export async function assembleNioInvoice({
   nameClaims?: boolean;
   now?: DateTime;
 }): Promise<NioInvoiceDraft> {
-  const resources = (
-    await oystehr.fhir.search<Claim | Patient | Location | Organization | Practitioner>({
+  const [claimBundle, { invoiceIssuerSource, dueDaysFromGeneration }, activeInvoices] = await Promise.all([
+    oystehr.fhir.search<Claim | Patient | Location | Organization | Practitioner>({
       resourceType: 'Claim',
       params: [
         {
@@ -74,8 +74,11 @@ export async function assembleNioInvoice({
           value: String(claimIds.length),
         },
       ],
-    })
-  ).unbundle() as Resource[];
+    }),
+    readInvoicingConfig(oystehr),
+    fetchActiveClaimInvoices(oystehr, claimIds),
+  ]);
+  const resources = claimBundle.unbundle() as Resource[];
   const claimsById = new Map(
     resources.filter((resource): resource is Claim => resource.resourceType === 'Claim').map((c) => [c.id, c])
   );
@@ -99,14 +102,12 @@ export async function assembleNioInvoice({
     throw INVALID_INPUT_ERROR('All claims must have the same non-insurance payer');
   }
 
-  const [{ invoiceIssuerSource, dueDaysFromGeneration }, lookups, activeInvoices, nio] = await Promise.all([
-    readInvoicingConfig(oystehr),
+  const [lookups, nio] = await Promise.all([
     buildClaimLookups({
       oystehr,
       claims,
       includedResources: resources,
     }),
-    fetchActiveClaimInvoices(oystehr, claimIds),
     fetchById<Organization>(oystehr, 'Organization', nioId),
   ]);
 

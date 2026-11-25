@@ -418,10 +418,12 @@ const adoptLegacyPaymentNotice = async (params: {
   }
   if (existing[0]) return linkToLateClaim(billingOystehr, existing[0], encounterId);
 
-  const claim = await findBillingClaimForEncounter(billingOystehr, encounterId);
-  const payeeRef: Reference = stripeCharge
-    ? await billingProviderRefForStripeAccount(billingOystehr, stripeCharge.stripeAccount, secrets)
-    : claim?.provider ?? { reference: getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets) };
+  const [claim, stripePayeeRef] = await Promise.all([
+    findBillingClaimForEncounter(billingOystehr, encounterId),
+    stripeCharge ? billingProviderRefForStripeAccount(billingOystehr, stripeCharge.stripeAccount, secrets) : undefined,
+  ]);
+  const payeeRef: Reference = stripePayeeRef ??
+    claim?.provider ?? { reference: getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets) };
   const { id: legacyId, meta: _meta, ...legacyFields } = legacyNotice;
   const dedupIdentifier: Identifier = chargeId
     ? { system: STRIPE_PAYMENT_ID_SYSTEM, value: chargeId }

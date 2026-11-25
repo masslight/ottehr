@@ -75,17 +75,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     secrets,
   });
 
-  // the account the payment was taken on, which is not the schedule's for an outreach invoice; a
-  // payment outside Stripe has none, and its encounter need not have a schedule to fall back on
-  const stripeAccount = stripePaymentIntentIdForNotice(notice)
-    ? await createStripeAccountResolver({
-        billingOystehr,
-        lookUpScheduleAccount: () => getEncounterScheduleStripeAccount(billingOystehr, validatedParameters.encounterId),
-      })(notice)
-    : undefined;
-  const effectInput = await complexValidation(validatedParameters, notice, stripeAccount, stripeClient);
-
-  const refundedBy = await practitionerRefForBillingUser(user, billingOystehr);
+  const [effectInput, refundedBy] = await Promise.all([
+    (async () => {
+      // the account the payment was taken on, which is not the schedule's for an outreach invoice; a
+      // payment outside Stripe has none, and its encounter need not have a schedule to fall back on
+      const stripeAccount = stripePaymentIntentIdForNotice(notice)
+        ? await createStripeAccountResolver({
+            billingOystehr,
+            lookUpScheduleAccount: () =>
+              getEncounterScheduleStripeAccount(billingOystehr, validatedParameters.encounterId),
+          })(notice)
+        : undefined;
+      return complexValidation(validatedParameters, notice, stripeAccount, stripeClient);
+    })(),
+    practitionerRefForBillingUser(user, billingOystehr),
+  ]);
   // changes no refund entry attributes, such as a pending reservation, are credited to the issuer too
   const recordChange = recordPaymentNoticeChange(humanClaimActor(refundedBy));
 

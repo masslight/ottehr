@@ -158,21 +158,34 @@ export async function buildClaimFilterParams({
   params: ClaimFilterInput;
   sort?: string;
 }): Promise<ClaimSearchParam[]> {
-  let insurerFilter: string | undefined;
-  if (params.payerId?.length) {
-    // A business-id-shaped payerId ("OTR-...") names a custom insurance organization rather than an
-    // RCM payer — see resolvePayerIssuerFilter.
-    const issuers = await Promise.all(params.payerId.map((payerId) => resolvePayerIssuerFilter(oystehr, payerId)));
-    insurerFilter = [...new Set(issuers)].join(',');
-  } else if (params.payerName) {
-    const result = await oystehr.rcm.listPayers({
-      name: params.payerName,
-      limit: 50,
-    });
-    const payerIds = result.data.map((p) => getPayerId(p)).filter(Boolean) as string[];
-    if (payerIds.length === 0) throw INVALID_INPUT_ERROR(`No payer matches the payer name "${params.payerName}"`);
-    insurerFilter = payerIds.map((id) => getPayerUrl(id)).join(',');
-  }
+  const [insurerFilter, linkedPatientIds] = await Promise.all([
+    (async (): Promise<string | undefined> => {
+      if (params.payerId?.length) {
+        // A business-id-shaped payerId ("OTR-...") names a custom insurance organization rather than an
+        // RCM payer — see resolvePayerIssuerFilter.
+        const issuers = await Promise.all(params.payerId.map((payerId) => resolvePayerIssuerFilter(oystehr, payerId)));
+        return [...new Set(issuers)].join(',');
+      }
+      if (params.payerName) {
+        const result = await oystehr.rcm.listPayers({
+          name: params.payerName,
+          limit: 50,
+        });
+        const payerIds = result.data.map((p) => getPayerId(p)).filter(Boolean) as string[];
+        if (payerIds.length === 0) throw INVALID_INPUT_ERROR(`No payer matches the payer name "${params.payerName}"`);
+        return payerIds.map((id) => getPayerUrl(id)).join(',');
+      }
+      return undefined;
+    })(),
+    Promise.all(
+      (params.patientId ?? []).map((patientId) =>
+        resolveLinkedPatientIds({
+          oystehr,
+          patientId,
+        })
+      )
+    ),
+  ]);
 
   const filterParams: ClaimSearchParam[] = [
     {
@@ -232,14 +245,6 @@ export async function buildClaimFilterParams({
       value: `le${params.updatedBefore}`,
     });
   if (params.patientId?.length) {
-    const linkedPatientIds = await Promise.all(
-      params.patientId.map((patientId) =>
-        resolveLinkedPatientIds({
-          oystehr,
-          patientId,
-        })
-      )
-    );
     filterParams.push(patientSearchParam([...new Set(linkedPatientIds.flat())]));
   }
   pushTagFilter(CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, params.service);
@@ -700,44 +705,47 @@ export async function buildClaimLookups({
 
   const uniqueCoverageIds = [...new Set(coverageIds)];
 
-  let coverages: Coverage[] = [];
-
-  if (uniqueCoverageIds.length > 0) {
-    coverages = await getAllFhirSearchPages<Coverage>(
-      {
-        resourceType: 'Coverage',
-        params: [
-          {
-            name: '_id',
-            value: uniqueCoverageIds.join(','),
-          },
-          {
-            name: '_elements',
-            value: COVERAGE_LIST_ELEMENTS,
-          },
-        ],
-      },
-      oystehr,
-      uniqueCoverageIds.length
-    );
-  }
-
   const claimIds = claims.map((c) => c.id).filter(Boolean) as string[];
-  const [resolvedPayersByRef, claimResponsesByClaimId, patientPaymentsByClaimId, writeOffs, nioPaidByClaimId] =
-    await Promise.all([
-      payersByRef ??
-        resolvePayersByRef(
+  const [
+    coverages,
+    resolvedPayersByRef,
+    claimResponsesByClaimId,
+    patientPaymentsByClaimId,
+    writeOffs,
+    nioPaidByClaimId,
+  ] = await Promise.all([
+    uniqueCoverageIds.length > 0
+      ? getAllFhirSearchPages<Coverage>(
+          {
+            resourceType: 'Coverage',
+            params: [
+              {
+                name: '_id',
+                value: uniqueCoverageIds.join(','),
+              },
+              {
+                name: '_elements',
+                value: COVERAGE_LIST_ELEMENTS,
+              },
+            ],
+          },
           oystehr,
-          claims.map((c) => c.insurer?.reference)
-        ),
-      fetchClaimResponsesByClaimIds(oystehr, claimIds),
-      fetchPatientPaymentsByClaimId({
+          uniqueCoverageIds.length
+        )
+      : Promise.resolve<Coverage[]>([]),
+    payersByRef ??
+      resolvePayersByRef(
         oystehr,
-        claims,
-      }),
-      fetchWriteOffsByClaimIds(oystehr, claimIds),
-      fetchNioPaidByClaimId(oystehr, claimIds),
-    ]);
+        claims.map((c) => c.insurer?.reference)
+      ),
+    fetchClaimResponsesByClaimIds(oystehr, claimIds),
+    fetchPatientPaymentsByClaimId({
+      oystehr,
+      claims,
+    }),
+    fetchWriteOffsByClaimIds(oystehr, claimIds),
+    fetchNioPaidByClaimId(oystehr, claimIds),
+  ]);
 
   return {
     patients,

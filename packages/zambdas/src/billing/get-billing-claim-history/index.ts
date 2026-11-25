@@ -245,7 +245,8 @@ async function attachLinksAndFallbackNames(oystehr: Oystehr, entries: ClaimHisto
   }
 
   const resourcesByRef = new Map<string, Practitioner | Organization | Location>();
-  await Promise.all([
+  const [payersByRef] = await Promise.all([
+    resolvePayersByRef(oystehr, [...payerUrls]),
     ...Object.keys(resourceIdsByType).map(async (type) => {
       const ids = [...resourceIdsByType[type]];
       if (ids.length === 0) return;
@@ -260,7 +261,6 @@ async function attachLinksAndFallbackNames(oystehr: Oystehr, entries: ClaimHisto
       });
     }),
   ]);
-  const payersByRef = await resolvePayersByRef(oystehr, [...payerUrls]);
 
   const enrich = (
     field: string,

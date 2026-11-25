@@ -30,8 +30,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  await complexValidation(params, oystehr);
-
   const response = await performEffect(oystehr, params);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
@@ -52,7 +50,8 @@ async function complexValidation(params: CreateBillingCoverageParams, oystehr: O
 }
 
 async function performEffect(oystehr: Oystehr, params: CreateBillingCoverageParams): Promise<{ id: string }> {
-  const [payerOrg, accounts] = await Promise.all([
+  const [, payerOrg, accounts] = await Promise.all([
+    complexValidation(params, oystehr),
     resolvePayerOrganization(oystehr, params.payerId),
     getPatientAccounts(oystehr, params.patientId),
   ]);

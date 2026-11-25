@@ -53,29 +53,31 @@ async function complexValidation(
   oystehr: Oystehr,
   authorizationHeader: string | undefined
 ): Promise<ComplexValidationResult> {
-  const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.coverageId);
-  const patientId = getIdFromReference(coverage.beneficiary?.reference);
-  if (!patientId) throw FHIR_RESOURCE_NOT_FOUND('Patient');
+  const [{ coverage, patientId }, agent] = await Promise.all([
+    (async () => {
+      const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.coverageId);
+      const patientId = getIdFromReference(coverage.beneficiary?.reference);
+      if (!patientId) throw FHIR_RESOURCE_NOT_FOUND('Patient');
 
-  // Don't let this coverage take an insurance type another active coverage already holds.
-  if (params.insuranceType !== undefined) {
-    const occupying = await findCoverageOfType(oystehr, patientId, params.insuranceType, params.coverageId);
-    if (occupying) {
-      throw {
-        code: APIErrorCode.ALREADY_EXISTS,
-        message: `This patient already has a ${coverageInsuranceTypeLabel(
-          params.insuranceType
-        )} coverage. Remove or change it before assigning another.`,
-      };
-    }
-  }
-
-  // A claim-scoped edit (the claim screen editing the claim's coverage working copy) is recorded in
-  // that claim's history, so it needs the acting user; master-screen edits carry no claim context
-  // and keep working without a resolvable caller.
-  const agent = params.claimId
-    ? await resolveClaimActor('caller', oystehr, authorizationHeader, params.secrets)
-    : undefined;
+      // Don't let this coverage take an insurance type another active coverage already holds.
+      if (params.insuranceType !== undefined) {
+        const occupying = await findCoverageOfType(oystehr, patientId, params.insuranceType, params.coverageId);
+        if (occupying) {
+          throw {
+            code: APIErrorCode.ALREADY_EXISTS,
+            message: `This patient already has a ${coverageInsuranceTypeLabel(
+              params.insuranceType
+            )} coverage. Remove or change it before assigning another.`,
+          };
+        }
+      }
+      return { coverage, patientId };
+    })(),
+    // A claim-scoped edit (the claim screen editing the claim's coverage working copy) is recorded in
+    // that claim's history, so it needs the acting user; master-screen edits carry no claim context
+    // and keep working without a resolvable caller.
+    params.claimId ? resolveClaimActor('caller', oystehr, authorizationHeader, params.secrets) : undefined,
+  ]);
 
   return { patientId, coverage, agent };
 }
@@ -87,16 +89,22 @@ export async function performEffect(
 ): Promise<{ id: string | undefined }> {
   const { patientId, agent } = cvo;
   let coverage = structuredClone(cvo.coverage);
-  const accounts = params.insuranceType !== undefined ? await getPatientAccounts(oystehr, patientId) : [];
+  const currentSubscriberId = params.relationship
+    ? getIdFromReference(coverage.subscriber?.reference, 'RelatedPerson')
+    : undefined;
+  const [accounts, payerOrg, currentSubscriber] = await Promise.all([
+    params.insuranceType !== undefined ? getPatientAccounts(oystehr, patientId) : [],
+    params.payerId ? resolvePayerOrganization(oystehr, params.payerId) : undefined,
+    currentSubscriberId ? findById<RelatedPerson>(oystehr, 'RelatedPerson', currentSubscriberId) : undefined,
+  ]);
 
   // Coverage status is not part of the billing product model; keep every coverage active.
   coverage.status = 'active';
 
   const effectiveMemberId = params.memberId ?? coverage.subscriberId ?? '';
   const effectiveGroupNumber = params.groupNumber ?? coverage.class?.[0]?.value ?? '';
-  if (params.payerId) {
+  if (payerOrg) {
     // Re-pointing the payer rebuilds payor reference, coverage class, and the member-id identifier.
-    const payerOrg = await resolvePayerOrganization(oystehr, params.payerId);
     setCoveragePayer(coverage, payerOrg, effectiveMemberId, effectiveGroupNumber);
     coverage.subscriberId = effectiveMemberId;
   } else {
@@ -116,13 +124,8 @@ export async function performEffect(
   const postCoverageRequests: BatchInputRequest<BillingFhirResource>[] = [];
 
   let newSubscriber: RelatedPerson | undefined;
-  let currentSubscriber: RelatedPerson | undefined;
   if (params.relationship) {
     setCoverageRelationship(coverage, params.relationship);
-    const currentSubscriberId = getIdFromReference(coverage.subscriber?.reference, 'RelatedPerson');
-    currentSubscriber = currentSubscriberId
-      ? await findById<RelatedPerson>(oystehr, 'RelatedPerson', currentSubscriberId)
-      : undefined;
 
     if (params.relationship === 'Self' || !params.policyHolder) {
       coverage.subscriber = { reference: `Patient/${patientId}` };

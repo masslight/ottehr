@@ -18,19 +18,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
-
-  const response = await performEffect(oystehr, params, agent);
+  const response = await performEffect(
+    oystehr,
+    params,
+    resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets)
+  );
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
 export async function performEffect(
   oystehr: Oystehr,
   params: SetClaimStatusParams,
-  agent: ProvenanceAgent
+  callerAgent: ProvenanceAgent | Promise<ProvenanceAgent>
 ): Promise<{ ok: true }> {
-  const value = assertValidClaimStatusField(params.field, params.value ?? null);
-  const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
+  const [{ value, claim }, agent] = await Promise.all([
+    (async () => {
+      const value = assertValidClaimStatusField(params.field, params.value ?? null);
+      return { value, claim: await fetchById<Claim>(oystehr, 'Claim', params.claimId) };
+    })(),
+    callerAgent,
+  ]);
 
   const enteringNewStage =
     params.field === 'arStage' &&

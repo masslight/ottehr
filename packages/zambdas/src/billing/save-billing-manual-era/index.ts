@@ -93,11 +93,19 @@ export async function complexValidation(
   oystehr: Oystehr,
   params: SaveManualEraParams
 ): Promise<ValidatedManualEraSave> {
-  const stored = params.eraId ? await loadManualEra(oystehr, params.eraId, params.expectedVersionId) : undefined;
+  const [storedResult, headerProviderAndPayerResult, matchedClaimsResult] = await Promise.allSettled([
+    params.eraId ? loadManualEra(oystehr, params.eraId, params.expectedVersionId) : undefined,
+    params.header ? resolveManualEraBillingProviderAndPayer(oystehr, params.header) : undefined,
+    loadMatchedClaims(oystehr, params.claims),
+  ]);
+  if (storedResult.status === 'rejected') throw storedResult.reason;
+  const stored = storedResult.value;
   // a save without remit details keeps the stored ones; a new remit has none to keep
   const header = params.header ?? (stored ? manualEraHeaderFromFhir(stored.pr) : undefined);
   if (!header) throw INVALID_INPUT_ERROR('"header" is required to create a remit');
-  const billingProviderAndPayer = await resolveManualEraBillingProviderAndPayer(oystehr, header);
+  if (headerProviderAndPayerResult.status === 'rejected') throw headerProviderAndPayerResult.reason;
+  const billingProviderAndPayer =
+    headerProviderAndPayerResult.value ?? (await resolveManualEraBillingProviderAndPayer(oystehr, header));
 
   const storedById = new Map(
     (stored?.claimResponses ?? []).map((claimResponse) => [claimResponse.id ?? '', claimResponse])
@@ -122,7 +130,8 @@ export async function complexValidation(
   if (claimCount > MANUAL_ERA_LIMITS.claimsPerRemit) {
     throw INVALID_INPUT_ERROR(`A remit can have at most ${MANUAL_ERA_LIMITS.claimsPerRemit} claims`);
   }
-  const matchedClaims = await loadMatchedClaims(oystehr, params.claims);
+  if (matchedClaimsResult.status === 'rejected') throw matchedClaimsResult.reason;
+  const matchedClaims = matchedClaimsResult.value;
 
   return { stored, header, billingProviderAndPayer, matchedClaims };
 }
@@ -292,14 +301,16 @@ export async function performEffect(
 }
 
 async function loadManualEra(oystehr: Oystehr, eraId: string, expectedVersionId?: string): Promise<StoredManualEra> {
-  const pr = await fetchById<PaymentReconciliation>(oystehr, 'PaymentReconciliation', eraId);
+  const [pr, [provenance]] = await Promise.all([
+    fetchById<PaymentReconciliation>(oystehr, 'PaymentReconciliation', eraId),
+    fetchEraProcessingProvenances(oystehr, [`PaymentReconciliation/${eraId}`]),
+  ]);
   assertEraNotVoided(pr);
   if (getEraSource(pr) !== ERA_SOURCE.manual) {
     throw INVALID_INPUT_ERROR('Only manually entered remits can be edited');
   }
   if (pr.meta?.versionId !== expectedVersionId) throw MANUAL_ERA_VERSION_CONFLICT_ERROR;
 
-  const [provenance] = await fetchEraProcessingProvenances(oystehr, [`PaymentReconciliation/${eraId}`]);
   const claimResponses = provenance
     ? (await fetchClaimResponsesFromEraProvenances(oystehr, [provenance])).get(eraId) ?? []
     : [];
@@ -322,10 +333,11 @@ async function resolveManualEraBillingProviderAndPayer(
   oystehr: Oystehr,
   header: ManualEraHeader
 ): Promise<ManualEraBillingProviderAndPayer> {
-  const payer = await resolvePayer(oystehr, header.payerId);
-
   const [resourceType, id] = header.billingProviderRef.split('/') as ['Organization' | 'Practitioner', string];
-  const provider = await findById<Organization | Practitioner>(oystehr, resourceType, id);
+  const [payer, provider] = await Promise.all([
+    resolvePayer(oystehr, header.payerId),
+    findById<Organization | Practitioner>(oystehr, resourceType, id),
+  ]);
   if (!provider || !hasTag(provider, PROVIDER_ROLE_TAG, PROVIDER_ROLE_BILLING)) {
     throw INVALID_INPUT_ERROR('The billing provider was not found');
   }

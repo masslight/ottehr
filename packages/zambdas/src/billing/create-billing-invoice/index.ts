@@ -58,9 +58,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
-
-  const response = await performEffect(oystehr, getStripeClient(params.secrets), params, agent);
+  const response = await performEffect(
+    oystehr,
+    getStripeClient(params.secrets),
+    params,
+    resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets)
+  );
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
@@ -68,14 +71,16 @@ export async function performEffect(
   oystehr: Oystehr,
   stripe: Stripe,
   params: CreateBillingInvoiceParams,
-  agent: ProvenanceAgent
+  callerAgent: ProvenanceAgent | Promise<ProvenanceAgent>
 ): Promise<CreateBillingInvoiceResponse> {
-  const resources = (
-    await oystehr.fhir.search<Claim | Location | Organization | Practitioner>({
+  const [claimBundle, agent] = await Promise.all([
+    oystehr.fhir.search<Claim | Location | Organization | Practitioner>({
       resourceType: 'Claim',
       params: [{ name: '_id', value: params.claimId }, ...INVOICE_ISSUER_CLAIM_INCLUDES],
-    })
-  ).unbundle();
+    }),
+    callerAgent,
+  ]);
+  const resources = claimBundle.unbundle();
   const claim = resources.find((resource): resource is Claim => resource.resourceType === 'Claim');
   if (!claim) throw FHIR_RESOURCE_NOT_FOUND('Claim');
   const encounterId = getInvoiceableEncounterId(claim);

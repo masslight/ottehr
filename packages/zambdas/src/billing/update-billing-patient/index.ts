@@ -19,9 +19,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const agent = await complexValidation(oystehr, params, input.headers?.Authorization);
-
-  const response = await performEffect(oystehr, params, agent);
+  const response = await performEffect(
+    oystehr,
+    params,
+    complexValidation(oystehr, params, input.headers?.Authorization)
+  );
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
@@ -40,9 +42,9 @@ async function complexValidation(
 export async function performEffect(
   oystehr: Oystehr,
   params: UpdateBillingPatientParams,
-  agent?: ProvenanceAgent
+  callerAgent?: ProvenanceAgent | Promise<ProvenanceAgent | undefined>
 ): Promise<{ id: string }> {
-  const patient = await fetchById<Patient>(oystehr, 'Patient', params.patientId);
+  const [patient, agent] = await Promise.all([fetchById<Patient>(oystehr, 'Patient', params.patientId), callerAgent]);
   const before = structuredClone(patient);
 
   patient.name = [{ family: params.lastName, given: [params.firstName] }];

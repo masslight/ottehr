@@ -1,9 +1,11 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ClaimResponse, Organization, PaymentReconciliation } from 'fhir/r4b';
+import { chunkThings } from 'utils/lib/fhir/chat';
 import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
 import { ERA_VOID_STATUS } from 'utils/lib/types/data/billing/billing.constants';
 import { EraListItem } from 'utils/lib/types/data/billing/billing.types';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
@@ -42,18 +44,29 @@ export async function performEffect(
   const offset = params.offset ?? 0;
   const hasClaimFilters = params.claimStatus || params.dosFrom || params.dosTo || params.patientId || params.searchText;
 
-  // Resolve the payer filter to Oystehr payer list URLs
-  let payerIssuerFilter: string | undefined;
-  if (params.payerId) {
-    // A business-id-shaped payerId ("OTR-...") names a custom insurance organization rather than an
-    // RCM payer (see resolvePayerIssuerFilter). Only remits keyed in by hand can come from one.
-    payerIssuerFilter = await resolvePayerIssuerFilter(oystehr, params.payerId);
-  } else if (params.payerName) {
-    const result = await oystehr.rcm.listPayers({ name: params.payerName, limit: 50 });
-    const payerIds = result.data.map((p) => getPayerId(p)).filter(Boolean) as string[];
-    if (payerIds.length === 0) return { eras: [], total: 0, offset, pageSize };
-    payerIssuerFilter = payerIds.map((id) => getPayerUrl(id)).join(',');
-  }
+  const [payerIssuerFilter, claimFilterPrIds] = await Promise.all([
+    // Resolve the payer filter to Oystehr payer list URLs; null when no payer matches the name
+    (async (): Promise<string | null | undefined> => {
+      if (params.payerId) {
+        // A business-id-shaped payerId ("OTR-...") names a custom insurance organization rather than an
+        // RCM payer (see resolvePayerIssuerFilter). Only remits keyed in by hand can come from one.
+        return resolvePayerIssuerFilter(oystehr, params.payerId);
+      }
+      if (params.payerName) {
+        const result = await oystehr.rcm.listPayers({ name: params.payerName, limit: 50 });
+        const payerIds = result.data.map((p) => getPayerId(p)).filter(Boolean) as string[];
+        if (payerIds.length === 0) return null;
+        return payerIds.map((id) => getPayerUrl(id)).join(',');
+      }
+      return undefined;
+    })(),
+    hasClaimFilters
+      ? findMatchingClaimIds(oystehr, params).then((claimIds) =>
+          claimIds.size === 0 ? new Set<string>() : findEraPaymentReconciliationIds(oystehr, claimIds)
+        )
+      : undefined,
+  ]);
+  if (payerIssuerFilter === null) return { eras: [], total: 0, offset, pageSize };
 
   // ERA-level FHIR search, without the paging the server can only apply to the filters it runs
   const filterParams: SearchParam[] = [
@@ -63,16 +76,12 @@ export async function performEffect(
   if (params.eraDateTo) filterParams.push({ name: 'created', value: `le${params.eraDateTo}` });
   if (payerIssuerFilter) filterParams.push({ name: 'payment-issuer', value: payerIssuerFilter });
 
-  if (hasClaimFilters) {
-    const claimIds = await findMatchingClaimIds(oystehr, params);
-    if (claimIds.size === 0) return { eras: [], total: 0, offset, pageSize };
-
-    const prIds = await findEraPaymentReconciliationIds(oystehr, claimIds);
-    if (prIds.size === 0) return { eras: [], total: 0, offset, pageSize };
+  if (claimFilterPrIds) {
+    if (claimFilterPrIds.size === 0) return { eras: [], total: 0, offset, pageSize };
 
     filterParams.push({
       name: '_id',
-      value: [...prIds].join(','),
+      value: [...claimFilterPrIds].join(','),
     });
   }
 
@@ -108,6 +117,7 @@ const ERA_SORT_PARAM = {
 };
 
 const SCAN_PAGE_SIZE = 200;
+const CLAIM_RESPONSE_BATCH_CONCURRENCY = 5;
 
 async function fetchErasPage(
   oystehr: Oystehr,
@@ -208,23 +218,25 @@ async function findErasByCheckNumber(
 
 // For the given claims, return the ids of the PaymentReconciliations that adjudicated them.
 async function findEraPaymentReconciliationIds(oystehr: Oystehr, claimIds: Set<string>): Promise<Set<string>> {
-  const claimResponses: ClaimResponse[] = [];
   const ids = [...claimIds];
   const BATCH = 100;
-  for (let i = 0; i < ids.length; i += BATCH) {
-    const batch = ids.slice(i, i + BATCH).map((id) => `Claim/${id}`);
-    const bundle = await oystehr.fhir.search<ClaimResponse>({
-      resourceType: 'ClaimResponse',
-      params: [
-        { name: 'request', value: batch.join(',') },
-        { name: '_elements', value: 'id,identifier,extension' },
-        { name: '_count', value: '1000' },
-      ],
-    });
-    claimResponses.push(...bundle.unbundle());
-  }
+  const claimResponseBatches = await mapWithConcurrency(
+    chunkThings(ids, BATCH),
+    CLAIM_RESPONSE_BATCH_CONCURRENCY,
+    async (batchIds) => {
+      const bundle = await oystehr.fhir.search<ClaimResponse>({
+        resourceType: 'ClaimResponse',
+        params: [
+          { name: 'request', value: batchIds.map((id) => `Claim/${id}`).join(',') },
+          { name: '_elements', value: 'id,identifier,extension' },
+          { name: '_count', value: '1000' },
+        ],
+      });
+      return bundle.unbundle();
+    }
+  );
 
-  const { paymentReconciliations } = await fetchClaimEraLinks(oystehr, claimResponses);
+  const { paymentReconciliations } = await fetchClaimEraLinks(oystehr, claimResponseBatches.flat());
   return new Set(paymentReconciliations.map((pr) => pr.id).filter((id): id is string => !!id));
 }
 
@@ -247,22 +259,25 @@ async function findMatchingClaimIds(oystehr: Oystehr, params: SearchErasParams):
     paramsSets.push(baseParams);
   }
 
-  const ids = new Set<string>();
-  for (const params of paramsSets) {
-    await fetchAllPages(async (offset, count) => {
-      const bundle = await oystehr.fhir.search<Claim>({
-        resourceType: 'Claim',
-        params: [...params, { name: '_count', value: String(count) }, { name: '_offset', value: String(offset) }],
-      });
-      const page = bundle.unbundle();
-      for (const c of page) {
-        if (c.id) ids.add(c.id);
-      }
-      return bundle;
-    }, SCAN_PAGE_SIZE);
-  }
+  const idsPerParamSet = await Promise.all(
+    paramsSets.map(async (params) => {
+      const setIds: string[] = [];
+      await fetchAllPages(async (offset, count) => {
+        const bundle = await oystehr.fhir.search<Claim>({
+          resourceType: 'Claim',
+          params: [...params, { name: '_count', value: String(count) }, { name: '_offset', value: String(offset) }],
+        });
+        const page = bundle.unbundle();
+        for (const c of page) {
+          if (c.id) setIds.push(c.id);
+        }
+        return bundle;
+      }, SCAN_PAGE_SIZE);
+      return setIds;
+    })
+  );
 
-  return ids;
+  return new Set(idsPerParamSet.flat());
 }
 
 function mapEra(

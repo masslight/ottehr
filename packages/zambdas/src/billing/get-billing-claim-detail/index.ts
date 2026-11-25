@@ -112,8 +112,41 @@ export async function performEffect(
   params: GetClaimDetailParams
 ): Promise<ClaimDetailResponse> {
   const { claimId } = params;
-  // One shared fetch of the claim + its referenced working copies (also used by the rules engine).
-  const graph = await fetchClaimGraph(oystehr, claimId);
+  const [
+    { graph, encounterId, otherClaims, paymentsByEncounter, nonInsurancePayer },
+    { claimResponses, paymentReconciliations, paymentReconciliationIdByClaimResponseId },
+    firstSubmittedDate,
+    writeOffResources,
+    invoices,
+    nioPaymentsByClaimId,
+  ] = await Promise.all([
+    (async () => {
+      // One shared fetch of the claim + its referenced working copies (also used by the rules engine).
+      const graph = await fetchClaimGraph(oystehr, claimId);
+      const encounterId =
+        graph.claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value ?? '';
+      // Other claims via Person lookup, its patient payments, and its non-insurance payer (when stamped)
+      const [otherClaims, paymentsByEncounter, nonInsurancePayer] = await Promise.all([
+        fetchOtherClaims(oystehr, graph.patient?.id, claimId),
+        encounterId
+          ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
+          : Promise.resolve(new Map<string, PaymentNotice[]>()),
+        resolveNonInsurancePayerDetail(oystehr, graph.claim),
+      ]);
+      return { graph, encounterId, otherClaims, paymentsByEncounter, nonInsurancePayer };
+    })(),
+    (async () => {
+      const claimResponsesByClaimId = await fetchClaimResponsesByClaimIds(oystehr, [claimId]);
+      const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
+      return { claimResponses, ...(await fetchClaimEraLinks(oystehr, claimResponses)) };
+    })(),
+    fetchClaimFirstSubmittedDate(untaggedClient, claimId),
+    fetchWriteOffs(oystehr, claimId),
+    isOttehrBillingInvoicingInBillingApp(params.secrets)
+      ? fetchClaimInvoices(oystehr, claimId)
+      : Promise.resolve<Invoice[]>([]),
+    fetchNioPaymentsByClaimIds(oystehr, [claimId]),
+  ]);
   const {
     claim,
     patient,
@@ -131,39 +164,6 @@ export async function performEffect(
     : undefined;
   const policyHolder = extractPolicyHolder(subscriber);
 
-  const encounterId =
-    claim.identifier?.find((i) => i.system === ottehrIdentifierSystem('claim-encounter-id'))?.value ?? '';
-
-  // Other claims via Person lookup, this claim's ERA adjudications and first submission, its patient
-  // payments, and its non-insurance payer (when stamped)
-  const [
-    otherClaims,
-    claimResponsesByClaimId,
-    firstSubmittedDate,
-    paymentsByEncounter,
-    nonInsurancePayer,
-    writeOffResources,
-    invoices,
-    nioPaymentsByClaimId,
-  ] = await Promise.all([
-    fetchOtherClaims(oystehr, patient?.id, claimId),
-    fetchClaimResponsesByClaimIds(oystehr, [claimId]),
-    fetchClaimFirstSubmittedDate(untaggedClient, claimId),
-    encounterId
-      ? fetchPatientPaymentsByEncounterIds(oystehr, [encounterId])
-      : Promise.resolve(new Map<string, PaymentNotice[]>()),
-    resolveNonInsurancePayerDetail(oystehr, claim),
-    fetchWriteOffs(oystehr, claimId),
-    isOttehrBillingInvoicingInBillingApp(params.secrets)
-      ? fetchClaimInvoices(oystehr, claimId)
-      : Promise.resolve<Invoice[]>([]),
-    fetchNioPaymentsByClaimIds(oystehr, [claimId]),
-  ]);
-  const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
-  const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
-    oystehr,
-    claimResponses
-  );
   const paymentReconciliationById = new Map(
     paymentReconciliations.map((paymentReconciliation) => [paymentReconciliation.id ?? '', paymentReconciliation])
   );

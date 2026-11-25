@@ -46,10 +46,14 @@ export async function performEffect({
   params: ValidatedZambdaInput<typeof PresignBillingInvoicePaymentAttachmentInputSchema>;
 }): Promise<PresignBillingInvoicePaymentAttachmentResponse> {
   const { invoiceId, fileName, secrets } = params;
-  assertInvoiceTakesRecordedPayments(await fetchById<Invoice>(oystehr, 'Invoice', invoiceId));
   const location = newAttachmentLocation(secrets['PROJECT_ID'], INVOICE_ATTACHMENT_PATH_PREFIX, invoiceId, fileName);
+  const [invoice, uploadUrl] = await Promise.all([
+    fetchById<Invoice>(oystehr, 'Invoice', invoiceId),
+    presignAttachment(oystehr, location, 'upload'),
+  ]);
+  assertInvoiceTakesRecordedPayments(invoice);
   return {
-    uploadUrl: await presignAttachment(oystehr, location, 'upload'),
+    uploadUrl,
     path: location.path,
   };
 }

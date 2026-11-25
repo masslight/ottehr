@@ -40,7 +40,7 @@ import { resolveClaimActor } from '../provenance';
 import { createBillingClient, fetchById } from '../shared';
 
 type RecordNioInvoicePaymentParams = ValidatedZambdaInput<typeof RecordBillingNioInvoicePaymentInputSchema> & {
-  agent: ProvenanceAgent;
+  agent: ProvenanceAgent | Promise<ProvenanceAgent>;
 };
 
 let m2mToken: string;
@@ -54,14 +54,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
   console.group('performEffect');
   const response = await performEffect({
     oystehr,
     params: {
       ...params,
-      agent,
+      agent: resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets),
     },
   });
   console.groupEnd();
@@ -91,12 +90,13 @@ export async function performEffect({
     reference,
     attachment,
     idempotencyKey: paymentId,
-    agent,
+    agent: callerAgent,
     secrets,
   } = params;
-  const [invoice, notices] = await Promise.all([
+  const [invoice, notices, agent] = await Promise.all([
     fetchById<Invoice>(oystehr, 'Invoice', invoiceId),
     fetchInvoicePaymentNotices(oystehr, [invoiceId]),
+    callerAgent,
   ]);
   const recorded = notices.filter((notice) => getNioInvoicePaymentId(notice) === paymentId);
   if (recorded.length > 0) {

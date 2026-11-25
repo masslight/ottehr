@@ -80,8 +80,8 @@ export async function performEffect({
   secrets: Secrets;
   today?: string;
 }): Promise<BillingInvoiceDetail> {
-  const resources = (
-    await oystehr.fhir.search<Invoice | Organization | Patient>({
+  const [invoiceBundle, { notices, payments }, pdfUrl] = await Promise.all([
+    oystehr.fhir.search<Invoice | Organization | Patient>({
       resourceType: 'Invoice',
       params: [
         {
@@ -93,33 +93,34 @@ export async function performEffect({
           value: 'Invoice:recipient',
         },
       ],
-    })
-  ).unbundle();
-  const invoice = resources.find((resource): resource is Invoice => resource.resourceType === 'Invoice');
-  if (!invoice) throw FHIR_RESOURCE_NOT_FOUND('Invoice');
-  if (getBillingInvoiceKind(invoice) !== 'nio') {
-    throw INVALID_INPUT_ERROR('Only non-insurance payer invoices have a details view');
-  }
-
-  const [claims, notices, pdfUrl] = await Promise.all([
-    fetchInvoiceClaimLines(oystehr, invoice),
-    fetchInvoicePaymentNotices(oystehr, [invoiceId]),
+    }),
+    fetchInvoicePaymentNotices(oystehr, [invoiceId]).then(async (notices) => ({
+      notices,
+      payments: await buildInvoicePayments({
+        oystehr,
+        invoiceId,
+        notices,
+        secrets,
+      }),
+    })),
     findInvoicePdfDownloadUrl({
       oystehr,
       invoiceId,
       secrets,
     }),
   ]);
+  const resources = invoiceBundle.unbundle();
+  const invoice = resources.find((resource): resource is Invoice => resource.resourceType === 'Invoice');
+  if (!invoice) throw FHIR_RESOURCE_NOT_FOUND('Invoice');
+  if (getBillingInvoiceKind(invoice) !== 'nio') {
+    throw INVALID_INPUT_ERROR('Only non-insurance payer invoices have a details view');
+  }
+
+  const claims = await fetchInvoiceClaimLines(oystehr, invoice);
   const organization = resources.find(
     (resource): resource is Organization =>
       resource.resourceType === 'Organization' && `Organization/${resource.id}` === invoice.recipient?.reference
   );
-  const payments = await buildInvoicePayments({
-    oystehr,
-    invoiceId,
-    notices,
-    secrets,
-  });
 
   return {
     ...getInvoiceStatusDatesAndAmount(invoice),

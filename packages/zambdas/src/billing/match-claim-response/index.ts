@@ -25,11 +25,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
-
   const response = await performEffect(oystehr, {
     ...params,
-    agent,
+    agent: resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets),
   });
 
   return {
@@ -40,17 +38,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export async function performEffect(
   oystehr: Oystehr,
-  params: Params & { agent: ProvenanceAgent }
+  params: Params & { agent: ProvenanceAgent | Promise<ProvenanceAgent> }
 ): Promise<ClaimResponse> {
-  const claim = await oystehr.fhir.get<Claim>({
-    resourceType: 'Claim',
-    id: params.claimId,
-  });
-  const claimResponse = await oystehr.fhir.get<ClaimResponse>({
-    resourceType: 'ClaimResponse',
-    id: params.claimResponseId,
-  });
-  await assertClaimResponseEraNotVoided(oystehr, claimResponse);
+  const [claim, claimResponse, agent] = await Promise.all([
+    oystehr.fhir.get<Claim>({
+      resourceType: 'Claim',
+      id: params.claimId,
+    }),
+    oystehr.fhir
+      .get<ClaimResponse>({
+        resourceType: 'ClaimResponse',
+        id: params.claimResponseId,
+      })
+      .then(async (claimResponse) => {
+        await assertClaimResponseEraNotVoided(oystehr, claimResponse);
+        return claimResponse;
+      }),
+    params.agent,
+  ]);
   const matched: ClaimResponse = {
     ...claimResponse,
     request: {
@@ -71,7 +76,7 @@ export async function performEffect(
       ...claimMatchHistoryRequests({
         before: claimResponse,
         after: matched,
-        agent: params.agent,
+        agent,
       }),
     ],
   });

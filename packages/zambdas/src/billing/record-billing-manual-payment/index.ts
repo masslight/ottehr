@@ -51,7 +51,8 @@ const complexValidation = async (
 const performEffect = async (
   oystehr: Oystehr,
   clinicalOystehr: Oystehr,
-  effectInput: ComplexValidationOutput
+  effectInput: ComplexValidationOutput,
+  encounterHasAppointment: boolean
 ): Promise<RecordBillingManualPaymentResponse> => {
   // Keep the creation time separate from the payment date.
   // A backdated payment should only change the payment date fields.
@@ -84,7 +85,7 @@ const performEffect = async (
   // Scheduled here rather than in recordBillingPatientPayment, which the Task's own subscription calls
   // to copy older EHR notices into billing. Also scheduled on a replay, so a first attempt that wrote
   // the notice but died before this point still gets its receipt and Candid sync on retry.
-  if (await hasAppointment(clinicalOystehr, effectInput.encounterId)) {
+  if (encounterHasAppointment) {
     await ensurePaymentTaskForNotice(clinicalOystehr, notice, effectInput.encounterId);
   }
   return { paymentNoticeId: notice.id, claimId };
@@ -109,7 +110,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, params.secrets);
   // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the visit's Encounter and schedules the payment Task, a clinical work item
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
-  const effectInput = await complexValidation(input, params, oystehr);
-  const response = await performEffect(oystehr, clinicalOystehr, effectInput);
+  const [effectInput, encounterHasAppointment] = await Promise.all([
+    complexValidation(input, params, oystehr),
+    hasAppointment(clinicalOystehr, params.encounterId),
+  ]);
+  const response = await performEffect(oystehr, clinicalOystehr, effectInput, encounterHasAppointment);
   return { statusCode: 200, body: JSON.stringify(response) };
 });

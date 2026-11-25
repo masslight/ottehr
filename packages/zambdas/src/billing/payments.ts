@@ -344,7 +344,14 @@ export const recordBillingManualRefund = async (
   const { encounterId, refundId, amountInCents, paymentMethod, createdISO, reason, refundedByReference, secrets } =
     input;
 
-  const claim = await findBillingClaimForEncounter(oystehr, encounterId);
+  const dedupIdentifier = {
+    system: MANUAL_REFUND_ID_SYSTEM,
+    value: refundId,
+  };
+  const [claim, existingRefundNotice] = await Promise.all([
+    findBillingClaimForEncounter(oystehr, encounterId),
+    findPaymentNotice(oystehr, dedupIdentifier),
+  ]);
   const payeeRef: Reference = claim?.provider ?? {
     reference: getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets),
   };
@@ -376,11 +383,7 @@ export const recordBillingManualRefund = async (
     recipient: payeeRef,
   };
 
-  const dedupIdentifier = {
-    system: MANUAL_REFUND_ID_SYSTEM,
-    value: refundId,
-  };
-  if (!(await findPaymentNotice(oystehr, dedupIdentifier))) {
+  if (!existingRefundNotice) {
     await createPaymentNotice({
       oystehr,
       notice: desiredNotice,
@@ -604,7 +607,10 @@ export const recordBillingPatientPayment = async (
 
   safeValidate(RecordablePaymentSchema, { amountInCents, paymentMethod });
 
-  const claim = await findBillingClaimForEncounter(oystehr, encounterId);
+  const [claim, existingNotice] = await Promise.all([
+    findBillingClaimForEncounter(oystehr, encounterId),
+    findPaymentNotice(oystehr, dedupIdentifier),
+  ]);
 
   const desiredNotice = buildPaymentNotice({
     request: claimRequestFor(claim, encounterId),
@@ -635,7 +641,7 @@ export const recordBillingPatientPayment = async (
   });
 
   const returned =
-    (await findPaymentNotice(oystehr, dedupIdentifier)) ??
+    existingNotice ??
     (
       await createPaymentNotice({
         oystehr,

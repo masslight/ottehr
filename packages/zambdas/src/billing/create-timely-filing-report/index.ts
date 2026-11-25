@@ -59,8 +59,11 @@ export async function performEffect({
 }): Promise<CreateTimelyFilingReportResponse> {
   const { claimId } = params;
 
-  const [graph, provenances, claimResponsesByClaim] = await Promise.all([
-    fetchClaimGraph(oystehr, claimId),
+  const [{ graph, payersByRef }, provenances, claimResponsesByClaim] = await Promise.all([
+    fetchClaimGraph(oystehr, claimId).then(async (graph) => ({
+      graph,
+      payersByRef: await resolvePayersByRef(oystehr, [graph.claim.insurer?.reference]),
+    })),
     fetchClaimHistoryProvenances({
       oystehr,
       claimId,
@@ -74,7 +77,6 @@ export async function performEffect({
   });
   const { claim, patient, billingProvider, renderingProvider, coverages } = graph;
 
-  const payersByRef = await resolvePayersByRef(oystehr, [claim.insurer?.reference]);
   const payer = claim.insurer?.reference ? payersByRef.get(claim.insurer.reference) : undefined;
 
   const data = composeTimelyFilingReportData({

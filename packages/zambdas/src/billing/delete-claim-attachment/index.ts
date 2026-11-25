@@ -46,12 +46,10 @@ export const index = wrapHandler(
 
 export async function performEffect(oystehr: Oystehr, params: DeleteClaimAttachmentParams): Promise<void> {
   const { documentReference, location } = await withVersionConflictRetries(async () => {
-    const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
-    const documentReference = await fetchById<DocumentReference>(
-      oystehr,
-      'DocumentReference',
-      params.documentReferenceId
-    );
+    const [claim, documentReference] = await Promise.all([
+      fetchById<Claim>(oystehr, 'Claim', params.claimId),
+      fetchById<DocumentReference>(oystehr, 'DocumentReference', params.documentReferenceId),
+    ]);
     const location = ownedAttachmentLocation(documentReference, claimAttachmentOwner(claim.id, params.secrets));
     // retired by an earlier deletion that failed before removing it, so only the removal is left
     if (documentReference.status !== RETIRED_ATTACHMENT_STATUS) {

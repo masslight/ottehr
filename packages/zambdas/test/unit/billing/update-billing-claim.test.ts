@@ -537,6 +537,26 @@ describe('update-billing-claim non-insurance payer', () => {
     );
   });
 
+  it('creates no working copies when the non-insurance payer is rejected', async () => {
+    const resourcesByType: Record<string, FhirResource[]> = {
+      Claim: [structuredClone(claim)],
+      Organization: [{ resourceType: 'Organization', id: NIO_ID, name: 'Not an NIO' }],
+      Location: [{ resourceType: 'Location', id: 'loc-1' }],
+    };
+    const search = vi
+      .fn()
+      .mockImplementation(({ resourceType }: { resourceType: string }) =>
+        Promise.resolve({ unbundle: () => resourcesByType[resourceType] ?? [] })
+      );
+    const create = vi.fn().mockImplementation(async (resource: FhirResource) => ({ ...resource, id: 'copy-1' }));
+    const oystehr = { fhir: { search, create, transaction: vi.fn() } } as unknown as Oystehr;
+
+    await expect(
+      performEffect(oystehr, fieldsUpdate({ facilityId: 'loc-1', nonInsurancePayer: { id: NIO_ID } }), agent)
+    ).rejects.toThrow('nonInsurancePayer must reference a non-insurance organization');
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it('validateRequestParameters accepts set and clear payloads and rejects a non-uuid id', () => {
     expect(
       validateWithSchema(UpdateBillingResourceInputSchema, {
