@@ -109,6 +109,11 @@ export const DispositionCard: FC = () => {
   const { mutate, isPending: isLoading } = useSaveChartData();
   const [currentType, setCurrentType] = useState(getValues('type'));
   const [isError, setIsError] = useState(false);
+  const savedAsSpecialty = chartFields?.disposition?.type === 'specialty';
+  const [keepSpecialtyTab, setKeepSpecialtyTab] = useState(false);
+  useEffect(() => {
+    if (savedAsSpecialty) setKeepSpecialtyTab(true);
+  }, [savedAsSpecialty]);
 
   const onSubmit = useCallback(
     (values: DispositionFormValues): void => {
@@ -157,9 +162,10 @@ export const DispositionCard: FC = () => {
   // Guard against a saved disposition type outside the known union (bad/legacy data) —
   // an undefined lookup here would crash the whole card on `fields.includes(...)`.
   const fields = dispositionFieldsPerType[currentType] ?? [];
-  // Specialty Transfer is retired in favour of referrals; visits saved with it before then keep showing it.
+  // Specialty Transfer is retired in favour of referrals; visits saved with it before then keep showing it, and
+  // keep it while the card stays open after switching away, so a mistaken switch can be undone.
   const tabs: DispositionType[] = ['pcp-no-type', 'another', 'ed'];
-  if (chartFields?.disposition?.type === 'specialty') {
+  if (savedAsSpecialty || keepSpecialtyTab) {
     tabs.push('specialty');
   }
 
