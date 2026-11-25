@@ -804,9 +804,12 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
         expect(params.some((p) => p.name === 'encounter')).toBe(false);
         expect(params).toContainEqual({ name: '_tag', value: `${ORDER_TYPE_CODE_SYSTEM}|radiology` });
       }
-      const authored = searches.flatMap((params) => params.filter((p) => p.name === 'authored').map((p) => p.value));
-      expect(authored).toContain(`ge${DateTime.fromISO(dateRange.start).minus({ days: 7 }).toISO()}`);
-      expect(authored).toContain(`le${DateTime.now().toISO()}`);
+      const bounds = (prefix: 'ge' | 'le'): number[] =>
+        searches
+          .flatMap((params) => params.filter((p) => p.name === 'authored' && p.value.startsWith(prefix)))
+          .map((p) => DateTime.fromISO(p.value.slice(2)).toMillis());
+      expect(bounds('ge')).toContain(DateTime.fromISO(dateRange.start).minus({ days: 7 }).toMillis());
+      expect(bounds('le')).toContain(DateTime.now().toMillis());
     });
 
     it('an old range: falls back to the search by encounter id', async () => {
