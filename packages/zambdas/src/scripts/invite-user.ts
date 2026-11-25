@@ -78,11 +78,11 @@ export async function inviteUser(
   }
 
   const activeUsers = [];
-  let activeUsersCursor;
+  let activeUsersCursor: string | undefined;
   do {
-    const usersPage = await oystehr.user.listV2({});
+    const usersPage = await oystehr.user.listV2({ cursor: activeUsersCursor });
     activeUsers.push(...usersPage.data);
-    activeUsersCursor = usersPage.metadata.nextCursor;
+    activeUsersCursor = usersPage.metadata.nextCursor ?? undefined;
   } while (activeUsersCursor);
 
   if (activeUsers.find((user: any) => user.email === email)) {

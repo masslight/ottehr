@@ -3,8 +3,11 @@ import { randomUUID } from 'crypto';
 import { Location, Practitioner, PractitionerRole } from 'fhir/r4b';
 import fs from 'fs';
 import { FHIR_BASE_URL } from 'utils/lib/fhir/constants';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { getAuth0Token } from '../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../shared/helpers';
+
+const LOCATION_COPY_CONCURRENCY = 5;
 
 const directorsAreSame = (practitioner1: Practitioner, practitioner2: Practitioner | undefined): boolean => {
   if (!practitioner1 || !practitioner2) {
@@ -175,7 +178,7 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
     console.log('from env directors', sourceDirectors.length);
     console.log('to env directors', destinationDirectors.length);
 
-    fromEnvUCLocs.forEach(async (sourceLoc) => {
+    await mapWithConcurrency(fromEnvUCLocs, LOCATION_COPY_CONCURRENCY, async (sourceLoc) => {
       const sourceDirectorRole = sourceDirectorRoles.find(
         (role) => role.location?.[0]?.reference === `Location/${sourceLoc.id}`
       );
