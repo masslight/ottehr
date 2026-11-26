@@ -14,8 +14,12 @@ export function mergeRows(prev: AdHocRow[], next: AdHocRow[], key: string): AdHo
   const merged: AdHocRow[] = [];
 
   for (const row of next) {
-    const old = prevByKey.get(String(row[key]));
+    const value = String(row[key]);
+    const old = prevByKey.get(value);
+
     if (!old) return null;
+
+    prevByKey.delete(value);
     merged.push({ ...old, ...row });
   }
 

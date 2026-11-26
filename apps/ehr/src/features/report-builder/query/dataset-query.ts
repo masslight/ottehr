@@ -15,7 +15,13 @@ const isGzip = (bytes: Uint8Array): boolean => bytes.length > 1 && bytes[0] === 
 
 export async function readReportDataBytes(bytes: Uint8Array): Promise<string> {
   if (!isGzip(bytes)) return new TextDecoder().decode(bytes);
+
+  if (typeof DecompressionStream === 'undefined') {
+    throw new Error('This browser cannot open the report data. Update the browser and try again.');
+  }
+
   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+
   return new Response(stream).text();
 }
 

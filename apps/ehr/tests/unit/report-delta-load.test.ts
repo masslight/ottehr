@@ -25,6 +25,7 @@ describe('ad-hoc delta load: mergeRows', () => {
     expect(mergeRows(prev, [{ encounterId: 'e1' }, { encounterId: 'e3' }], 'encounterId')).toBeNull();
     expect(mergeRows([{ encounterId: '' }], [{ encounterId: '' }], 'encounterId')).toBeNull();
     expect(mergeRows([{ id: 'a' }, { id: 'a' }], [{ id: 'a' }, { id: 'a' }], 'id')).toBeNull();
+    expect(mergeRows([{ id: 'a' }, { id: 'b' }], [{ id: 'a' }, { id: 'a' }], 'id')).toBeNull();
   });
 });
 
