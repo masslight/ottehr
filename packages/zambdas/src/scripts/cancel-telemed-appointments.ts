@@ -1,8 +1,11 @@
 import { Appointment, FhirResource } from 'fhir/r4b';
 import fs from 'fs';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { getAuth0Token } from '../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../shared/helpers';
+
+const CANCEL_CONCURRENCY = 5;
 
 async function main(): Promise<void> {
   const env = process.argv[2];
@@ -55,7 +58,7 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify(appointments), appointments.length);
 
-  appointments.forEach(async (appt) => {
+  await mapWithConcurrency(appointments, CANCEL_CONCURRENCY, async (appt) => {
     console.log(`Cancelling appointment ${appt.id}`);
     const resp = await fetch(`${project_url}/v1/zambda/${cancelTelemedAppointmentsZambda?.id}/execute`, {
       method: 'POST',

@@ -15,7 +15,11 @@ import {
   TASK_NOTE_TAG,
 } from '../../src/shared/notes';
 import { createTask } from '../../src/shared/tasks';
-import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
+import {
+  addProcessIdMetaTagToResource,
+  deleteResourcesBestEffort,
+  setupIntegrationTest,
+} from '../helpers/integration-test-seed-data-setup';
 
 describe('task and patient notes integration', () => {
   const [TASK_NOTE_SYSTEM, TASK_NOTE_CODE] = TASK_NOTE_TAG.split('|');
@@ -44,65 +48,75 @@ describe('task and patient notes integration', () => {
     oystehrZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
     [, callerId] = setup.testUserM2MProfile.split('/');
-    colleague = await oystehrAdmin.fhir.create<Practitioner>(
-      tagged({ resourceType: 'Practitioner', name: [{ given: ['Lina'], family: 'Grace' }] }, setup.processId)
-    );
-    task = await oystehrAdmin.fhir.create<Task>(
-      tagged(createTask({ category: MANUAL_TASK.category.patientFollowUp, title: 'Task notes test' }), setup.processId)
-    );
-    colleagueNote = await oystehrAdmin.fhir.create<Communication>(
-      tagged(
-        {
-          resourceType: 'Communication',
-          status: 'completed',
-          meta: { tag: [{ system: TASK_NOTE_SYSTEM, code: TASK_NOTE_CODE }] },
-          basedOn: [{ reference: `Task/${task.id}` }],
-          sender: { reference: `Practitioner/${colleague.id}`, display: 'Lina Grace' },
-          sent: DateTime.utc().minus({ hours: 2 }).toISO()!,
-          payload: [{ contentString: 'Left a voicemail' }],
-        },
-        setup.processId
-      )
-    );
-    patient = await oystehrAdmin.fhir.create<Patient>(
-      tagged({ resourceType: 'Patient', name: [{ given: ['Integration'], family: 'PatientNotes' }] }, setup.processId)
-    );
+    [colleague, task, patient] = await Promise.all([
+      oystehrAdmin.fhir.create<Practitioner>(
+        tagged({ resourceType: 'Practitioner', name: [{ given: ['Lina'], family: 'Grace' }] }, setup.processId)
+      ),
+      oystehrAdmin.fhir.create<Task>(
+        tagged(
+          createTask({ category: MANUAL_TASK.category.patientFollowUp, title: 'Task notes test' }),
+          setup.processId
+        )
+      ),
+      oystehrAdmin.fhir.create<Patient>(
+        tagged({ resourceType: 'Patient', name: [{ given: ['Integration'], family: 'PatientNotes' }] }, setup.processId)
+      ),
+    ]);
     const [system, code] = PATIENT_NOTE_TAG.split('|');
-    colleaguePatientNote = await oystehrAdmin.fhir.create<Communication>(
-      tagged(
-        {
-          resourceType: 'Communication',
-          status: 'completed',
-          meta: { tag: [{ system, code }] },
-          subject: { reference: `Patient/${patient.id}` },
-          sender: { reference: `Practitioner/${colleague.id}`, display: 'Lina Grace' },
-          sent: DateTime.utc().minus({ hours: 2 }).toISO()!,
-          payload: [{ contentString: 'Prefers afternoon calls' }],
-        },
-        setup.processId
-      )
-    );
+    [colleagueNote, colleaguePatientNote] = await Promise.all([
+      oystehrAdmin.fhir.create<Communication>(
+        tagged(
+          {
+            resourceType: 'Communication',
+            status: 'completed',
+            meta: { tag: [{ system: TASK_NOTE_SYSTEM, code: TASK_NOTE_CODE }] },
+            basedOn: [{ reference: `Task/${task.id}` }],
+            sender: { reference: `Practitioner/${colleague.id}`, display: 'Lina Grace' },
+            sent: DateTime.utc().minus({ hours: 2 }).toISO()!,
+            payload: [{ contentString: 'Left a voicemail' }],
+          },
+          setup.processId
+        )
+      ),
+      oystehrAdmin.fhir.create<Communication>(
+        tagged(
+          {
+            resourceType: 'Communication',
+            status: 'completed',
+            meta: { tag: [{ system, code }] },
+            subject: { reference: `Patient/${patient.id}` },
+            sender: { reference: `Practitioner/${colleague.id}`, display: 'Lina Grace' },
+            sent: DateTime.utc().minus({ hours: 2 }).toISO()!,
+            payload: [{ contentString: 'Prefers afternoon calls' }],
+          },
+          setup.processId
+        )
+      ),
+    ]);
   }, 60_000);
 
   afterAll(async () => {
-    for (const del of [
-      () => (callerNoteId ? oystehrAdmin.fhir.delete({ resourceType: 'Communication', id: callerNoteId }) : undefined),
-      () => oystehrAdmin.fhir.delete({ resourceType: 'Communication', id: colleagueNote.id! }),
-      () => oystehrAdmin.fhir.delete({ resourceType: 'Task', id: task.id! }),
-      () =>
-        callerPatientNoteId
-          ? oystehrAdmin.fhir.delete({ resourceType: 'Communication', id: callerPatientNoteId })
-          : undefined,
-      () => oystehrAdmin.fhir.delete({ resourceType: 'Communication', id: colleaguePatientNote.id! }),
-      () => oystehrAdmin.fhir.delete({ resourceType: 'Patient', id: patient.id! }),
-      () => oystehrAdmin.fhir.delete({ resourceType: 'Practitioner', id: colleague.id! }),
-    ]) {
-      try {
-        await del();
-      } catch {
-        // best-effort
-      }
-    }
+    const existing = (
+      resources: { resourceType: 'Communication' | 'Task' | 'Patient' | 'Practitioner'; id: string | undefined }[]
+    ): { resourceType: 'Communication' | 'Task' | 'Patient' | 'Practitioner'; id: string }[] =>
+      resources.flatMap(({ resourceType, id }) => (id ? [{ resourceType, id }] : []));
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      existing([
+        { resourceType: 'Communication', id: callerNoteId },
+        { resourceType: 'Communication', id: colleagueNote?.id },
+        { resourceType: 'Communication', id: callerPatientNoteId },
+        { resourceType: 'Communication', id: colleaguePatientNote?.id },
+      ])
+    );
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      existing([
+        { resourceType: 'Task', id: task?.id },
+        { resourceType: 'Patient', id: patient?.id },
+        { resourceType: 'Practitioner', id: colleague?.id },
+      ])
+    );
     await cleanup();
   });
 

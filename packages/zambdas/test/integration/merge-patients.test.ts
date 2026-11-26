@@ -258,8 +258,7 @@ describe('merge-patients integration tests', () => {
 
     beforeAll(async () => {
       // ── Create two full patient graphs ──
-      mainResources = await insertPatientGraph();
-      otherResources = await insertPatientGraph();
+      [mainResources, otherResources] = await Promise.all([insertPatientGraph(), insertPatientGraph()]);
 
       // ── Find seed-created resources ──
       [mainLinked, otherLinked] = await Promise.all([
@@ -268,30 +267,32 @@ describe('merge-patients integration tests', () => {
       ]);
 
       // ── Create billing resources (not in seed data) ──
-      otherCoverage = await oystehrAdmin.fhir.create<Coverage>(
-        addProcessIdMetaTagToResource(
-          {
-            resourceType: 'Coverage',
-            status: 'active',
-            beneficiary: { reference: `Patient/${otherResources.patient.id}` },
-            subscriber: { reference: `Patient/${otherResources.patient.id}` },
-            payor: [{ display: 'Test Insurance' }],
-          },
-          processId
-        ) as Coverage
-      );
-      otherChargeItem = await oystehrAdmin.fhir.create<ChargeItem>(
-        addProcessIdMetaTagToResource(
-          {
-            resourceType: 'ChargeItem',
-            status: 'billable',
-            subject: { reference: `Patient/${otherResources.patient.id}` },
-            context: { reference: `Encounter/${otherResources.encounter.id}` },
-            code: { coding: [{ system: 'http://www.ama-assn.org/go/cpt', code: '99213' }] },
-          },
-          processId
-        ) as ChargeItem
-      );
+      [otherCoverage, otherChargeItem] = await Promise.all([
+        oystehrAdmin.fhir.create<Coverage>(
+          addProcessIdMetaTagToResource(
+            {
+              resourceType: 'Coverage',
+              status: 'active',
+              beneficiary: { reference: `Patient/${otherResources.patient.id}` },
+              subscriber: { reference: `Patient/${otherResources.patient.id}` },
+              payor: [{ display: 'Test Insurance' }],
+            },
+            processId
+          ) as Coverage
+        ),
+        oystehrAdmin.fhir.create<ChargeItem>(
+          addProcessIdMetaTagToResource(
+            {
+              resourceType: 'ChargeItem',
+              status: 'billable',
+              subject: { reference: `Patient/${otherResources.patient.id}` },
+              context: { reference: `Encounter/${otherResources.encounter.id}` },
+              code: { coding: [{ system: 'http://www.ama-assn.org/go/cpt', code: '99213' }] },
+            },
+            processId
+          ) as ChargeItem
+        ),
+      ]);
 
       // ── Create clinical resources via save-chart-data zambda ──
       const { chartResources: clinicalResources } = await saveChartDataForEncounter(
@@ -601,8 +602,7 @@ describe('merge-patients integration tests', () => {
     };
 
     beforeAll(async () => {
-      mainResources = await insertPatientGraph();
-      otherResources = await insertPatientGraph();
+      [mainResources, otherResources] = await Promise.all([insertPatientGraph(), insertPatientGraph()]);
 
       const [mainPbill, otherPbill, otherWcomp] = await Promise.all([
         findAccount(mainResources.patient.id!, PBILL_CODE),
@@ -772,8 +772,7 @@ describe('merge-patients integration tests', () => {
 
   describe('edge case: empty questionnaire response', () => {
     it('should succeed and mark other patient as merged even with no field changes', async () => {
-      const mainResources = await insertPatientGraph();
-      const otherResources = await insertPatientGraph();
+      const [mainResources, otherResources] = await Promise.all([insertPatientGraph(), insertPatientGraph()]);
 
       const emptyQR: QuestionnaireResponse = {
         resourceType: 'QuestionnaireResponse',

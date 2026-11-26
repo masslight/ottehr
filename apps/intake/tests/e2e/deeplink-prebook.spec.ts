@@ -58,7 +58,10 @@ test.describe('Prebook deeplink flows', () => {
     testLocationManager = new TestLocationManager(workerUniqueId);
     await testLocationManager.init();
 
-    const { location } = await testLocationManager.ensurePrebookInPersonLocationWithSlots();
+    const [{ location }, groupFixture] = await Promise.all([
+      testLocationManager.ensurePrebookInPersonLocationWithSlots(),
+      testLocationManager.ensurePrebookInPersonGroupWithSlots(),
+    ]);
     const slugIdentifier = location.identifier?.find((id) => id.system === SLUG_SYSTEM)?.value;
     if (!slugIdentifier) {
       throw new Error(`Test location ${location.id} is missing a SLUG_SYSTEM identifier — fixture broken`);
@@ -70,7 +73,6 @@ test.describe('Prebook deeplink flows', () => {
     locationName = location.name;
     console.log(`✓ Created prebook in-person location with slug: ${locationSlug}`);
 
-    const groupFixture = await testLocationManager.ensurePrebookInPersonGroupWithSlots();
     if (!groupFixture.healthcareService.name) {
       throw new Error(`Test group ${groupFixture.healthcareService.id} is missing a name — fixture broken`);
     }

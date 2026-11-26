@@ -9,12 +9,18 @@ export const ensureM2MPractitionerProfile = async (token: string): Promise<void>
     services: { fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API },
   });
 
-  const practitionerForM2M = await projectApiClient.fhir.create<Practitioner>({
-    resourceType: 'Practitioner',
-    name: [{ given: ['M2M'], family: 'Client' }],
-    birthDate: '1978-01-01',
-    telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
-  });
+  const assignNewPractitionerProfile = async (m2mId: string): Promise<void> => {
+    const practitionerForM2M = await projectApiClient.fhir.create<Practitioner>({
+      resourceType: 'Practitioner',
+      name: [{ given: ['M2M'], family: 'Client' }],
+      birthDate: '1978-01-01',
+      telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
+    });
+    await projectApiClient.m2m.update({
+      id: m2mId,
+      profile: `Practitioner/${practitionerForM2M.id}`,
+    });
+  };
 
   // ensure this m2m has an associated Practitioner profile
   const m2mResource = await projectApiClient.m2m.me();
@@ -26,16 +32,10 @@ export const ensureM2MPractitionerProfile = async (token: string): Promise<void>
         resourceType: 'Practitioner',
       });
     } catch {
-      await projectApiClient.m2m.update({
-        id: m2mResource.id,
-        profile: `Practitioner/${practitionerForM2M.id}`,
-      });
+      await assignNewPractitionerProfile(m2mResource.id);
     }
   } else {
-    await projectApiClient.m2m.update({
-      id: m2mResource.id,
-      profile: `Practitioner/${practitionerForM2M.id}`,
-    });
+    await assignNewPractitionerProfile(m2mResource.id);
   }
 
   [m2mProfileType, m2mProfileId] = (await projectApiClient.m2m.me()).profile.split('/');

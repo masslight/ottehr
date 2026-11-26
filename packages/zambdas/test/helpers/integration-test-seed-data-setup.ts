@@ -14,6 +14,7 @@ import {
 import { DateTime } from 'luxon';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { PATIENT_BILLING_ACCOUNT_TYPE } from 'utils/lib/fhir/constants';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { cleanAppointmentGraph } from 'utils/lib/utils/e2eCleanup';
 import { inject } from 'vitest';
 import { createBillingClient } from '../../src/billing/shared';
@@ -128,18 +129,12 @@ export const insertInPersonAppointmentBase = async (
   oystehr: Oystehr,
   processId: string
 ): Promise<InsertFullAppointmentDataBaseResult> => {
-  // Location is referenced by the Appointment and Encounter; create it first so the transaction
-  // below can point at a concrete id. (Locations are never auto-deleted by cleanAppointmentGraph,
-  // matching the previous behavior.)
-  const location = await oystehr.fhir.create<Location>(
-    addProcessIdMetaTagToResource(
-      { resourceType: 'Location', status: 'active', name: 'Integration Test Location' },
-      processId
-    ) as Location
-  );
+  const location = addProcessIdMetaTagToResource(
+    { resourceType: 'Location', status: 'active', name: 'Integration Test Location' },
+    processId
+  ) as Location;
 
-  console.log(`[insertInPersonAppointmentBase] created Location/${location.id}`);
-
+  const locationRef = 'urn:uuid:location';
   const patientRef = 'urn:uuid:patient';
   const appointmentRef = 'urn:uuid:appointment';
   const encounterRef = 'urn:uuid:encounter';
@@ -180,7 +175,7 @@ export const insertInPersonAppointmentBase = async (
       appointmentType: { text: 'prebook' },
       participant: [
         { actor: { reference: patientRef }, status: 'accepted' },
-        { actor: { reference: `Location/${location.id}` }, status: 'accepted' },
+        { actor: { reference: locationRef }, status: 'accepted' },
       ],
     } as Appointment,
     processId
@@ -192,7 +187,7 @@ export const insertInPersonAppointmentBase = async (
     class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB', display: 'ambulatory' },
     subject: { reference: patientRef },
     appointment: [{ reference: appointmentRef }],
-    location: [{ location: { reference: `Location/${location.id}` } }],
+    location: [{ location: { reference: locationRef } }],
     // the chart reads surface this extension as `patientInfoConfirmed`
     extension: [{ url: 'patient-info-confirmed', valueBoolean: false }],
   };
@@ -253,6 +248,7 @@ export const insertInPersonAppointmentBase = async (
   );
 
   const requests: BatchInputPostRequest<FhirResource>[] = [
+    { method: 'POST', url: '/Location', fullUrl: locationRef, resource: location },
     { method: 'POST', url: '/Patient', fullUrl: patientRef, resource: patient },
     { method: 'POST', url: '/RelatedPerson', fullUrl: 'urn:uuid:related-person', resource: relatedPerson },
     { method: 'POST', url: '/Appointment', fullUrl: appointmentRef, resource: appointment },
@@ -271,6 +267,7 @@ export const insertInPersonAppointmentBase = async (
   const createdResources =
     (
       await oystehr.fhir.transaction<
+        | Location
         | Patient
         | RelatedPerson
         | Appointment
@@ -284,6 +281,12 @@ export const insertInPersonAppointmentBase = async (
       ?.map((entry) => entry.resource)
       .filter((entry) => entry !== undefined) ?? [];
 
+  console.log(
+    `[insertInPersonAppointmentBase] created Location/${createdResources.find(
+      (resource) => resource!.resourceType === 'Location'
+    )?.id}`
+  );
+
   return {
     patient: createdResources.find((resource) => resource!.resourceType === 'Patient') as Patient,
     relatedPerson: createdResources.find((resource) => resource!.resourceType === 'RelatedPerson') as RelatedPerson,
@@ -293,6 +296,17 @@ export const insertInPersonAppointmentBase = async (
       (resource) => resource!.resourceType === 'QuestionnaireResponse'
     ) as QuestionnaireResponse,
   };
+};
+
+const BEST_EFFORT_DELETE_CONCURRENCY = 5;
+
+export const deleteResourcesBestEffort = async (
+  oystehr: Oystehr,
+  resources: { resourceType: FhirResource['resourceType']; id: string }[]
+): Promise<void> => {
+  await mapWithConcurrency(resources, BEST_EFFORT_DELETE_CONCURRENCY, ({ resourceType, id }) =>
+    oystehr.fhir.delete({ resourceType, id }).catch(() => undefined)
+  );
 };
 
 /**

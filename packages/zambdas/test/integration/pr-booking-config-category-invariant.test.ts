@@ -13,7 +13,6 @@ import { ServiceMode } from 'utils/lib/types/common';
 import { GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
-import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { SECRETS } from '../data/secrets';
 import { buildSimpleScheduleExt, cleanupTestScheduleResources } from '../helpers/testScheduleUtils';
 
@@ -46,15 +45,10 @@ describe.skipIf(BOOKING_CONFIG.serviceCategories.length === 0)(
 
     beforeAll(async () => {
       processId = randomUUID();
-      const { AUTH0_ENDPOINT, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
+      const { FHIR_API, PROJECT_ID } = SECRETS;
       const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
       expect(EXECUTE_ZAMBDA_URL).toBeDefined();
-      token = await getAuth0Token({
-        AUTH0_ENDPOINT,
-        AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-        AUTH0_SECRET: AUTH0_SECRET_TESTS,
-        AUTH0_AUDIENCE,
-      });
+      token = inject('ADMIN_TOKEN');
       oystehr = new Oystehr({
         accessToken: token,
         fhirApiUrl: FHIR_API,

@@ -266,10 +266,8 @@ describe('custom folders zambdas integration tests', () => {
 
   describe('rename-custom-folder', () => {
     it('updates the catalog entry display and leaves per-patient Lists untouched', async () => {
-      const created = await createFolderAndTrack('Rename');
-
       // Manually create a per-patient List for this folder so we can verify it's not touched.
-      const patient = await createTestPatient();
+      const [created, patient] = await Promise.all([createFolderAndTrack('Rename'), createTestPatient()]);
       const patientListSpec = addProcessIdMetaTagToResource(
         createCustomPatientDocumentList(`Patient/${patient.id}`, created.internalName),
         processId
@@ -321,10 +319,8 @@ describe('custom folders zambdas integration tests', () => {
 
   describe('delete-custom-folder', () => {
     it('soft-deletes the catalog entry (entry.flag tombstone) and leaves per-patient Lists intact', async () => {
-      const created = await createFolderAndTrack('Delete');
-
       // Seed a per-patient List for this folder.
-      const patient = await createTestPatient();
+      const [created, patient] = await Promise.all([createFolderAndTrack('Delete'), createTestPatient()]);
       const patientListSpec = addProcessIdMetaTagToResource(
         createCustomPatientDocumentList(`Patient/${patient.id}`, created.internalName),
         processId
@@ -425,8 +421,7 @@ describe('custom folders zambdas integration tests', () => {
 
   describe('create-upload-document-url (lazy custom folder path)', () => {
     it('lazily creates a per-patient List titled with the internalName when none exists', async () => {
-      const folder = await createFolderAndTrack('Lazy');
-      const patient = await createTestPatient();
+      const [folder, patient] = await Promise.all([createFolderAndTrack('Lazy'), createTestPatient()]);
 
       expect(await findPerPatientList(patient.id!, folder.internalName)).toBeUndefined();
 
@@ -452,8 +447,7 @@ describe('custom folders zambdas integration tests', () => {
     });
 
     it('reuses an existing per-patient List on subsequent uploads (no duplicates)', async () => {
-      const folder = await createFolderAndTrack('Reuse');
-      const patient = await createTestPatient();
+      const [folder, patient] = await Promise.all([createFolderAndTrack('Reuse'), createTestPatient()]);
 
       const first = await executeUpload({
         patientId: patient.id!,
@@ -498,8 +492,7 @@ describe('custom folders zambdas integration tests', () => {
     });
 
     it(`derives internalName from the ${SYNTHETIC_FOLDER_ID_PREFIX} suffix when the field is omitted`, async () => {
-      const folder = await createFolderAndTrack('Suffix');
-      const patient = await createTestPatient();
+      const [folder, patient] = await Promise.all([createFolderAndTrack('Suffix'), createTestPatient()]);
 
       const { output, error } = await executeUpload({
         patientId: patient.id!,

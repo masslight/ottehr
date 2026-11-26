@@ -137,6 +137,13 @@ export type CreateTestAppointmentInput = {
   serviceCategory?: 'urgent-care' | 'occupational-medicine' | 'workers-comp';
 };
 
+type TestsUserAndPractitioner = {
+  id: string;
+  name: string;
+  email: string;
+  practitioner: Practitioner;
+};
+
 export class ResourceHandler {
   #apiClient!: Promise<Oystehr>;
   #authToken!: Promise<string>;
@@ -148,6 +155,7 @@ export class ResourceHandler {
   #flow: 'telemed' | 'in-person';
   #paperworkAnswers?: GetPaperworkAnswers;
   #processId?: string;
+  #testsUserAndPractitioner?: Promise<TestsUserAndPractitioner>;
 
   public testEmployee1!: TestEmployee;
   public testEmployee2!: TestEmployee;
@@ -409,7 +417,7 @@ export class ResourceHandler {
     const startTime = Date.now();
 
     try {
-      let isHarvestingDone = false;
+      let harvestedAppointment: Appointment | undefined;
       for (let i = 0; i < maxAttempts; i++) {
         const appointment = (
           await apiClient.fhir.search({
@@ -437,7 +445,7 @@ export class ResourceHandler {
               1000
             ).toFixed(1)}s)`
           );
-          isHarvestingDone = true;
+          harvestedAppointment = appointment;
           break;
         }
 
@@ -448,7 +456,7 @@ export class ResourceHandler {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
 
-      if (!isHarvestingDone) {
+      if (!harvestedAppointment) {
         const errorMsg = `Appointment ${appointmentId} wasn't harvested by sub-intake-harvest module after ${
           (maxAttempts * delayMs) / 1000
         } seconds`;
@@ -464,7 +472,7 @@ export class ResourceHandler {
       // together, so they live in one method. Not every flow produces a `contact` (e.g. no
       // contact-information page or no verified phone), so on timeout we log and proceed rather than
       // throw — those callers' live patients won't have a contact either.
-      const patientId = await this.patientIdByAppointmentId(appointmentId);
+      const patientId = getPatientIdFromAppointment(harvestedAppointment, appointmentId);
       const contactMaxAttempts = 30; // 30 * 3s = 90s ceiling; the patch normally lands within seconds
       const contactDelayMs = 3_000;
       for (let i = 0; i < contactMaxAttempts; i++) {
@@ -687,15 +695,7 @@ export class ResourceHandler {
       resourceType: 'Appointment',
       id: appointmentId,
     });
-    const patientId = getIdFromReference(
-      appointment.participant.find((participant) => participant.actor?.reference?.startsWith('Patient/'))?.actor
-        ?.reference,
-      'Patient'
-    );
-    if (patientId == null) {
-      throw new Error(`Patient for appointment ${appointmentId} not found`);
-    }
-    return patientId;
+    return getPatientIdFromAppointment(appointment, appointmentId);
   }
 
   async tagAppointmentForCleanup(appointmentId: string): Promise<void> {
@@ -710,12 +710,17 @@ export class ResourceHandler {
     await apiClient.fhir.update<Appointment>(taggedAppointment);
   }
 
-  async getTestsUserAndPractitioner(): Promise<{
-    id: string;
-    name: string;
-    email: string;
-    practitioner: Practitioner;
-  }> {
+  getTestsUserAndPractitioner(): Promise<TestsUserAndPractitioner> {
+    if (!this.#testsUserAndPractitioner) {
+      this.#testsUserAndPractitioner = this.fetchTestsUserAndPractitioner().catch((error) => {
+        this.#testsUserAndPractitioner = undefined;
+        throw error;
+      });
+    }
+    return this.#testsUserAndPractitioner;
+  }
+
+  private async fetchTestsUserAndPractitioner(): Promise<TestsUserAndPractitioner> {
     const apiClient = await this.apiClient;
     const oystehrProjectId = process.env.PROJECT_ID;
     if (!oystehrProjectId) throw new Error('secret PROJECT_ID is not set');
@@ -761,6 +766,18 @@ const addProcessIdMetaTagToResource = (resource: FhirResource, processId: string
     ],
   };
   return resource;
+};
+
+const getPatientIdFromAppointment = (appointment: Appointment, appointmentId: string): string => {
+  const patientId = getIdFromReference(
+    appointment.participant.find((participant) => participant.actor?.reference?.startsWith('Patient/'))?.actor
+      ?.reference,
+    'Patient'
+  );
+  if (patientId == null) {
+    throw new Error(`Patient for appointment ${appointmentId} not found`);
+  }
+  return patientId;
 };
 
 const getProcessMetaTag = (processId: string): Appointment['meta'] => {

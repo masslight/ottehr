@@ -14,7 +14,7 @@ import { TIMEZONES } from 'utils/lib/types/constants';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { afterAll, assert, beforeAll, describe, expect, it } from 'vitest';
-import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
+import { deleteResourcesBestEffort, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
 // Integration coverage for the PR-level "offers all services" toggle. The
 // toggle is the explicit replacement for the historical implicit "empty
@@ -43,72 +43,55 @@ describe('admin-create-practitioner-role + admin-update-practitioner-role — al
     cleanup = setup.cleanup;
     processId = setup.processId;
 
-    testPractitioner = await oystehrAdmin.fhir.create<Practitioner>({
-      resourceType: 'Practitioner',
-      active: true,
-      name: [{ given: ['Test'], family: `PR-${randomUUID().slice(0, 8)}` }],
-      meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
-    });
-    assert(testPractitioner.id);
-
-    testLocation = await oystehrAdmin.fhir.create<Location>({
-      resourceType: 'Location',
-      status: 'active',
-      name: `PR Test Location ${randomUUID().slice(0, 8)}`,
-      meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
-    });
-    assert(testLocation.id);
-
     // Second Location is used to verify the conflict check is location-scoped:
     // a candidate that overlaps services with an existing PR at a DIFFERENT
     // location shouldn't conflict.
-    secondTestLocation = await oystehrAdmin.fhir.create<Location>({
-      resourceType: 'Location',
-      status: 'active',
-      name: `PR Test Location 2 ${randomUUID().slice(0, 8)}`,
-      meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
-    });
+    [testPractitioner, testLocation, secondTestLocation] = await Promise.all([
+      oystehrAdmin.fhir.create<Practitioner>({
+        resourceType: 'Practitioner',
+        active: true,
+        name: [{ given: ['Test'], family: `PR-${randomUUID().slice(0, 8)}` }],
+        meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+      }),
+      oystehrAdmin.fhir.create<Location>({
+        resourceType: 'Location',
+        status: 'active',
+        name: `PR Test Location ${randomUUID().slice(0, 8)}`,
+        meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+      }),
+      oystehrAdmin.fhir.create<Location>({
+        resourceType: 'Location',
+        status: 'active',
+        name: `PR Test Location 2 ${randomUUID().slice(0, 8)}`,
+        meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+      }),
+    ]);
+    assert(testPractitioner.id);
+    assert(testLocation.id);
     assert(secondTestLocation.id);
   }, 60_000);
 
   afterAll(async () => {
-    for (const id of createdScheduleIds) {
-      try {
-        await oystehrAdmin.fhir.delete({ resourceType: 'Schedule', id });
-      } catch {
-        // best-effort
-      }
-    }
-    for (const id of createdPrIds) {
-      try {
-        await oystehrAdmin.fhir.delete({ resourceType: 'PractitionerRole', id });
-      } catch {
-        // best-effort
-      }
-    }
-    for (const id of createdServiceCategoryIds) {
-      try {
-        await oystehrAdmin.fhir.delete({ resourceType: 'HealthcareService', id });
-      } catch {
-        // best-effort
-      }
-    }
-    for (const loc of [testLocation, secondTestLocation]) {
-      if (loc?.id) {
-        try {
-          await oystehrAdmin.fhir.delete({ resourceType: 'Location', id: loc.id });
-        } catch {
-          // best-effort
-        }
-      }
-    }
-    for (const id of createdLocationIds) {
-      try {
-        await oystehrAdmin.fhir.delete({ resourceType: 'Location', id });
-      } catch {
-        // best-effort
-      }
-    }
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      createdScheduleIds.map((id) => ({ resourceType: 'Schedule', id }))
+    );
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      createdPrIds.map((id) => ({ resourceType: 'PractitionerRole', id }))
+    );
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      createdServiceCategoryIds.map((id) => ({ resourceType: 'HealthcareService', id }))
+    );
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      [testLocation, secondTestLocation].flatMap((loc) => (loc?.id ? [{ resourceType: 'Location', id: loc.id }] : []))
+    );
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      createdLocationIds.map((id) => ({ resourceType: 'Location', id }))
+    );
     if (testPractitioner.id) {
       try {
         await oystehrAdmin.fhir.delete({ resourceType: 'Practitioner', id: testPractitioner.id });
@@ -296,8 +279,7 @@ describe('admin-create-practitioner-role + admin-update-practitioner-role — al
   // handle it on both sides of the comparison.
   describe('conflict detection — allCategories toggle', () => {
     it('rejects a new PR with allCategories=true when an existing PR at the same Location offers a specific category', async () => {
-      const sharedLocation = await makeFreshLocation();
-      const cat = await createServiceCategoryHs();
+      const [sharedLocation, cat] = await Promise.all([makeFreshLocation(), createServiceCategoryHs()]);
       // Existing PR: specific cats at sharedLocation.
       await callCreate({ categoryHealthcareServiceIds: [cat.id!], locationId: sharedLocation.id! });
 
@@ -328,9 +310,8 @@ describe('admin-create-practitioner-role + admin-update-practitioner-role — al
     });
 
     it('rejects when an update flips a PR to allCategories=true while another PR at the same location offers specific cats', async () => {
-      const sharedLocation = await makeFreshLocation();
       // First PR: specific cats at sharedLocation.
-      const cat = await createServiceCategoryHs();
+      const [sharedLocation, cat] = await Promise.all([makeFreshLocation(), createServiceCategoryHs()]);
       await callCreate({ categoryHealthcareServiceIds: [cat.id!], locationId: sharedLocation.id! });
 
       // Second PR: lives at a different Location, allCategories=false. We'll
@@ -367,16 +348,17 @@ describe('admin-create-practitioner-role + admin-update-practitioner-role — al
     // no real categories) would falsely block an allCategories PR at the same
     // location.
     it('ignores non-service-category healthcareService refs on the other PR when checking overlap', async () => {
-      const sharedLocation = await makeFreshLocation();
-
       // Create a non-category HS — no SERVICE_CATEGORY_TAG, no category tag.
       // Mimics a group-membership-style HS reference that may live on a PR.
-      const nonCategoryHs = await oystehrAdmin.fhir.create<HealthcareService>({
-        resourceType: 'HealthcareService',
-        active: true,
-        name: `pr-conflict-noncat-${randomUUID().slice(0, 8)}`,
-        meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
-      });
+      const [sharedLocation, nonCategoryHs] = await Promise.all([
+        makeFreshLocation(),
+        oystehrAdmin.fhir.create<HealthcareService>({
+          resourceType: 'HealthcareService',
+          active: true,
+          name: `pr-conflict-noncat-${randomUUID().slice(0, 8)}`,
+          meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+        }),
+      ]);
       assert(nonCategoryHs.id);
       createdServiceCategoryIds.push(nonCategoryHs.id);
 
@@ -425,13 +407,15 @@ describe('admin-create-practitioner-role + admin-update-practitioner-role — al
       // Candidate PR: lives at an isolated Location, has only a non-category
       // (group-membership-style) ref in healthcareService[], no allCategories.
       // Built via raw FHIR so we can plant the non-category ref.
-      const isolatedLocation = await makeFreshLocation();
-      const nonCategoryHs = await oystehrAdmin.fhir.create<HealthcareService>({
-        resourceType: 'HealthcareService',
-        active: true,
-        name: `pr-cand-noncat-${randomUUID().slice(0, 8)}`,
-        meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
-      });
+      const [isolatedLocation, nonCategoryHs] = await Promise.all([
+        makeFreshLocation(),
+        oystehrAdmin.fhir.create<HealthcareService>({
+          resourceType: 'HealthcareService',
+          active: true,
+          name: `pr-cand-noncat-${randomUUID().slice(0, 8)}`,
+          meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+        }),
+      ]);
       assert(nonCategoryHs.id);
       createdServiceCategoryIds.push(nonCategoryHs.id);
 
@@ -497,34 +481,22 @@ describe('admin-set-practitioner-role-active — activation lifecycle', () => {
   }, 60_000);
 
   afterAll(async () => {
-    for (const id of createdScheduleIds) {
-      try {
-        await oystehrAdmin.fhir.delete({ resourceType: 'Schedule', id });
-      } catch {
-        // best-effort
-      }
-    }
-    for (const id of createdPrIds) {
-      try {
-        await oystehrAdmin.fhir.delete({ resourceType: 'PractitionerRole', id });
-      } catch {
-        // best-effort
-      }
-    }
-    for (const id of createdServiceCategoryIds) {
-      try {
-        await oystehrAdmin.fhir.delete({ resourceType: 'HealthcareService', id });
-      } catch {
-        // best-effort
-      }
-    }
-    for (const id of createdLocationIds) {
-      try {
-        await oystehrAdmin.fhir.delete({ resourceType: 'Location', id });
-      } catch {
-        // best-effort
-      }
-    }
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      createdScheduleIds.map((id) => ({ resourceType: 'Schedule', id }))
+    );
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      createdPrIds.map((id) => ({ resourceType: 'PractitionerRole', id }))
+    );
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      createdServiceCategoryIds.map((id) => ({ resourceType: 'HealthcareService', id }))
+    );
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      createdLocationIds.map((id) => ({ resourceType: 'Location', id }))
+    );
     if (testPractitioner.id) {
       try {
         await oystehrAdmin.fhir.delete({ resourceType: 'Practitioner', id: testPractitioner.id });
@@ -636,8 +608,7 @@ describe('admin-set-practitioner-role-active — activation lifecycle', () => {
     // create B in its place (which passes because A is inactive), then try
     // to reactivate A — the guard should fire so we don't end up with both
     // active for the same tuple.
-    const sharedLocation = await makeFreshLocation();
-    const cat = await createServiceCategoryHs();
+    const [sharedLocation, cat] = await Promise.all([makeFreshLocation(), createServiceCategoryHs()]);
     const { role: roleA } = await createActivePr({
       locationId: sharedLocation.id!,
       categoryHealthcareServiceIds: [cat.id!],

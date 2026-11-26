@@ -31,7 +31,6 @@ import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
 import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { SLOT_UNAVAILABLE_ERROR } from 'utils/lib/types/errors';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
-import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { SECRETS } from '../data/secrets';
 import {
@@ -57,15 +56,10 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
 
   beforeAll(async () => {
     processId = randomUUID();
-    const { AUTH0_ENDPOINT, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
+    const { FHIR_API, PROJECT_ID } = SECRETS;
     const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
     expect(EXECUTE_ZAMBDA_URL).toBeDefined();
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-      AUTH0_SECRET: AUTH0_SECRET_TESTS,
-      AUTH0_AUDIENCE,
-    });
+    token = inject('ADMIN_TOKEN');
     oystehr = createClinicalOystehrClient(token, SECRETS, {
       services: {
         fhirApiUrl: FHIR_API,
@@ -449,8 +443,10 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
   test('(a) non-group booking — saturated Schedule errors, no fallback attempted', async () => {
     const fixture = await buildGroupFixture({ assignmentMode: 'anonymous' });
     const hour = 14;
-    const patientSlot = await createPatientSlot({ schedule: fixture.schedule1, hourOfDay: hour });
-    const busy = await createBusySlot({ schedule: fixture.schedule1, hourOfDay: hour });
+    const [patientSlot, busy] = await Promise.all([
+      createPatientSlot({ schedule: fixture.schedule1, hourOfDay: hour }),
+      createBusySlot({ schedule: fixture.schedule1, hourOfDay: hour }),
+    ]);
     try {
       const result = await callCreateAppointment(patientSlot.id!);
       // Specific capacity-guard rejection (not any other validation that happens
@@ -484,12 +480,14 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
   test('(b) provider-mode group booking — saturated, no fallback (patient picked the provider)', async () => {
     const fixture = await buildGroupFixture({ assignmentMode: 'provider' });
     const hour = 15;
-    const patientSlot = await createPatientSlot({
-      schedule: fixture.schedule1,
-      bookedViaGroupId: fixture.groupHs.id!,
-      hourOfDay: hour,
-    });
-    const busy = await createBusySlot({ schedule: fixture.schedule1, hourOfDay: hour });
+    const [patientSlot, busy] = await Promise.all([
+      createPatientSlot({
+        schedule: fixture.schedule1,
+        bookedViaGroupId: fixture.groupHs.id!,
+        hourOfDay: hour,
+      }),
+      createBusySlot({ schedule: fixture.schedule1, hourOfDay: hour }),
+    ]);
     try {
       const result = await callCreateAppointment(patientSlot.id!);
       expectCapacityRejection(result);
@@ -521,12 +519,14 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
   test('(c) anonymous-mode group booking — reroutes to same-Location peer when original saturated', async () => {
     const fixture = await buildGroupFixture({ assignmentMode: 'anonymous' });
     const hour = 16;
-    const patientSlot = await createPatientSlot({
-      schedule: fixture.schedule1,
-      bookedViaGroupId: fixture.groupHs.id!,
-      hourOfDay: hour,
-    });
-    const busy = await createBusySlot({ schedule: fixture.schedule1, hourOfDay: hour });
+    const [patientSlot, busy] = await Promise.all([
+      createPatientSlot({
+        schedule: fixture.schedule1,
+        bookedViaGroupId: fixture.groupHs.id!,
+        hourOfDay: hour,
+      }),
+      createBusySlot({ schedule: fixture.schedule1, hourOfDay: hour }),
+    ]);
     try {
       const result = await callCreateAppointment(patientSlot.id!);
       if (!result.ok) {
@@ -560,13 +560,15 @@ describe('create-appointment group-member fallback (D-6 phase 2)', () => {
   test('(d) anonymous + all same-Location members saturated — does NOT reroute across Locations', async () => {
     const fixture = await buildGroupFixture({ assignmentMode: 'anonymous' });
     const hour = 17;
-    const patientSlot = await createPatientSlot({
-      schedule: fixture.schedule1,
-      bookedViaGroupId: fixture.groupHs.id!,
-      hourOfDay: hour,
-    });
-    const busy1 = await createBusySlot({ schedule: fixture.schedule1, hourOfDay: hour });
-    const busy2 = await createBusySlot({ schedule: fixture.schedule2, hourOfDay: hour });
+    const [patientSlot, busy1, busy2] = await Promise.all([
+      createPatientSlot({
+        schedule: fixture.schedule1,
+        bookedViaGroupId: fixture.groupHs.id!,
+        hourOfDay: hour,
+      }),
+      createBusySlot({ schedule: fixture.schedule1, hourOfDay: hour }),
+      createBusySlot({ schedule: fixture.schedule2, hourOfDay: hour }),
+    ]);
     // Schedule-3 (Loc-B) is wide open — must NOT be picked by the
     // fallback, since the originating Location is Loc-A.
     try {

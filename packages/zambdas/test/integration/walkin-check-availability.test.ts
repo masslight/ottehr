@@ -110,9 +110,11 @@ describe('walkin-check-availability integration — service mode', () => {
       return schedule.id!;
     };
 
-    scheduleIdByKind.dual = await createLocationWithSchedule([LOCATION_VIRTUAL_CODE, LOCATION_IN_PERSON_CODE]);
-    scheduleIdByKind.virtualOnly = await createLocationWithSchedule([LOCATION_VIRTUAL_CODE]);
-    scheduleIdByKind.inPersonOnly = await createLocationWithSchedule([LOCATION_IN_PERSON_CODE]);
+    [scheduleIdByKind.dual, scheduleIdByKind.virtualOnly, scheduleIdByKind.inPersonOnly] = await Promise.all([
+      createLocationWithSchedule([LOCATION_VIRTUAL_CODE, LOCATION_IN_PERSON_CODE]),
+      createLocationWithSchedule([LOCATION_VIRTUAL_CODE]),
+      createLocationWithSchedule([LOCATION_IN_PERSON_CODE]),
+    ]);
   }, 60_000);
 
   afterAll(async () => {

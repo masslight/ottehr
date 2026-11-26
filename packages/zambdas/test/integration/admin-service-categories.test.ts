@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
+import { deleteResourcesBestEffort, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
 // Covers payload validation for the admin service-category CRUD zambdas.
 // The validators reject partial payloads because `toFhirResource` reconstructs
@@ -24,13 +24,10 @@ describe('admin service-category zambdas — validation integration', () => {
   }, 60_000);
 
   afterAll(async () => {
-    for (const id of createdResourceIds) {
-      try {
-        await oystehrAdmin.fhir.delete({ resourceType: 'HealthcareService', id });
-      } catch {
-        // best-effort cleanup
-      }
-    }
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      createdResourceIds.map((id) => ({ resourceType: 'HealthcareService', id }))
+    );
     await cleanup();
   });
 

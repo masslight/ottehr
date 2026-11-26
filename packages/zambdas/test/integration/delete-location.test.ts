@@ -45,11 +45,24 @@ describe('delete-location zambda — guarded hard-delete', () => {
   afterAll(async () => {
     if (!oystehrAdmin || !processId) return;
     const tag = tagForProcessId(processId);
-    for (const resourceType of ['Appointment', 'Schedule', 'PractitionerRole', 'Location'] as const) {
+    const resourceTypes = ['Appointment', 'Schedule', 'PractitionerRole', 'Location'] as const;
+    const foundByType = await Promise.all(
+      resourceTypes.map(async (resourceType) => {
+        try {
+          return {
+            found: (
+              await oystehrAdmin.fhir.search({ resourceType, params: [{ name: '_tag', value: tag }] })
+            ).unbundle() as { id?: string }[],
+          };
+        } catch (error) {
+          return { error };
+        }
+      })
+    );
+    for (const [index, resourceType] of resourceTypes.entries()) {
       try {
-        const found = (
-          await oystehrAdmin.fhir.search({ resourceType, params: [{ name: '_tag', value: tag }] })
-        ).unbundle() as { id?: string }[];
+        const { found, error } = foundByType[index];
+        if (!found) throw error;
         const requests = found
           .filter((r) => r.id)
           .map((r) => ({ method: 'DELETE' as const, url: `${resourceType}/${r.id}` }));
@@ -156,17 +169,21 @@ describe('delete-location zambda — guarded hard-delete', () => {
 
   it('force-deletes and cascades the dependent Schedule + PractitionerRole', async () => {
     const location = await makeLocation();
-    const schedule = await addSchedule(location.id!);
-    const role = await addPractitionerRole(location.id!);
+    const [schedule, role] = await Promise.all([addSchedule(location.id!), addPractitionerRole(location.id!)]);
 
     const result = await callDelete(location.id!, true);
 
     expect(result.deleted).toBe(true);
     expect(result.cascaded.schedules).toBe(1);
     expect(result.cascaded.practitionerRoles).toBe(1);
-    expect(await exists('Location', location.id!)).toBe(false);
-    expect(await exists('Schedule', schedule.id!)).toBe(false);
-    expect(await exists('PractitionerRole', role.id!)).toBe(false);
+    const [locationExists, scheduleExists, roleExists] = await Promise.all([
+      exists('Location', location.id!),
+      exists('Schedule', schedule.id!),
+      exists('PractitionerRole', role.id!),
+    ]);
+    expect(locationExists).toBe(false);
+    expect(scheduleExists).toBe(false);
+    expect(roleExists).toBe(false);
   });
 
   it('counts Appointments toward the force=false warning', async () => {

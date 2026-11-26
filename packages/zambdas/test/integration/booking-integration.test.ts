@@ -583,10 +583,21 @@ describe('prebook integration - from getting list of slots to booking with selec
       expect(false).toBeTruthy(); // fail the test if we can't cancel the appointment
     }
 
-    const canceledAppointment = await oystehrAdmin.fhir.get<Appointment>({
-      resourceType: 'Appointment',
-      id: appointmentId,
-    });
+    const [canceledAppointment, slotSearch] = await Promise.all([
+      oystehrAdmin.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: appointmentId,
+      }),
+      oystehrAdmin.fhir.search<Slot>({
+        resourceType: 'Slot',
+        params: [
+          {
+            name: '_id',
+            value: oldSlotId,
+          },
+        ],
+      }),
+    ]);
     expect(canceledAppointment).toBeDefined();
     assert(canceledAppointment);
     expect(canceledAppointment.status).toEqual('cancelled');
@@ -599,15 +610,6 @@ describe('prebook integration - from getting list of slots to booking with selec
     } else {
       expect(canceledAppointment.cancelationReason?.coding?.[0]?.code).toBe('Patient improved');
     }
-    const slotSearch = await oystehrAdmin.fhir.search<Slot>({
-      resourceType: 'Slot',
-      params: [
-        {
-          name: '_id',
-          value: oldSlotId,
-        },
-      ],
-    });
     expect(slotSearch).toBeDefined();
     const unbundledSlots = slotSearch.unbundle();
     expect(unbundledSlots.length).toBe(0);

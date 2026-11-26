@@ -66,7 +66,10 @@ describe('custom-insurance-org CRUD', () => {
     expect(id).toBeTruthy();
     insuranceOrgId = id;
 
-    const org = await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id });
+    const [org, detailResponse] = await Promise.all([
+      oystehr.fhir.get<Organization>({ resourceType: 'Organization', id }),
+      searchDetail(id),
+    ]);
     expect(org.active).toBe(true);
     expect(
       org.type?.some(
@@ -75,7 +78,7 @@ describe('custom-insurance-org CRUD', () => {
       )
     ).toBe(true);
 
-    const detail = (await searchDetail(id)).organizations[0];
+    const detail = detailResponse.organizations[0];
     expect(detail).toEqual({
       id,
       orgId,
@@ -142,14 +145,16 @@ describe('custom-insurance-org CRUD', () => {
       .output as DeletedResponse;
     expect(result.deleted).toBe(true);
 
-    const org = await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: insuranceOrgId });
+    const [org, listResult, byId] = await Promise.all([
+      oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: insuranceOrgId }),
+      oystehr.zambda.execute({ id: 'search-billing-custom-insurance-orgs', name: orgName }),
+      searchDetail(insuranceOrgId),
+    ]);
     expect(org.active).toBe(false);
 
-    const list = (await oystehr.zambda.execute({ id: 'search-billing-custom-insurance-orgs', name: orgName }))
-      .output as SearchCustomInsuranceOrgsResponse;
+    const list = listResult.output as SearchCustomInsuranceOrgsResponse;
     expect(list.organizations.some((o) => o.id === insuranceOrgId)).toBe(false);
 
-    const byId = await searchDetail(insuranceOrgId);
     expect(byId.organizations[0]?.active).toBe(false);
   }, 90_000);
 });

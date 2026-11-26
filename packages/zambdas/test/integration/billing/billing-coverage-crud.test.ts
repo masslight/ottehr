@@ -32,21 +32,23 @@ describe('billing coverage CRUD', () => {
     cleanup = setup.cleanup;
     processId = setup.processId;
 
-    const patient = await oystehr.fhir.create<Patient>(
-      addProcessIdMetaTagToResource(
-        {
-          resourceType: 'Patient',
-          active: true,
-          name: [{ family: 'CoverageCrud', given: ['Integration'] }],
-          birthDate: '1990-01-01',
-        } as Patient,
-        processId
-      ) as Patient
-    );
+    const [patient, payersResult] = await Promise.all([
+      oystehr.fhir.create<Patient>(
+        addProcessIdMetaTagToResource(
+          {
+            resourceType: 'Patient',
+            active: true,
+            name: [{ family: 'CoverageCrud', given: ['Integration'] }],
+            birthDate: '1990-01-01',
+          } as Patient,
+          processId
+        ) as Patient
+      ),
+      oystehr.zambda.execute({ id: 'search-billing-payers' }),
+    ]);
     patientId = patient.id!;
 
-    const payersResponse = (await oystehr.zambda.execute({ id: 'search-billing-payers' }))
-      .output as SearchBillingPayersResponse;
+    const payersResponse = payersResult.output as SearchBillingPayersResponse;
     expect(payersResponse.payers.length).toBeGreaterThan(0);
     payer = payersResponse.payers[0];
   }, 90_000);

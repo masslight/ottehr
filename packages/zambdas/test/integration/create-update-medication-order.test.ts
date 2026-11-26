@@ -27,12 +27,15 @@ describe('create-update-medication-order integration — happy path', () => {
     oystehrProvider = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
     practitionerId = setup.testUserM2MProfile.replace('Practitioner/', '');
-    base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
-    const med = await oystehrProvider.zambda.execute({
-      id: 'create-in-house-medication',
-      name: `IT Med ${randomUUID().slice(0, 8)}`,
-      medispanID: `IT-${randomUUID().slice(0, 8)}`,
-    });
+    const [insertedBase, med] = await Promise.all([
+      insertInPersonAppointmentBase(setup.oystehr, setup.processId),
+      oystehrProvider.zambda.execute({
+        id: 'create-in-house-medication',
+        name: `IT Med ${randomUUID().slice(0, 8)}`,
+        medispanID: `IT-${randomUUID().slice(0, 8)}`,
+      }),
+    ]);
+    base = insertedBase;
     medicationId = (med.output as { id: string }).id;
   }, 60_000);
 

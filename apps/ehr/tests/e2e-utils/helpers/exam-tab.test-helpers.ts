@@ -1,6 +1,24 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { DateTime } from 'luxon';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
+
+const CHECKBOX_STATE_READ_CONCURRENCY = 10;
+
+async function readCheckboxStates(checkboxes: Locator): Promise<Array<{ label: string; checked: boolean }>> {
+  const count = await checkboxes.count();
+  return mapWithConcurrency(
+    Array.from({ length: count }, (_, i) => checkboxes.nth(i)),
+    CHECKBOX_STATE_READ_CONCURRENCY,
+    async (checkbox) => {
+      const [checked, label] = await Promise.all([
+        checkbox.isChecked(),
+        checkbox.locator('../..').locator('p').textContent(),
+      ]);
+      return { label: (label || '').trim(), checked };
+    }
+  );
+}
 
 /**
  * LOADING PATTERNS FOR EXAM COMPONENTS
@@ -151,32 +169,12 @@ export async function captureAllCheckboxStates(examTable: Locator): Promise<{
     // Normal checkboxes are in column 1 (index 1)
     const normalCell = cells.nth(1);
     const normalCheckboxes = normalFindingCheckboxes(normalCell);
-    const normalCount = await normalCheckboxes.count();
-
-    for (let i = 0; i < normalCount; i++) {
-      const checkbox = normalCheckboxes.nth(i);
-      const isChecked = await checkbox.isChecked();
-      // Label text is in <p> element inside the parent <label> tag (grandparent of checkbox)
-      const label = (await checkbox.locator('../..').locator('p').textContent()) || '';
-      if (label.trim()) {
-        normalCheckboxLabels.push({ label: label.trim(), checked: isChecked });
-      }
-    }
+    normalCheckboxLabels.push(...(await readCheckboxStates(normalCheckboxes)).filter(({ label }) => label));
 
     // Abnormal checkboxes are in column 2 (index 2)
     const abnormalCell = cells.nth(2);
     const abnormalCheckboxes = abnormalCell.getByRole('checkbox');
-    const abnormalCount = await abnormalCheckboxes.count();
-
-    for (let i = 0; i < abnormalCount; i++) {
-      const checkbox = abnormalCheckboxes.nth(i);
-      const isChecked = await checkbox.isChecked();
-      // Label text is in <p> element inside the parent <label> tag (grandparent of checkbox)
-      const label = (await checkbox.locator('../..').locator('p').textContent()) || '';
-      if (label.trim()) {
-        abnormalCheckboxLabels.push({ label: label.trim(), checked: isChecked });
-      }
-    }
+    abnormalCheckboxLabels.push(...(await readCheckboxStates(abnormalCheckboxes)).filter(({ label }) => label));
   }
 
   return { abnormalCheckboxLabels, normalCheckboxLabels };

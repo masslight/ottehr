@@ -36,8 +36,10 @@ const injectSourceMaps = async (sentryConfig: SentryConfig): Promise<void> => {
   };
   const revParse = await $`git rev-parse --verify HEAD`;
   const releaseName = revParse.stdout;
-  await $(shellConfig)`sentry-cli releases new ${releaseName}`;
-  await $(shellConfig)`sentry-cli sourcemaps inject .dist --quiet --log-level error`;
+  await Promise.all([
+    $(shellConfig)`sentry-cli releases new ${releaseName}`,
+    $(shellConfig)`sentry-cli sourcemaps inject .dist --quiet --log-level error`,
+  ]);
   await $(shellConfig)`sentry-cli sourcemaps upload --strict --release ${releaseName} .dist`;
   await $(shellConfig)`sentry-cli releases finalize ${releaseName}`;
 };

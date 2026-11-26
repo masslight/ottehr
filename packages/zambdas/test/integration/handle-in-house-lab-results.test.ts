@@ -29,40 +29,44 @@ describe('handle-in-house-lab-results integration — happy path', () => {
     oystehrAdmin = setup.oystehr;
     oystehrProvider = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
-    base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
     practitionerId = setup.testUserM2MProfile.replace('Practitioner/', '');
-    await oystehrAdmin.fhir.patch({
-      resourceType: 'Encounter',
-      id: base.encounter.id!,
-      operations: [
-        {
-          op: 'add',
-          path: '/participant',
-          value: [
-            {
-              type: [{ coding: [PRACTITIONER_CODINGS.Attender[0]] }],
-              individual: { reference: `Practitioner/${practitionerId}` },
-            },
-          ],
+    const setUpVisit = async (): Promise<void> => {
+      base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
+      await oystehrAdmin.fhir.patch({
+        resourceType: 'Encounter',
+        id: base.encounter.id!,
+        operations: [
+          {
+            op: 'add',
+            path: '/participant',
+            value: [
+              {
+                type: [{ coding: [PRACTITIONER_CODINGS.Attender[0]] }],
+                individual: { reference: `Practitioner/${practitionerId}` },
+              },
+            ],
+          },
+        ],
+      });
+    };
+    const setUpLab = async (): Promise<ActivityDefinition> => {
+      const addResponse = await oystehrProvider.zambda.execute({
+        id: 'admin-add-in-house-lab',
+        userId: randomUUID(),
+        data: {
+          name: `ITLab${randomUUID().replace(/-/g, '').slice(0, 10)}`,
+          cptCode: [{ code: '99000' }],
+          repeatTest: false,
+          components: [{ componentName: 'Result', dataType: 'string', display: { type: 'Free Text' } }],
         },
-      ],
-    });
-
-    const addResponse = await oystehrProvider.zambda.execute({
-      id: 'admin-add-in-house-lab',
-      userId: randomUUID(),
-      data: {
-        name: `ITLab${randomUUID().replace(/-/g, '').slice(0, 10)}`,
-        cptCode: [{ code: '99000' }],
-        repeatTest: false,
-        components: [{ componentName: 'Result', dataType: 'string', display: { type: 'Free Text' } }],
-      },
-    });
-    activityDefinitionId = (addResponse.output as { activityDefinitionId: string }).activityDefinitionId;
-    const ad = await oystehrAdmin.fhir.get<ActivityDefinition>({
-      resourceType: 'ActivityDefinition',
-      id: activityDefinitionId!,
-    });
+      });
+      activityDefinitionId = (addResponse.output as { activityDefinitionId: string }).activityDefinitionId;
+      return oystehrAdmin.fhir.get<ActivityDefinition>({
+        resourceType: 'ActivityDefinition',
+        id: activityDefinitionId!,
+      });
+    };
+    const [, ad] = await Promise.all([setUpVisit(), setUpLab()]);
     resultsData = {};
     (ad.contained ?? [])
       .filter((r): r is ObservationDefinition => r.resourceType === 'ObservationDefinition')

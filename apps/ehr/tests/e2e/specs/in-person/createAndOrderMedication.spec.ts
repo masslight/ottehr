@@ -33,13 +33,17 @@ test.beforeAll(async ({ browser }) => {
 });
 
 test.afterAll(async () => {
-  if (createdMedicationId) {
-    const oystehr = await ResourceHandler.getOystehr();
-    await oystehr.fhir.delete({ resourceType: 'Medication', id: createdMedicationId }).catch((err) => {
-      console.warn('Failed to delete created medication during cleanup:', err);
-    });
-  }
-  await resourceHandler.cleanupResources();
+  await Promise.all([
+    (async () => {
+      if (createdMedicationId) {
+        const oystehr = await ResourceHandler.getOystehr();
+        await oystehr.fhir.delete({ resourceType: 'Medication', id: createdMedicationId }).catch((err) => {
+          console.warn('Failed to delete created medication during cleanup:', err);
+        });
+      }
+    })(),
+    resourceHandler.cleanupResources(),
+  ]);
   await page.close();
   await context.close();
 });

@@ -289,25 +289,24 @@ test.describe('In-house labs page', async () => {
       // same stable MOCK_E2E_AD_TAG. Mirrors packages/utils/lib/utils/e2eCleanup.ts.
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
-      const leftOverActivityDefinitions = (
-        await oystehr.fhir.search<ActivityDefinition>({
+      const [leftOverActivityDefinitionsBundle, leftOverListsBundle] = await Promise.all([
+        oystehr.fhir.search<ActivityDefinition>({
           resourceType: 'ActivityDefinition',
           params: [
             { name: '_tag', value: `${MOCK_E2E_AD_TAG.system}|${MOCK_E2E_AD_TAG.code}` },
             { name: '_lastUpdated', value: `lt${oneHourAgo}` },
           ],
-        })
-      ).unbundle();
-
-      const leftOverLists = (
-        await oystehr.fhir.search<List>({
+        }),
+        oystehr.fhir.search<List>({
           resourceType: 'List',
           params: [
             { name: '_tag', value: `${MOCK_E2E_AD_TAG.system}|${MOCK_E2E_AD_TAG.code}` },
             { name: '_lastUpdated', value: `lt${oneHourAgo}` },
           ],
-        })
-      ).unbundle();
+        }),
+      ]);
+      const leftOverActivityDefinitions = leftOverActivityDefinitionsBundle.unbundle();
+      const leftOverLists = leftOverListsBundle.unbundle();
 
       const leftoverRefs = [...leftOverActivityDefinitions, ...leftOverLists]
         .filter((resource): resource is (ActivityDefinition | List) & { id: string } => !!resource.id)
@@ -329,8 +328,6 @@ test.describe('In-house labs page', async () => {
   }
 
   test.beforeAll('Handling ActivityDefinition and List resources for in-house labs tests', async () => {
-    await cleanupLeftoverInHouseLabsMocks();
-
     // Run-scoped copy: every mock AD canonical URL is suffixed with a per-run token so concurrent
     // runs sharing an Oystehr backend never share or duplicate canonical url|version identifiers.
     const mockData = buildRunScopedInhouseLabData();
@@ -417,9 +414,12 @@ test.describe('In-house labs page', async () => {
 
     // load all necessary resources into project
     const oystehr = await resourceHandler.apiClient;
-    const createdBundle = await oystehr.fhir.transaction<ActivityDefinition | List>({
-      requests: [...adRequests, ...listRequests],
-    });
+    const [, createdBundle] = await Promise.all([
+      cleanupLeftoverInHouseLabsMocks(),
+      oystehr.fhir.transaction<ActivityDefinition | List>({
+        requests: [...adRequests, ...listRequests],
+      }),
+    ]);
     const resources = unbundleBatchPostOutput<ActivityDefinition | List>(createdBundle);
 
     mockResourceIds = resources.map((r) => `${r.resourceType}/${r.id}`);

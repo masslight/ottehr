@@ -36,42 +36,46 @@ test.describe('Admin-added quick picks are visible and usable on appointment tab
   });
 
   test.afterAll(async () => {
-    try {
-      await page.goto('/admin/quick-picks');
-      await expect(page.getByRole('tab', { name: 'Allergies' })).toBeVisible({ timeout: 10000 });
+    await Promise.all([
+      (async () => {
+        try {
+          await page.goto('/admin/quick-picks');
+          await expect(page.getByRole('tab', { name: 'Allergies' })).toBeVisible({ timeout: 10000 });
 
-      if (allergyWasAdded && addedAllergyName) {
-        await page.getByRole('tab', { name: 'Allergies' }).click();
-        const allergyRow = page.locator('tr', { hasText: addedAllergyName });
-        if (await allergyRow.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await allergyRow.getByTitle('Remove').click();
-          await page.getByTestId(dataTestIds.dialog.proceedButton).click();
-          await page
-            .locator('div[id=notistack-snackbar]')
-            .waitFor({ state: 'visible', timeout: 5000 })
-            .catch(() => {});
+          if (allergyWasAdded && addedAllergyName) {
+            await page.getByRole('tab', { name: 'Allergies' }).click();
+            const allergyRow = page.locator('tr', { hasText: addedAllergyName });
+            if (await allergyRow.isVisible({ timeout: 3000 }).catch(() => false)) {
+              await allergyRow.getByTitle('Remove').click();
+              await page.getByTestId(dataTestIds.dialog.proceedButton).click();
+              await page
+                .locator('div[id=notistack-snackbar]')
+                .waitFor({ state: 'visible', timeout: 5000 })
+                .catch(() => {});
+            }
+          }
+
+          if (conditionWasAdded && addedMedicalConditionDisplay) {
+            await page.getByRole('tab', { name: 'Medical Conditions' }).click();
+            const conditionRow = page.locator('tr', { hasText: addedMedicalConditionDisplay });
+            if (await conditionRow.isVisible({ timeout: 3000 }).catch(() => false)) {
+              await conditionRow.getByTitle('Remove').click();
+              await page.getByTestId(dataTestIds.dialog.proceedButton).click();
+              await page
+                .locator('div[id=notistack-snackbar]')
+                .waitFor({ state: 'visible', timeout: 5000 })
+                .catch(() => {});
+            }
+          }
+        } catch {
+          // Cleanup failures should not fail the test run.
         }
-      }
 
-      if (conditionWasAdded && addedMedicalConditionDisplay) {
-        await page.getByRole('tab', { name: 'Medical Conditions' }).click();
-        const conditionRow = page.locator('tr', { hasText: addedMedicalConditionDisplay });
-        if (await conditionRow.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await conditionRow.getByTitle('Remove').click();
-          await page.getByTestId(dataTestIds.dialog.proceedButton).click();
-          await page
-            .locator('div[id=notistack-snackbar]')
-            .waitFor({ state: 'visible', timeout: 5000 })
-            .catch(() => {});
-        }
-      }
-    } catch {
-      // Cleanup failures should not fail the test run.
-    }
-
-    await page.close();
-    await context.close();
-    await resourceHandler.cleanupResources();
+        await page.close();
+        await context.close();
+      })(),
+      resourceHandler.cleanupResources(),
+    ]);
   });
 
   test('Quick picks button is visible on allergies tab when quick picks are configured', async () => {

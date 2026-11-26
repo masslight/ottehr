@@ -25,8 +25,10 @@ describe('apply-template integration — happy path', () => {
     const setup = await setupIntegrationTest('apply-template.test.ts', M2MClientMockType.provider);
     oystehrZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
-    base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
-    target = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
+    [base, target] = await Promise.all([
+      insertInPersonAppointmentBase(setup.oystehr, setup.processId),
+      insertInPersonAppointmentBase(setup.oystehr, setup.processId),
+    ]);
     await oystehrZambdas.zambda.execute({
       id: 'SAVE-CHART-DATA',
       encounterId: base.encounter.id,

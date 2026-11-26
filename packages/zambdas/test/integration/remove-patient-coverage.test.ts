@@ -23,23 +23,24 @@ describe('remove-patient-coverage integration — happy path', () => {
     oystehrProvider = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
     base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
-    const coverage = await oystehrAdmin.fhir.create<Coverage>({
-      resourceType: 'Coverage',
-      status: 'active',
-      order: 1,
-      beneficiary: { reference: `Patient/${base.patient.id}` },
-      payor: [{ display: 'Integration Test Payer' }],
-    });
-    coverageId = coverage.id;
-
     // The account-ref path picks up coverages referenced by the patient's billing
     // Account (priority 1), so link the coverage onto the seed Account.
-    const accounts = (
-      await oystehrAdmin.fhir.search<Account>({
-        resourceType: 'Account',
-        params: [{ name: 'patient', value: `Patient/${base.patient.id}` }],
-      })
-    ).unbundle();
+    const [coverage, accounts] = await Promise.all([
+      oystehrAdmin.fhir.create<Coverage>({
+        resourceType: 'Coverage',
+        status: 'active',
+        order: 1,
+        beneficiary: { reference: `Patient/${base.patient.id}` },
+        payor: [{ display: 'Integration Test Payer' }],
+      }),
+      oystehrAdmin.fhir
+        .search<Account>({
+          resourceType: 'Account',
+          params: [{ name: 'patient', value: `Patient/${base.patient.id}` }],
+        })
+        .then((bundle) => bundle.unbundle()),
+    ]);
+    coverageId = coverage.id;
     const account = accounts[0];
     await oystehrAdmin.fhir.patch<Account>({
       resourceType: 'Account',

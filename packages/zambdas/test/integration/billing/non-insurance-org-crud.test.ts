@@ -100,7 +100,11 @@ describe('non-insurance-org CRUD', () => {
     expect(id).toBeTruthy();
     nioId = id;
 
-    const org = await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id });
+    const [org, affiliations, detailResponse] = await Promise.all([
+      oystehr.fhir.get<Organization>({ resourceType: 'Organization', id }),
+      fetchAffiliations(id),
+      searchDetail(id),
+    ]);
     expect(org.active).toBe(true);
     expect(
       org.type?.some(
@@ -108,11 +112,10 @@ describe('non-insurance-org CRUD', () => {
       )
     ).toBe(true);
 
-    const affiliations = await fetchAffiliations(id);
     expect(affiliations).toHaveLength(3);
     expect(affiliations.every((affiliation) => affiliation.active)).toBe(true);
 
-    const detail = (await searchDetail(id)).organizations[0];
+    const detail = detailResponse.organizations[0];
     expect(detail).toMatchObject({
       id,
       name: nioName,
@@ -221,18 +224,21 @@ describe('non-insurance-org CRUD', () => {
       .output as DeletedResponse;
     expect(result.deleted).toBe(true);
 
-    const org = await oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: nioId });
+    const [org, affiliations, listResult, byIdResult] = await Promise.all([
+      oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: nioId }),
+      fetchAffiliations(nioId),
+      oystehr.zambda.execute({ id: 'search-billing-non-insurance-orgs', name: nioName }),
+      oystehr.zambda.execute({ id: 'list-non-insurance-organizations', nioId }),
+    ]);
     expect(org.active).toBe(false);
-    expect((await fetchAffiliations(nioId)).every((affiliation) => affiliation.active === false)).toBe(true);
+    expect(affiliations.every((affiliation) => affiliation.active === false)).toBe(true);
 
     // Gone from the list...
-    const list = (await oystehr.zambda.execute({ id: 'search-billing-non-insurance-orgs', name: nioName }))
-      .output as SearchNonInsuranceOrgsResponse;
+    const list = listResult.output as SearchNonInsuranceOrgsResponse;
     expect(list.organizations.some((o) => o.id === nioId)).toBe(false);
 
     // ...but a stored clinical reference still resolves, flagged inactive.
-    const byId = (await oystehr.zambda.execute({ id: 'list-non-insurance-organizations', nioId }))
-      .output as ListNonInsuranceOrganizationsResponse;
+    const byId = byIdResult.output as ListNonInsuranceOrganizationsResponse;
     expect(byId.organizations[0]?.active).toBe(false);
     expect(byId.organizations[0]?.name).toBe(nioName);
   }, 90_000);

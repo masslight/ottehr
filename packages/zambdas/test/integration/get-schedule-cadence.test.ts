@@ -10,7 +10,6 @@ import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
 import { GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
 import { getScheduleExtension, getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
-import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { SECRETS } from '../data/secrets';
 import {
@@ -39,15 +38,10 @@ describe('get-schedule cadence plumbing', () => {
 
   beforeAll(async () => {
     processId = randomUUID();
-    const { AUTH0_ENDPOINT, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
+    const { FHIR_API, PROJECT_ID } = SECRETS;
     const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
     expect(EXECUTE_ZAMBDA_URL).toBeDefined();
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-      AUTH0_SECRET: AUTH0_SECRET_TESTS,
-      AUTH0_AUDIENCE,
-    });
+    token = inject('ADMIN_TOKEN');
     oystehr = createClinicalOystehrClient(token, SECRETS, {
       services: {
         fhirApiUrl: FHIR_API,
@@ -144,13 +138,14 @@ describe('get-schedule cadence plumbing', () => {
 
   test('cadence=15 on a FHIR-tagged 90-minute service is honored: vended slots are 15 min apart, not the gcd-default 30', async () => {
     assert(processId);
-    const { schedule, slug } = await setUpLocationAndSchedule();
-
     // Unique code per run to dodge any BOOKING_CONFIG collision; the
     // BOOKING_CONFIG-first precedence in get-schedule would shadow this
     // category's cadence if the code happened to match a compiled-in entry.
     const uniqueCode = `cadence-plumbing-test-${randomUUID().slice(0, 8)}`;
-    await createCategoryHS({ code: uniqueCode, durationMinutes: 90, cadenceMinutes: 15 });
+    const [{ schedule, slug }] = await Promise.all([
+      setUpLocationAndSchedule(),
+      createCategoryHS({ code: uniqueCode, durationMinutes: 90, cadenceMinutes: 15 }),
+    ]);
 
     const timezone = getTimezone(schedule);
     const selectedDate = startOfDayWithTimezone({ timezone }).toISODate();
@@ -187,10 +182,11 @@ describe('get-schedule cadence plumbing', () => {
 
   test('no cadence characteristic on a FHIR-tagged 90-minute service: vended slots fall back to gcd(90,60) = 30 min apart', async () => {
     assert(processId);
-    const { schedule, slug } = await setUpLocationAndSchedule();
-
     const uniqueCode = `cadence-default-test-${randomUUID().slice(0, 8)}`;
-    await createCategoryHS({ code: uniqueCode, durationMinutes: 90 /* cadenceMinutes omitted */ });
+    const [{ schedule, slug }] = await Promise.all([
+      setUpLocationAndSchedule(),
+      createCategoryHS({ code: uniqueCode, durationMinutes: 90 /* cadenceMinutes omitted */ }),
+    ]);
 
     const timezone = getTimezone(schedule);
     const selectedDate = startOfDayWithTimezone({ timezone }).toISODate();

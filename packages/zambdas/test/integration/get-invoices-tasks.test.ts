@@ -11,11 +11,8 @@ import {
   ZERO_BALANCE_BUSINESS_STATUS,
 } from 'utils/lib/types/api/invoicing.types';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { SECRETS } from '../data/secrets';
-
-const { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } = SECRETS;
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
 
 describe.skip('get-invoices-tasks integration tests', () => {
@@ -121,16 +118,11 @@ describe.skip('get-invoices-tasks integration tests', () => {
   };
 
   beforeAll(async () => {
-    const { AUTH0_ENDPOINT, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
+    const { FHIR_API, PROJECT_ID } = SECRETS;
     const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
     expect(EXECUTE_ZAMBDA_URL).toBeDefined();
 
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-      AUTH0_SECRET: AUTH0_SECRET_TESTS,
-      AUTH0_AUDIENCE,
-    });
+    token = inject('ADMIN_TOKEN');
 
     oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,

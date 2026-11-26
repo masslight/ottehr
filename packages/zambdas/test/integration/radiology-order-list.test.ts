@@ -100,8 +100,10 @@ describe('radiology-order-list integration — happy path', () => {
 
   // A nurse placing the order on the provider's behalf must not displace the provider on the orders table.
   it("returns the visit's attending provider rather than whoever placed the order", async () => {
-    const nurse = await createProvider('Nadia', 'Nurse');
-    const attendingProvider = await createProvider('Adam', 'Attending');
+    const [nurse, attendingProvider] = await Promise.all([
+      createProvider('Nadia', 'Nurse'),
+      createProvider('Adam', 'Attending'),
+    ]);
     const serviceRequestId = await createOrderRequestedBy(nurse.id!);
 
     await oystehrAdmin.fhir.patch<Encounter>({

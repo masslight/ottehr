@@ -4,6 +4,7 @@ import { BatchInputPostRequest, default as Oystehr } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { FhirResource } from 'fhir/r4b';
 import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 
 /**
@@ -32,6 +33,7 @@ import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpe
  *      that an admin can configure self-service — never booking-gating fields.
  */
 const RUNTIME_SEED_DIR = path.resolve(__dirname, '../../../../config/runtime-seed');
+const ANCHOR_CHECK_CONCURRENCY = 5;
 
 interface SeedFile {
   name: string;
@@ -136,16 +138,13 @@ const alreadySeeded = async (oystehr: Oystehr, resources: SeedFile['resources'])
     .map((resource) => ({ resourceType: resource.resourceType, slug: slugOf(resource) }))
     .filter((anchor): anchor is { resourceType: string; slug: string } => Boolean(anchor.slug));
 
-  for (const anchor of anchors) {
-    const existing = await oystehr.fhir.search({
+  const existing = await mapWithConcurrency(anchors, ANCHOR_CHECK_CONCURRENCY, (anchor) =>
+    oystehr.fhir.search({
       resourceType: anchor.resourceType as any,
       params: [{ name: 'identifier', value: `${SLUG_SYSTEM}|${anchor.slug}` }],
-    });
-    if (existing.entry?.length) {
-      return true;
-    }
-  }
-  return false;
+    })
+  );
+  return existing.some((bundle) => Boolean(bundle.entry?.length));
 };
 
 const seedFile = async (oystehr: Oystehr, file: SeedFile, config: Record<string, unknown>): Promise<void> => {

@@ -14,7 +14,7 @@ import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
 import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { afterAll, assert, beforeAll, describe, expect, it } from 'vitest';
-import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
+import { deleteResourcesBestEffort, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
 interface ServiceCategoryResponseEntry {
   code: string;
@@ -97,24 +97,25 @@ describe('get-service-categories integration', () => {
   }
 
   const createPractitionerRoleFixture = async (opts: CreatePrOpts): Promise<PractitionerRole> => {
-    const location = await oystehrAdmin.fhir.create<Location>({
-      resourceType: 'Location',
-      status: 'active',
-      name: `PR Test Location ${opts.slug}`,
-      meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
-    });
+    const [location, practitioner] = await Promise.all([
+      oystehrAdmin.fhir.create<Location>({
+        resourceType: 'Location',
+        status: 'active',
+        name: `PR Test Location ${opts.slug}`,
+        meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+      }),
+      oystehrAdmin.fhir.create<Practitioner>({
+        resourceType: 'Practitioner',
+        active: true,
+        name: [{ family: 'Provider', given: [`PR Test ${opts.slug}`] }],
+        meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
+      }),
+    ]);
     // Assert ids immediately: FHIR create() returns typed `id?: string`
     // so a missing id would otherwise silently produce `Location/undefined`
     // references downstream and leak the resource past cleanup.
     assert(location.id, 'Location fixture missing id');
     providerFixtureCleanup.push({ resourceType: 'Location', id: location.id });
-
-    const practitioner = await oystehrAdmin.fhir.create<Practitioner>({
-      resourceType: 'Practitioner',
-      active: true,
-      name: [{ family: 'Provider', given: [`PR Test ${opts.slug}`] }],
-      meta: { tag: [{ system: INTEGRATION_TEST_TAG_SYSTEM, code: `DELETE_ME-${processId}` }] },
-    });
     assert(practitioner.id, 'Practitioner fixture missing id');
     providerFixtureCleanup.push({ resourceType: 'Practitioner', id: practitioner.id });
 
@@ -164,21 +165,15 @@ describe('get-service-categories integration', () => {
       'Location',
     ];
     for (const rt of providerOrder) {
-      for (const entry of providerFixtureCleanup.filter((e) => e.resourceType === rt)) {
-        try {
-          await oystehrAdmin.fhir.delete({ resourceType: entry.resourceType, id: entry.id });
-        } catch {
-          // Best-effort cleanup; ignore individual deletion failures.
-        }
-      }
+      await deleteResourcesBestEffort(
+        oystehrAdmin,
+        providerFixtureCleanup.filter((e) => e.resourceType === rt)
+      );
     }
-    for (const id of createdResourceIds) {
-      try {
-        await oystehrAdmin.fhir.delete({ resourceType: 'HealthcareService', id });
-      } catch {
-        // Best-effort cleanup; ignore individual deletion failures.
-      }
-    }
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      createdResourceIds.map((id) => ({ resourceType: 'HealthcareService', id }))
+    );
   });
 
   it('endpoint is reachable and returns a serviceCategories array', async () => {
@@ -234,11 +229,12 @@ describe('get-service-categories integration', () => {
     'group scope returns only the categories declared in the group type[] (flag ON)',
     async () => {
       const extraCode = uniq('grouped');
-      await createServiceCategory(extraCode, 'Grouped Service');
-
       const includedBookingCode = BOOKING_CONFIG_CODES[0];
       const slug = uniq('group-scoped');
-      await createGroup(slug, [includedBookingCode, extraCode]);
+      await Promise.all([
+        createServiceCategory(extraCode, 'Grouped Service'),
+        createGroup(slug, [includedBookingCode, extraCode]),
+      ]);
 
       const result = await callZambda({ scheduleType: 'group', bookingOn: slug });
 
@@ -255,11 +251,12 @@ describe('get-service-categories integration', () => {
     'group scope returns only the BOOKING_CONFIG codes the group declares; FHIR-declared codes are dropped (flag OFF)',
     async () => {
       const extraCode = uniq('grouped-off');
-      await createServiceCategory(extraCode, 'Grouped Service (off)');
-
       const includedBookingCode = BOOKING_CONFIG_CODES[0];
       const slug = uniq('group-scoped-off');
-      await createGroup(slug, [includedBookingCode, extraCode]);
+      await Promise.all([
+        createServiceCategory(extraCode, 'Grouped Service (off)'),
+        createGroup(slug, [includedBookingCode, extraCode]),
+      ]);
 
       const result = await callZambda({ scheduleType: 'group', bookingOn: slug });
 
@@ -310,8 +307,10 @@ describe('get-service-categories integration', () => {
     it('returns only the categories referenced by the PR healthcareService[]', async () => {
       const offeredCode = uniq('pr-offered');
       const otherCode = uniq('pr-other');
-      const offered = await createServiceCategory(offeredCode, 'Provider Offered');
-      await createServiceCategory(otherCode, 'Provider Other');
+      const [offered] = await Promise.all([
+        createServiceCategory(offeredCode, 'Provider Offered'),
+        createServiceCategory(otherCode, 'Provider Other'),
+      ]);
       // Assert the id early so the PR fixture doesn't silently construct
       // itself with `healthcareServiceIds: []` when the create response is
       // typed `id?: string` — that would make the test pass vacuously.
@@ -356,8 +355,7 @@ describe('get-service-categories integration', () => {
     it('returns every FHIR-backed category when the PR has allCategories=true', async () => {
       const codeA = uniq('all-a');
       const codeB = uniq('all-b');
-      await createServiceCategory(codeA, 'All A');
-      await createServiceCategory(codeB, 'All B');
+      await Promise.all([createServiceCategory(codeA, 'All A'), createServiceCategory(codeB, 'All B')]);
 
       const slug = uniq('pr-all-cats');
       await createPractitionerRoleFixture({ slug, allCategories: true });

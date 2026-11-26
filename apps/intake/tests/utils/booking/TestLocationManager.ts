@@ -1,4 +1,5 @@
 import { BatchInputDeleteRequest } from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
 import { HealthcareService, Location, Organization, Practitioner, PractitionerRole, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -9,6 +10,7 @@ import {
   SLUG_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { unbundleBatchPostOutput } from 'utils/lib/fhir/helpers';
 import { ServiceMode } from 'utils/lib/types/common';
 import {
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
@@ -105,9 +107,24 @@ export class TestLocationManager {
     prebookSlots?: number;
     timezone?: string;
   }): Promise<Schedule> {
+    return this.persist247Schedule(
+      this.buildLocationSchedule({ ...params, actorReference: `Location/${params.actorId}` }),
+      'Location',
+      params.actorName
+    );
+  }
+
+  private buildLocationSchedule(params: {
+    actorReference: string;
+    actorName: string;
+    processId: string;
+    tagCode: string;
+    prebookSlots?: number;
+    timezone?: string;
+  }): Schedule {
     const { prebookSlots = 32 } = params;
     const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, prebookSlots }));
-    return this.buildAndPersist247Schedule({ ...params, actorType: 'Location', hours });
+    return this.build247Schedule({ ...params, hours });
   }
 
   /**
@@ -117,17 +134,17 @@ export class TestLocationManager {
    * one concurrent appointment against the same PR are testing the wrong
    * thing semantically; raise the cap deliberately if a test really needs it.
    */
-  private async createPractitionerSchedule(params: {
-    actorId: string;
+  private buildPractitionerSchedule(params: {
+    actorReference: string;
     actorName: string;
     processId: string;
     tagCode: string;
     providers?: number;
     timezone?: string;
-  }): Promise<Schedule> {
+  }): Schedule {
     const { providers = 1 } = params;
     const hours = Array.from({ length: 24 }, (_, hour) => ({ hour, providers }));
-    return this.buildAndPersist247Schedule({ ...params, actorType: 'Practitioner', hours });
+    return this.build247Schedule({ ...params, hours });
   }
 
   /**
@@ -205,17 +222,15 @@ export class TestLocationManager {
     );
   }
 
-  private async buildAndPersist247Schedule(params: {
-    actorType: 'Location' | 'Practitioner' | 'HealthcareService';
-    actorId: string;
+  private build247Schedule(params: {
+    actorReference: string;
     actorName: string;
     processId: string;
     tagCode: string;
     hours: Array<Record<string, number>>;
     timezone?: string;
-  }): Promise<Schedule> {
-    const oystehr = this.resourceHandler.apiClient;
-    const { actorType, actorId, actorName, processId, tagCode, hours, timezone = 'America/New_York' } = params;
+  }): Schedule {
+    const { actorReference, actorName, processId, tagCode, hours, timezone = 'America/New_York' } = params;
 
     const now = DateTime.now().toUTC();
     const oneYearFromNow = now.plus({ years: 1 });
@@ -247,7 +262,7 @@ export class TestLocationManager {
       active: true,
       actor: [
         {
-          reference: `${actorType}/${actorId}`,
+          reference: actorReference,
           display: actorName,
         },
       ],
@@ -276,7 +291,15 @@ export class TestLocationManager {
       },
     };
 
-    const createdSchedule = await oystehr.fhir.create(schedule);
+    return schedule;
+  }
+
+  private async persist247Schedule(
+    schedule: Schedule,
+    actorType: 'Location' | 'Practitioner' | 'HealthcareService',
+    actorName: string
+  ): Promise<Schedule> {
+    const createdSchedule = await this.resourceHandler.apiClient.fhir.create(schedule);
 
     if (!createdSchedule.id) {
       throw new Error(`Failed to create schedule for ${actorType}: ${actorName}`);
@@ -645,11 +668,9 @@ export class TestLocationManager {
       },
     };
 
-    const createdLocation = await oystehr.fhir.create(location);
-    if (!createdLocation.id) {
-      throw new Error('Failed to create group location');
-    }
-    console.log(`Created group location: ${createdLocation.id}`);
+    const locationFullUrl = `urn:uuid:${randomUUID()}`;
+    const practitionerFullUrl = `urn:uuid:${randomUUID()}`;
+    const healthcareServiceFullUrl = `urn:uuid:${randomUUID()}`;
 
     // Create the Practitioner member
     const practitioner: Practitioner = {
@@ -673,12 +694,6 @@ export class TestLocationManager {
       },
     };
 
-    const createdPractitioner = await oystehr.fhir.create(practitioner);
-    if (!createdPractitioner.id) {
-      throw new Error('Failed to create group practitioner');
-    }
-    console.log(`Created group practitioner: ${createdPractitioner.id}`);
-
     // Create the HealthcareService
     const hcsSlug = `e2e-grp-${processId}`.toLowerCase().replace(/\s/g, '-');
     const healthcareService: HealthcareService = {
@@ -687,7 +702,7 @@ export class TestLocationManager {
       name: `E2E-Group-${processId}`,
       location: [
         {
-          reference: `Location/${createdLocation.id}`,
+          reference: locationFullUrl,
         },
       ],
       characteristic: [
@@ -739,27 +754,21 @@ export class TestLocationManager {
       },
     };
 
-    const createdHCS = await oystehr.fhir.create(healthcareService);
-    if (!createdHCS.id) {
-      throw new Error('Failed to create group HealthcareService');
-    }
-    console.log(`Created group HealthcareService: ${createdHCS.id}`);
-
     // Create PractitionerRole to link Practitioner to HealthcareService
     const practitionerRole: PractitionerRole = {
       resourceType: 'PractitionerRole',
       active: true,
       practitioner: {
-        reference: `Practitioner/${createdPractitioner.id}`,
+        reference: practitionerFullUrl,
       },
       healthcareService: [
         {
-          reference: `HealthcareService/${createdHCS.id}`,
+          reference: healthcareServiceFullUrl,
         },
       ],
       location: [
         {
-          reference: `Location/${createdLocation.id}`,
+          reference: locationFullUrl,
         },
       ],
       meta: {
@@ -773,28 +782,88 @@ export class TestLocationManager {
       },
     };
 
-    const createdPractitionerRole = await oystehr.fhir.create(practitionerRole);
-    if (!createdPractitionerRole.id) {
+    const locationScheduleActorName = location.name || 'Group Location';
+    const practitionerScheduleActorName = 'Dr. E2E TestProvider';
+    const locationScheduleTagCode = `${tagCode}-location-schedule`;
+    const practitionerScheduleTagCode = `${tagCode}-practitioner-schedule`;
+
+    const created = unbundleBatchPostOutput<Location | Practitioner | HealthcareService | PractitionerRole | Schedule>(
+      await oystehr.fhir.transaction<Location | Practitioner | HealthcareService | PractitionerRole | Schedule>({
+        requests: [
+          { method: 'POST', url: '/Location', resource: location, fullUrl: locationFullUrl },
+          { method: 'POST', url: '/Practitioner', resource: practitioner, fullUrl: practitionerFullUrl },
+          {
+            method: 'POST',
+            url: '/HealthcareService',
+            resource: healthcareService,
+            fullUrl: healthcareServiceFullUrl,
+          },
+          { method: 'POST', url: '/PractitionerRole', resource: practitionerRole },
+          {
+            method: 'POST',
+            url: '/Schedule',
+            resource: this.buildLocationSchedule({
+              actorReference: locationFullUrl,
+              actorName: locationScheduleActorName,
+              processId,
+              tagCode: locationScheduleTagCode,
+            }),
+          },
+          {
+            method: 'POST',
+            url: '/Schedule',
+            resource: this.buildPractitionerSchedule({
+              actorReference: practitionerFullUrl,
+              actorName: practitionerScheduleActorName,
+              processId,
+              tagCode: practitionerScheduleTagCode,
+            }),
+          },
+        ],
+      })
+    );
+    const createdLocation = created.find((resource): resource is Location => resource.resourceType === 'Location');
+    const createdPractitioner = created.find(
+      (resource): resource is Practitioner => resource.resourceType === 'Practitioner'
+    );
+    const createdHCS = created.find(
+      (resource): resource is HealthcareService => resource.resourceType === 'HealthcareService'
+    );
+    const createdPractitionerRole = created.find(
+      (resource): resource is PractitionerRole => resource.resourceType === 'PractitionerRole'
+    );
+    const findCreatedSchedule = (scheduleTagCode: string): Schedule | undefined =>
+      created.find(
+        (resource): resource is Schedule =>
+          resource.resourceType === 'Schedule' &&
+          !!resource.meta?.tag?.some((tag) => tag.code === `${processId}-${scheduleTagCode}`)
+      );
+    const locationSchedule = findCreatedSchedule(locationScheduleTagCode);
+    const practitionerSchedule = findCreatedSchedule(practitionerScheduleTagCode);
+
+    if (!createdLocation?.id) {
+      throw new Error('Failed to create group location');
+    }
+    console.log(`Created group location: ${createdLocation.id}`);
+    if (!createdPractitioner?.id) {
+      throw new Error('Failed to create group practitioner');
+    }
+    console.log(`Created group practitioner: ${createdPractitioner.id}`);
+    if (!createdHCS?.id) {
+      throw new Error('Failed to create group HealthcareService');
+    }
+    console.log(`Created group HealthcareService: ${createdHCS.id}`);
+    if (!createdPractitionerRole?.id) {
       throw new Error('Failed to create group PractitionerRole');
     }
     console.log(`Created group PractitionerRole: ${createdPractitionerRole.id}`);
-
-    // Create Schedule for the Location
-    const locationSchedule = await this.createLocationSchedule({
-      actorId: createdLocation.id,
-      actorName: createdLocation.name || 'Group Location',
-      processId,
-      tagCode: `${tagCode}-location-schedule`,
-    });
+    if (!locationSchedule?.id) {
+      throw new Error(`Failed to create schedule for Location: ${locationScheduleActorName}`);
+    }
     console.log(`Created group location schedule: ${locationSchedule.id}`);
-
-    // Create Schedule for the Practitioner
-    const practitionerSchedule = await this.createPractitionerSchedule({
-      actorId: createdPractitioner.id,
-      actorName: 'Dr. E2E TestProvider',
-      processId,
-      tagCode: `${tagCode}-practitioner-schedule`,
-    });
+    if (!practitionerSchedule?.id) {
+      throw new Error(`Failed to create schedule for Practitioner: ${practitionerScheduleActorName}`);
+    }
     console.log(`Created group practitioner schedule: ${practitionerSchedule.id}`);
 
     this.prebookInPersonGroup = {
@@ -1295,46 +1364,33 @@ export class TestLocationManager {
   async cleanup(): Promise<void> {
     const oystehr = this.resourceHandler.apiClient;
 
-    // Clean up walk-in location
-    if (this.walkinSchedule?.id) {
+    const deleteIfPresent = async (
+      resourceType: 'Schedule' | 'Location' | 'Organization',
+      id: string | undefined,
+      label: string
+    ): Promise<void> => {
+      if (!id) return;
       try {
-        await oystehr.fhir.delete({ resourceType: 'Schedule', id: this.walkinSchedule.id });
+        await oystehr.fhir.delete({ resourceType, id });
       } catch (error) {
-        console.warn('Failed to delete walk-in test schedule:', error);
+        console.warn(`Failed to delete ${label}:`, error);
       }
-    }
+    };
 
-    if (this.walkinLocation?.id) {
-      try {
-        await oystehr.fhir.delete({ resourceType: 'Location', id: this.walkinLocation.id });
-      } catch (error) {
-        console.warn('Failed to delete walk-in test location:', error);
-      }
-    }
+    const deleteScheduleThenLocation = async (
+      schedule: Schedule | undefined,
+      location: Location | undefined,
+      label: string
+    ): Promise<void> => {
+      await deleteIfPresent('Schedule', schedule?.id, `${label} test schedule`);
+      await deleteIfPresent('Location', location?.id, `${label} test location`);
+    };
 
-    // Clean up prebook in-person location
-    if (this.prebookInPersonSchedule?.id) {
-      try {
-        await oystehr.fhir.delete({ resourceType: 'Schedule', id: this.prebookInPersonSchedule.id });
-      } catch (error) {
-        console.warn('Failed to delete prebook in-person test schedule:', error);
-      }
-    }
-
-    if (this.prebookInPersonLocation?.id) {
-      try {
-        await oystehr.fhir.delete({ resourceType: 'Location', id: this.prebookInPersonLocation.id });
-      } catch (error) {
-        console.warn('Failed to delete prebook in-person test location:', error);
-      }
-    }
-
-    // Clean up prebook in-person group (HealthcareService, Practitioner, PractitionerRole, and their schedules)
-    if (this.prebookInPersonGroup) {
+    const deleteGroup = async (): Promise<void> => {
+      if (!this.prebookInPersonGroup) return;
       const group = this.prebookInPersonGroup;
       const deleteRequests: BatchInputDeleteRequest[] = [];
 
-      // Collect all resources to delete
       if (group.locationSchedule?.id) {
         deleteRequests.push({ method: 'DELETE', url: `/Schedule/${group.locationSchedule.id}` });
       }
@@ -1364,65 +1420,16 @@ export class TestLocationManager {
       }
 
       this.prebookInPersonGroup = undefined;
-    }
+    };
 
-    // Clean up prebook virtual location
-    if (this.prebookVirtualSchedule?.id) {
-      try {
-        await oystehr.fhir.delete({ resourceType: 'Schedule', id: this.prebookVirtualSchedule.id });
-      } catch (error) {
-        console.warn('Failed to delete prebook virtual test schedule:', error);
-      }
-    }
-
-    if (this.prebookVirtualLocation?.id) {
-      try {
-        await oystehr.fhir.delete({ resourceType: 'Location', id: this.prebookVirtualLocation.id });
-      } catch (error) {
-        console.warn('Failed to delete prebook virtual test location:', error);
-      }
-    }
-
-    // Clean up deeplink open location
-    if (this.deeplinkOpenSchedule?.id) {
-      try {
-        await oystehr.fhir.delete({ resourceType: 'Schedule', id: this.deeplinkOpenSchedule.id });
-      } catch (error) {
-        console.warn('Failed to delete deeplink open test schedule:', error);
-      }
-    }
-
-    if (this.deeplinkOpenLocation?.id) {
-      try {
-        await oystehr.fhir.delete({ resourceType: 'Location', id: this.deeplinkOpenLocation.id });
-      } catch (error) {
-        console.warn('Failed to delete deeplink open test location:', error);
-      }
-    }
-
-    // Clean up deeplink closed location
-    if (this.deeplinkClosedSchedule?.id) {
-      try {
-        await oystehr.fhir.delete({ resourceType: 'Schedule', id: this.deeplinkClosedSchedule.id });
-      } catch (error) {
-        console.warn('Failed to delete deeplink closed test schedule:', error);
-      }
-    }
-
-    if (this.deeplinkClosedLocation?.id) {
-      try {
-        await oystehr.fhir.delete({ resourceType: 'Location', id: this.deeplinkClosedLocation.id });
-      } catch (error) {
-        console.warn('Failed to delete deeplink closed test location:', error);
-      }
-    }
-
-    if (this.occMedEmployer?.id) {
-      try {
-        await oystehr.fhir.delete({ resourceType: 'Organization', id: this.occMedEmployer.id });
-      } catch (error) {
-        console.warn('Failed to delete occupational-medicine employer test organization:', error);
-      }
-    }
+    await Promise.all([
+      deleteScheduleThenLocation(this.walkinSchedule, this.walkinLocation, 'walk-in'),
+      deleteScheduleThenLocation(this.prebookInPersonSchedule, this.prebookInPersonLocation, 'prebook in-person'),
+      deleteGroup(),
+      deleteScheduleThenLocation(this.prebookVirtualSchedule, this.prebookVirtualLocation, 'prebook virtual'),
+      deleteScheduleThenLocation(this.deeplinkOpenSchedule, this.deeplinkOpenLocation, 'deeplink open'),
+      deleteScheduleThenLocation(this.deeplinkClosedSchedule, this.deeplinkClosedLocation, 'deeplink closed'),
+      deleteIfPresent('Organization', this.occMedEmployer?.id, 'occupational-medicine employer test organization'),
+    ]);
   }
 }

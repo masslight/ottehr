@@ -20,16 +20,18 @@ describe('associate-payer integration — happy path', () => {
     oystehrAdmin = setup.oystehr;
     oystehrZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
-    const created = await oystehrZambdas.zambda.execute({
-      id: 'create-fee-schedule',
-      name: `IT Fee Schedule ${randomUUID().slice(0, 8)}`,
-      effectiveDate: '2026-01-01',
-    });
+    const [created, org] = await Promise.all([
+      oystehrZambdas.zambda.execute({
+        id: 'create-fee-schedule',
+        name: `IT Fee Schedule ${randomUUID().slice(0, 8)}`,
+        effectiveDate: '2026-01-01',
+      }),
+      oystehrAdmin.fhir.create<Organization>({
+        resourceType: 'Organization',
+        name: `IT Payer ${randomUUID().slice(0, 8)}`,
+      }),
+    ]);
     feeScheduleId = (created.output as { id: string }).id;
-    const org = await oystehrAdmin.fhir.create<Organization>({
-      resourceType: 'Organization',
-      name: `IT Payer ${randomUUID().slice(0, 8)}`,
-    });
     organizationId = org.id!;
   }, 60_000);
 

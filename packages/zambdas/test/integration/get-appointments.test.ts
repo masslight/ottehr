@@ -36,33 +36,38 @@ describe('get-appointments integration — happy path', () => {
     expect(locationId).not.toBe('');
     // The seed is a booked visit without a module tag. Tag it in-person and mark it arrived so the board buckets it
     // in-office, one of the two buckets whose encounters get order icons and vitals badges.
-    await setup.oystehr.fhir.patch<Appointment>({
-      resourceType: 'Appointment',
-      id: base.appointment.id!,
-      operations: [
-        { op: 'replace', path: '/status', value: 'arrived' },
-        { op: 'add', path: '/meta/tag/-', value: { code: OTTEHR_MODULE.IP } },
-      ],
-    });
-    // Give the patient a known friendly PID, replacing any the platform assigned, so the board's patient.friendlyId
-    // is deterministic. It reaches the zambda only while Patient.identifier stays in APPOINTMENT_SEARCH_ELEMENTS.
-    const patient = await setup.oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: base.patient.id! });
-    await setup.oystehr.fhir.patch<Patient>({
-      resourceType: 'Patient',
-      id: base.patient.id!,
-      operations: [
-        {
-          op: patient.identifier ? 'replace' : 'add',
-          path: '/identifier',
-          value: [
-            ...(patient.identifier ?? []).filter(
-              (identifier) => !identifier.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE)
-            ),
-            { system: `${FRIENDLY_PATIENT_ID_SYSTEM_BASE}/integration-test`, value: friendlyPatientId },
-          ],
-        },
-      ],
-    });
+    const setFriendlyPatientId = async (): Promise<void> => {
+      // Give the patient a known friendly PID, replacing any the platform assigned, so the board's patient.friendlyId
+      // is deterministic. It reaches the zambda only while Patient.identifier stays in APPOINTMENT_SEARCH_ELEMENTS.
+      const patient = await setup.oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: base.patient.id! });
+      await setup.oystehr.fhir.patch<Patient>({
+        resourceType: 'Patient',
+        id: base.patient.id!,
+        operations: [
+          {
+            op: patient.identifier ? 'replace' : 'add',
+            path: '/identifier',
+            value: [
+              ...(patient.identifier ?? []).filter(
+                (identifier) => !identifier.system?.startsWith(FRIENDLY_PATIENT_ID_SYSTEM_BASE)
+              ),
+              { system: `${FRIENDLY_PATIENT_ID_SYSTEM_BASE}/integration-test`, value: friendlyPatientId },
+            ],
+          },
+        ],
+      });
+    };
+    await Promise.all([
+      setup.oystehr.fhir.patch<Appointment>({
+        resourceType: 'Appointment',
+        id: base.appointment.id!,
+        operations: [
+          { op: 'replace', path: '/status', value: 'arrived' },
+          { op: 'add', path: '/meta/tag/-', value: { code: OTTEHR_MODULE.IP } },
+        ],
+      }),
+      setFriendlyPatientId(),
+    ]);
   }, 60_000);
 
   afterAll(async () => {

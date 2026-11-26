@@ -230,27 +230,28 @@ const setupTestDeps = async (): Promise<void> => {
       process.exit(1);
     }
   }
+};
 
+const runE2eTestSetup = async (): Promise<void> => {
   for (const app of appsToPrepare) {
-    try {
-      // Run the e2e-test-setup.sh script with skip-prompts and current environment
-      console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
-      execSync(
+    // Run the e2e-test-setup.sh script with skip-prompts and current environment
+    console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(
         `bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV} ${
-          SMOKE_TEST === 'true' && '--mode smoke'
+          SMOKE_TEST === 'true' ? '--mode smoke' : ''
         }`,
         {
+          shell: true,
           stdio: 'inherit',
           env: { ...process.env, ENV },
         }
       );
-    } catch (error) {
-      console.error(`Failed to run e2e-test-setup.js for ${app}`);
-      console.error(error?.message);
-      console.error(error?.stack);
-      clearPorts();
-      process.exit(1);
-    }
+      child.on('error', reject);
+      child.on('close', (code) =>
+        code === 0 ? resolve() : reject(new Error(`e2e-test-setup.sh for ${app} exited with code ${code}`))
+      );
+    });
   }
 };
 
@@ -408,8 +409,21 @@ async function main(): Promise<void> {
   clearPorts();
   await setupTestDeps();
 
-  if (isEnvWithFrontendLocalServer) {
-    await startApps();
+  const [e2eSetup, apps] = await Promise.allSettled([
+    runE2eTestSetup(),
+    isEnvWithFrontendLocalServer ? startApps() : Promise.resolve(),
+  ]);
+
+  if (e2eSetup.status === 'rejected') {
+    console.error(`Failed to run e2e-test-setup.js for ${appName}`);
+    console.error(e2eSetup.reason?.message);
+    console.error(e2eSetup.reason?.stack);
+    clearPorts();
+    process.exit(1);
+  }
+
+  if (apps.status === 'rejected') {
+    throw apps.reason;
   }
 
   runTests();

@@ -164,10 +164,12 @@ describe('admin-update-group', () => {
     const collidingSlug = `aug-collide-${randomUUID().slice(0, 8)}`;
     // Occupant group already owns the slug — a second group trying the same
     // slug should get bounced by the uniqueness gate before writing.
-    await makeGroup({
-      identifier: [{ system: SLUG_SYSTEM, value: collidingSlug }],
-    });
-    const target = await makeGroup();
+    const [, target] = await Promise.all([
+      makeGroup({
+        identifier: [{ system: SLUG_SYSTEM, value: collidingSlug }],
+      }),
+      makeGroup(),
+    ]);
     const { message } = await invokeExpectingRejection({ groupId: target.id, slug: collidingSlug });
     expect(message).toMatch(/already used/i);
   });
@@ -181,16 +183,14 @@ describe('admin-update-group', () => {
   });
 
   it('replaces locationIds with the passed list', async () => {
-    const locA = await makeLocation();
-    const locB = await makeLocation();
+    const [locA, locB] = await Promise.all([makeLocation(), makeLocation()]);
     const group = await makeGroup({ location: [{ reference: `Location/${locA.id}` }] });
     const { group: updated } = await invoke({ groupId: group.id, locationIds: [locB.id] });
     expect(updated.location?.map((l) => l.reference)).toEqual([`Location/${locB.id}`]);
   });
 
   it('force-clears location[] when allLocations=true regardless of locationIds passed', async () => {
-    const locA = await makeLocation();
-    const locB = await makeLocation();
+    const [locA, locB] = await Promise.all([makeLocation(), makeLocation()]);
     const group = await makeGroup({ location: [{ reference: `Location/${locA.id}` }] });
     // Client can send both allLocations=true AND a locationIds list (e.g., a
     // stale form state). The zambda MUST prefer the toggle — the persisted

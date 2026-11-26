@@ -4,7 +4,7 @@ import { HealthcareService } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { afterAll, assert, beforeAll, describe, expect, it } from 'vitest';
-import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
+import { deleteResourcesBestEffort, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
 // toggle-group-active flips a Provider group's (HealthcareService) active flag —
 // the soft-delete/archive control, separate from admin-update-group.
@@ -24,13 +24,10 @@ describe('toggle-group-active', () => {
   }, 60_000);
 
   afterAll(async () => {
-    for (const id of createdIds) {
-      try {
-        await oystehrAdmin.fhir.delete({ resourceType: 'HealthcareService', id });
-      } catch {
-        // best-effort
-      }
-    }
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      createdIds.map((id) => ({ resourceType: 'HealthcareService', id }))
+    );
     await cleanup();
   });
 

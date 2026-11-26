@@ -4,7 +4,7 @@ import { Location, Schedule } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { afterAll, assert, beforeAll, describe, expect, it } from 'vitest';
-import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
+import { deleteResourcesBestEffort, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
 // toggle-schedule-active flips a single Schedule's active flag — deactivating
 // drops just that schedule from booking, leaving its owner (and any other
@@ -26,20 +26,14 @@ describe('toggle-schedule-active', () => {
   }, 60_000);
 
   afterAll(async () => {
-    for (const id of createdSchedules) {
-      try {
-        await oystehrAdmin.fhir.delete({ resourceType: 'Schedule', id });
-      } catch {
-        // best-effort
-      }
-    }
-    for (const id of createdLocations) {
-      try {
-        await oystehrAdmin.fhir.delete({ resourceType: 'Location', id });
-      } catch {
-        // best-effort
-      }
-    }
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      createdSchedules.map((id) => ({ resourceType: 'Schedule', id }))
+    );
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      createdLocations.map((id) => ({ resourceType: 'Location', id }))
+    );
     await cleanup();
   });
 

@@ -15,7 +15,6 @@ import { VitalsObservationDTO, VitalsVisionObservationDTO } from 'utils/lib/type
 import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
 import { assert, inject, suite } from 'vitest';
-import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
@@ -167,15 +166,10 @@ describe('saving and getting vitals', () => {
 
   beforeAll(async () => {
     processId = randomUUID();
-    const { AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS, FHIR_API, PROJECT_ID } = SECRETS;
+    const { FHIR_API, PROJECT_ID } = SECRETS;
     const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
     expect(EXECUTE_ZAMBDA_URL).toBeDefined();
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-      AUTH0_SECRET: AUTH0_SECRET_TESTS,
-      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-    });
+    token = inject('ADMIN_TOKEN');
 
     oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,
@@ -380,8 +374,7 @@ describe('saving and getting vitals', () => {
       });
 
       test('historical vitals do not include current encounter vitals, but do include previous encounter vitals', async () => {
-        const originalVitals = await getVitals(encounterId);
-        const vitals = await getHistoricVitals(encounterId);
+        const [originalVitals, vitals] = await Promise.all([getVitals(encounterId), getHistoricVitals(encounterId)]);
         expect(vitals).toBeDefined();
         const allEntries = Object.values(vitals).flat();
         expect(allEntries).toHaveLength(0);
@@ -396,11 +389,13 @@ describe('saving and getting vitals', () => {
         expect(maybePatient).toBeUndefined();
         const newEncounterId = maybeEncounter?.id;
         assert(newEncounterId);
-        const newEncounterVitals = await getVitals(newEncounterId);
+        const [newEncounterVitals, newHistoricVitals] = await Promise.all([
+          getVitals(newEncounterId),
+          getHistoricVitals(newEncounterId),
+        ]);
         expect(newEncounterVitals).toBeDefined();
         const newAllEntries = Object.values(newEncounterVitals).flat();
         expect(newAllEntries).toHaveLength(0);
-        const newHistoricVitals = await getHistoricVitals(newEncounterId);
         expect(newHistoricVitals).toBeDefined();
         expect(newHistoricVitals).toEqual(originalVitals);
       });

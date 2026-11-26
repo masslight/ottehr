@@ -46,53 +46,56 @@ describe('add-location → patient bookability integration', () => {
     // coding, timezone, slug, and the manually-created marker — PLUS an address
     // (city required by the in-person booking search `address-city:missing=false`,
     // configured by the admin on the Location tab after creation).
-    const fullLocation = (await oystehr.fhir.create<Location>(
-      addProcessIdMetaTagToResource(
-        {
-          resourceType: 'Location',
-          name: fullLocationName,
-          status: 'active',
-          address: { city: `Testville ${suffix}`, state: 'NY' },
-          identifier: [{ system: SLUG_SYSTEM, value: fullLocationSlug }],
-          extension: [
-            { url: TIMEZONE_EXTENSION_URL, valueString: TIMEZONES[0] },
-            {
-              url: LOCATION_FORM_EXTENSION_URL,
-              valueCoding: {
-                system: LOCATION_PHYSICAL_TYPE_SYSTEM,
-                code: LOCATION_IN_PERSON_CODE,
-                display: 'In Person',
+    const [fullLocation, bareLocation] = await Promise.all([
+      oystehr.fhir.create<Location>(
+        addProcessIdMetaTagToResource(
+          {
+            resourceType: 'Location',
+            name: fullLocationName,
+            status: 'active',
+            address: { city: `Testville ${suffix}`, state: 'NY' },
+            identifier: [{ system: SLUG_SYSTEM, value: fullLocationSlug }],
+            extension: [
+              { url: TIMEZONE_EXTENSION_URL, valueString: TIMEZONES[0] },
+              {
+                url: LOCATION_FORM_EXTENSION_URL,
+                valueCoding: {
+                  system: LOCATION_PHYSICAL_TYPE_SYSTEM,
+                  code: LOCATION_IN_PERSON_CODE,
+                  display: 'In Person',
+                },
               },
-            },
-            { url: LOCATION_MANUALLY_CREATED_EXTENSION_URL, valueBoolean: true },
-          ],
-        } as Location,
-        processId
-      ) as Location
-    )) as Location;
+              { url: LOCATION_MANUALLY_CREATED_EXTENSION_URL, valueBoolean: true },
+            ],
+          } as Location,
+          processId
+        ) as Location
+      ),
+      // The old "Add location" output: bare Location with only resourceType + name.
+      // No status, slug, or address — must not reach patients.
+      oystehr.fhir.create<Location>(
+        addProcessIdMetaTagToResource(
+          { resourceType: 'Location', name: `Add Location Bare ${suffix}` } as Location,
+          processId
+        ) as Location
+      ),
+    ]);
     fullLocationId = fullLocation.id;
-
-    // The old "Add location" output: bare Location with only resourceType + name.
-    // No status, slug, or address — must not reach patients.
-    const bareLocation = (await oystehr.fhir.create<Location>(
-      addProcessIdMetaTagToResource(
-        { resourceType: 'Location', name: `Add Location Bare ${suffix}` } as Location,
-        processId
-      ) as Location
-    )) as Location;
     bareLocationId = bareLocation.id;
 
     // cleanAppointmentGraph (setup.cleanup) does not delete standalone Locations,
     // so delete them explicitly here to keep the suite-wide leak gate green.
     cleanup = async (): Promise<void> => {
-      for (const id of [fullLocationId, bareLocationId]) {
-        if (!id) continue;
-        try {
-          await oystehr.fhir.delete({ resourceType: 'Location', id });
-        } catch (e) {
-          console.error(`[add-location-bookable] failed to delete Location/${id}: ${e}`);
-        }
-      }
+      await Promise.all(
+        [fullLocationId, bareLocationId].map(async (id) => {
+          if (!id) return;
+          try {
+            await oystehr.fhir.delete({ resourceType: 'Location', id });
+          } catch (e) {
+            console.error(`[add-location-bookable] failed to delete Location/${id}: ${e}`);
+          }
+        })
+      );
       await setup.cleanup();
     };
   }, 60_000);

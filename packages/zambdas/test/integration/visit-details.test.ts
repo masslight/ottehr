@@ -23,11 +23,11 @@ import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { REASON_ADDITIONAL_MAX_CHAR } from 'utils/lib/validation/constants';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { assert, inject } from 'vitest';
-import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import QRInput from '../data/questionnaire-response-1.json';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
+import { deleteResourcesBestEffort } from '../helpers/integration-test-seed-data-setup';
 import { cleanupTestScheduleResources, makeTestPatient, persistTestPatient } from '../helpers/testScheduleUtils';
 
 describe('saving and getting visit details', () => {
@@ -120,13 +120,23 @@ describe('saving and getting visit details', () => {
       method: 'POST',
       resource: encounter,
       url: 'Encounter',
+      fullUrl: `urn:uuid:${randomUUID()}`,
+    };
+    const batchInputQR: BatchInputPostRequest<QuestionnaireResponse> = {
+      method: 'POST',
+      resource: {
+        ...QRInput,
+        subject: { reference: `Patient/${patientId}` },
+        encounter: { reference: `${batchInputEnc.fullUrl}` },
+      } as QuestionnaireResponse,
+      url: 'QuestionnaireResponse',
     };
 
     try {
       const batchResults =
         (
-          await oystehr.fhir.transaction<Appointment | Encounter>({
-            requests: [batchInputApp, batchInputEnc],
+          await oystehr.fhir.transaction<Appointment | Encounter | QuestionnaireResponse>({
+            requests: [batchInputApp, batchInputEnc, batchInputQR],
           })
         ).entry?.flatMap((entry) => entry.resource ?? []) || [];
       expect(batchResults).toBeDefined();
@@ -137,13 +147,9 @@ describe('saving and getting visit details', () => {
       expect(createdAppointment?.id).toBeDefined();
       assert(createdAppointment);
 
-      const testQR = {
-        ...QRInput,
-        subject: { reference: `Patient/${patientId}` },
-        encounter: { reference: `Encounter/${createdEncounter.id}` },
-      } as QuestionnaireResponse;
-
-      const createdQR = await oystehr.fhir.create(testQR);
+      const createdQR = batchResults.find(
+        (entry) => entry.resourceType === 'QuestionnaireResponse'
+      ) as QuestionnaireResponse;
       expect(createdQR).toBeDefined();
       expect(createdQR.id).toBeDefined();
 
@@ -174,15 +180,10 @@ describe('saving and getting visit details', () => {
 
   beforeAll(async () => {
     processId = randomUUID();
-    const { AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS, FHIR_API, PROJECT_ID } = SECRETS;
+    const { FHIR_API, PROJECT_ID } = SECRETS;
     const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
     expect(EXECUTE_ZAMBDA_URL).toBeDefined();
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-      AUTH0_SECRET: AUTH0_SECRET_TESTS,
-      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-    });
+    token = inject('ADMIN_TOKEN');
 
     oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,
@@ -226,13 +227,10 @@ describe('saving and getting visit details', () => {
     if (!oystehr || !processId) {
       throw new Error('oystehr or processId is null! could not clean up!');
     }
-    for (const id of createdHealthcareServiceIds) {
-      try {
-        await oystehr.fhir.delete({ resourceType: 'HealthcareService', id });
-      } catch {
-        // best-effort cleanup
-      }
-    }
+    await deleteResourcesBestEffort(
+      oystehr,
+      createdHealthcareServiceIds.map((id) => ({ resourceType: 'HealthcareService', id }))
+    );
     // this will clean up everything connect to the test patient too
     await cleanupTestScheduleResources(processId, oystehr);
   });

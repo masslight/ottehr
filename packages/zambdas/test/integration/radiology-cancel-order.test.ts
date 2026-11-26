@@ -39,14 +39,25 @@ describe('radiology-cancel-order integration — happy path', () => {
   }, 60_000);
 
   afterAll(async () => {
-    for (const resourceType of ['ServiceRequest', 'Procedure', 'Task', 'DiagnosticReport'] as const) {
+    const resourceTypes = ['ServiceRequest', 'Procedure', 'Task', 'DiagnosticReport'] as const;
+    const foundByType = await Promise.all(
+      resourceTypes.map(async (resourceType) => {
+        try {
+          return (
+            await oystehrAdmin.fhir.search({
+              resourceType,
+              params: [{ name: 'encounter', value: `Encounter/${base.encounter.id}` }],
+            })
+          ).unbundle();
+        } catch {
+          return undefined;
+        }
+      })
+    );
+    for (const [index, resourceType] of resourceTypes.entries()) {
       try {
-        const found = (
-          await oystehrAdmin.fhir.search({
-            resourceType,
-            params: [{ name: 'encounter', value: `Encounter/${base.encounter.id}` }],
-          })
-        ).unbundle();
+        const found = foundByType[index];
+        if (!found) continue;
         await Promise.all(found.map((r) => oystehrAdmin.fhir.delete({ resourceType, id: r.id! })));
       } catch {
         // best-effort

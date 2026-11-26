@@ -2008,9 +2008,10 @@ test.describe('Patient Record Page tests with zero patient data filled in', { ta
     if (!appointmentId) {
       throw new Error('Appointment ID should be present in the response');
     }
-    await resourceHandler.tagAppointmentForCleanup(appointmentId);
-
-    const patientId = await resourceHandler.patientIdByAppointmentId(appointmentId);
+    const [, patientId] = await Promise.all([
+      resourceHandler.tagAppointmentForCleanup(appointmentId),
+      resourceHandler.patientIdByAppointmentId(appointmentId),
+    ]);
     const patientInformationPage = await openPatientInformationPage(page, patientId);
 
     await test.step('Enter contact information fields', async () => {

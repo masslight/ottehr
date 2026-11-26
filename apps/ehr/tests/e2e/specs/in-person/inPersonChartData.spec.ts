@@ -121,13 +121,17 @@ test.describe('In-Person Visit Chart Data', async () => {
   test.beforeAll(async ({ browser }) => {
     // Chart data only; nothing here reads a paperwork-derived field, and submitting paperwork
     // costs ~12s of sequential patches and polling per appointment.
-    await resourceHandler.setResources({ skipPaperwork: true });
-    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-
-    const oystehr = await ResourceHandler.getOystehr();
-    const progressNoteConfig = chooseJson<ProgressNoteConfig>(
-      await oystehr.zambda.execute({ id: 'get-progress-note-config' })
-    );
+    const [, progressNoteConfig] = await Promise.all([
+      (async () => {
+        await resourceHandler.setResources({ skipPaperwork: true });
+        await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+      })(),
+      (async () => {
+        const oystehr = await ResourceHandler.getOystehr();
+        return chooseJson<ProgressNoteConfig>(await oystehr.zambda.execute({ id: 'get-progress-note-config' }));
+      })(),
+      resourceHandler.getTestsUserAndPractitioner(),
+    ]);
     mdmDefaultText =
       progressNoteConfig?.medicalDecisionDefaultText ?? DEFAULT_PROGRESS_NOTE_CONFIG.medicalDecisionDefaultText;
     mdmRequired = progressNoteConfig?.mdmRequired ?? DEFAULT_PROGRESS_NOTE_CONFIG.mdmRequired;

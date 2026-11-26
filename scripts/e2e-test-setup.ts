@@ -168,66 +168,61 @@ async function getLocationsForTesting(ehrZambdaEnv: Record<string, string>): Pro
     };
   }
 
-  // Use getAllFhirSearchPages to handle pagination when there are more than 1000 locations
-  const locationsAndSchedules = await getAllFhirSearchPages<Location | Schedule>(
-    {
-      resourceType: 'Location',
-      params: [
-        {
-          name: '_revinclude',
-          value: 'Schedule:actor:Location',
-        },
-      ],
-    },
-    oystehr
+  const [locationsAndSchedules, defaultGroupRelatedResources] = await Promise.all([
+    // Use getAllFhirSearchPages to handle pagination when there are more than 1000 locations
+    getAllFhirSearchPages<Location | Schedule>(
+      {
+        resourceType: 'Location',
+        params: [
+          {
+            name: '_revinclude',
+            value: 'Schedule:actor:Location',
+          },
+        ],
+      },
+      oystehr
+    ),
+    defaultGroup
+      ? oystehr.fhir
+          .search<HealthcareService | Location | Practitioner | Schedule>({
+            resourceType: 'HealthcareService',
+            params: [
+              {
+                name: 'name',
+                value: defaultGroup,
+              },
+              {
+                name: '_include',
+                value: 'HealthcareService:location',
+              },
+              {
+                name: '_revinclude',
+                value: 'PractitionerRole:service',
+              },
+              {
+                name: '_include:iterate',
+                value: 'PractitionerRole:practitioner',
+              },
+              {
+                name: '_revinclude:iterate',
+                value: 'Schedule:actor:Location',
+              },
+              {
+                name: '_revinclude:iterate',
+                value: 'Schedule:actor:Practitioner',
+              },
+            ],
+          })
+          .then((response) => response.unbundle())
+      : Promise.resolve<Array<HealthcareService | Location | Practitioner | Schedule>>([]),
+  ]);
+
+  const defaultGroupLocationsAndPractitioners = defaultGroupRelatedResources.filter(
+    (res): res is Location | Practitioner => res.resourceType === 'Location' || res.resourceType === 'Practitioner'
   );
-
-  let defaultGroupLocationsAndPractitioners: Array<Location | Practitioner> = [];
-  let defaultGroupSchedules: Schedule[] = [];
-
-  if (defaultGroup) {
-    const defaultGroupRelatedResourcesResponse = await oystehr.fhir.search<
-      HealthcareService | Location | Practitioner | Schedule
-    >({
-      resourceType: 'HealthcareService',
-      params: [
-        {
-          name: 'name',
-          value: defaultGroup,
-        },
-        {
-          name: '_include',
-          value: 'HealthcareService:location',
-        },
-        {
-          name: '_revinclude',
-          value: 'PractitionerRole:service',
-        },
-        {
-          name: '_include:iterate',
-          value: 'PractitionerRole:practitioner',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Schedule:actor:Location',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Schedule:actor:Practitioner',
-        },
-      ],
-    });
-
-    const defaultGroupRelatedResources = defaultGroupRelatedResourcesResponse.unbundle();
-
-    defaultGroupLocationsAndPractitioners = defaultGroupRelatedResources.filter(
-      (res): res is Location | Practitioner => res.resourceType === 'Location' || res.resourceType === 'Practitioner'
-    );
-
-    defaultGroupSchedules = defaultGroupRelatedResources.filter(
-      (res): res is Schedule => res.resourceType === 'Schedule'
-    );
-  }
+  const defaultGroupSchedules = defaultGroupRelatedResources.filter(
+    (res): res is Schedule => res.resourceType === 'Schedule'
+  );
   const locations = locationsAndSchedules.filter((res): res is Location => res.resourceType === 'Location');
   const schedules = locationsAndSchedules.filter((res): res is Schedule => res.resourceType === 'Schedule');
 
@@ -287,7 +282,7 @@ async function getLocationsForTesting(ehrZambdaEnv: Record<string, string>): Pro
     await Promise.all([
       ensureOwnerResourceSchedulesAndSlots(locationResource, schedules, oystehr),
       ...(virtualLocation ? [ensureOwnerResourceSchedulesAndSlots(virtualLocation, schedules, oystehr)] : []),
-      defaultGroupLocationsAndPractitioners.map((owner) =>
+      ...defaultGroupLocationsAndPractitioners.map((owner) =>
         ensureOwnerResourceSchedulesAndSlots(owner, defaultGroupSchedules, oystehr)
       ),
     ]);
