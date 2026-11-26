@@ -28,6 +28,7 @@ export const dataTestIds = {
     changeStatusDropdown: 'change-status-dropdown-in-header',
     allergies: 'header-allergies',
     weight: 'header-weight',
+    keyVitals: 'header-key-vitals',
     roomSelect: 'header-room-select',
     payment: 'header-payment',
     reasonForVisit: 'header-reason-for-visit',

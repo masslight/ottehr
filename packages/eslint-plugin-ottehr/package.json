@@ -1,6 +1,6 @@
 {
   "name": "eslint-plugin-ottehr",
-  "version": "1.48.9",
+  "version": "1.48.10",
   "private": true,
   "description": "Repo-specific ESLint rules",
   "main": "index.js",
