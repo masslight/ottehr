@@ -101,7 +101,7 @@ describe('KeyVitals', () => {
 
     const tooltip = await hoverKeyVitals();
     expect(tooltip).toHaveTextContent('Temp: 97.9 F');
-    expect(tooltip).toHaveTextContent('Weight: 147.7lbs');
+    expect(tooltip).toHaveTextContent('Weight: 147.71lbs');
     expect(tooltip).toHaveTextContent(`Height: 5'7.5"`);
   });
 
