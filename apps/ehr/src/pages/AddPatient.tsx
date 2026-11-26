@@ -538,8 +538,9 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
 
   // handle functions
 
-  // Every patient detail the submission sends (raw, not normalized): an edit to any of them while the
-  // lookup runs must invalidate it, because the submit carries the values captured when it started.
+  // Every detail the submission sends (raw, not normalized): an edit to any of them while the lookup runs
+  // must invalidate it, because the submit carries the values captured when it started. That covers the
+  // visit as well as the patient: the slot, location, service category, visit type and reason fields.
   const getIdentityKey = (info: AddVisitPatientInfo | undefined, dob: DateTime | null): string =>
     JSON.stringify([
       info?.id ?? null,
@@ -550,6 +551,19 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
       info?.dateOfBirth || dob?.toISODate() || null,
       info?.sex ?? null,
       info?.phoneNumber ?? null,
+      patientOnly
+        ? null
+        : [
+            visitType ?? null,
+            serviceCategory,
+            selectedBookable
+              ? [selectedBookable.resourceType, selectedBookable.id, selectedBookable.atLocationSlug ?? null]
+              : null,
+            slot ? [slot.id ?? null, slot.start, slot.schedule?.reference ?? null] : null,
+            reasonForVisit,
+            otherReason,
+            reasonForVisitAdditional,
+          ],
     ]);
   const latestIdentityKeyRef = useRef('');
   latestIdentityKeyRef.current = getIdentityKey(patientInfo, birthDate);
@@ -557,6 +571,14 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
   // A lookup that errors must not silently let a possible duplicate through: staff retry or knowingly continue.
   const [duplicateLookupFailed, setDuplicateLookupFailed] = useState(false);
   const lookupInFlightRef = useRef(false);
+  // Cancel or navigating away unmounts the page; a lookup that resolves afterwards must not carry on submitting.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const confirmNoDuplicate = async (): Promise<boolean> => {
     const dateOfBirth = patientInfo?.dateOfBirth || birthDate?.toISODate() || undefined;
@@ -585,9 +607,10 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
       lookupInFlightRef.current = false;
       setLoading(false);
     }
+    if (!isMountedRef.current) return false;
     // Whether the lookup succeeded or failed, never carry on with details that no longer match the form.
     if (latestIdentityKeyRef.current !== checkedKey) {
-      enqueueSnackbar('Patient details changed while checking for duplicates. Please submit again.', {
+      enqueueSnackbar('Details changed while checking for duplicates. Please review and submit again.', {
         variant: 'warning',
       });
       return false;

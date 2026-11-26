@@ -4,7 +4,7 @@
 
 import { Patient } from 'fhir/r4b';
 import { describe, expect, it, vi } from 'vitest';
-import { performEffect } from '../../src/ehr/check-duplicate-patients';
+import { CheckDuplicatePatientsInputSchema, performEffect } from '../../src/ehr/check-duplicate-patients';
 import { filterDuplicatePatients } from '../../src/ehr/check-duplicate-patients/helpers';
 
 const patient = (id: string, given: string, family: string, active?: boolean): Patient => ({
@@ -78,4 +78,19 @@ describe('check-duplicate-patients performEffect', () => {
     const { candidates } = await performEffect({ ...input, includeAccountPhone: true }, { fhir: { search } } as any);
     expect(candidates).toEqual([expect.objectContaining({ patientId: '1', phone: { status: 'error' } })]);
   });
+});
+
+describe('CheckDuplicatePatientsInputSchema', () => {
+  const valid = { firstName: 'Jane', lastName: 'Doe', dateOfBirth: '2001-02-03' };
+
+  it('accepts a full date of birth', () => {
+    expect(CheckDuplicatePatientsInputSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it.each(['2001', '2001-02', '2001-02-03T10:00:00Z', 'not-a-date'])(
+    'rejects a partial or malformed date %s',
+    (dob) => {
+      expect(CheckDuplicatePatientsInputSchema.safeParse({ ...valid, dateOfBirth: dob }).success).toBe(false);
+    }
+  );
 });

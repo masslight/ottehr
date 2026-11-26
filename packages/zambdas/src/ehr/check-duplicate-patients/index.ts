@@ -1,13 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getFirstName, getLastName, getMiddleName, getPatientWithPhoneResolution } from 'utils/lib/fhir/patient';
 import {
   CheckDuplicatePatientsResponse,
   DuplicatePatientCandidate,
 } from 'utils/lib/types/api/check-duplicate-patients.types';
+import { isFullFhirDateString } from 'utils/lib/utils/date';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -22,7 +22,8 @@ let m2mToken = '';
 export const CheckDuplicatePatientsInputSchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required'),
   lastName: z.string().trim().min(1, 'Last name is required'),
-  dateOfBirth: z.string().refine((value) => DateTime.fromISO(value).isValid, 'must be a valid date'),
+  // A partial date (e.g. "2000") would make the FHIR birthdate search match a whole range of patients.
+  dateOfBirth: z.string().refine(isFullFhirDateString, 'must be a full date (YYYY-MM-DD)'),
   includeAccountPhone: z.boolean().optional(),
 });
 

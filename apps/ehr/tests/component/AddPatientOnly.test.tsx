@@ -47,9 +47,9 @@ vi.mock('../../src/hooks/useAppClients', () => ({
   useApiClients: () => mockApiClients,
 }));
 
-const renderAt = (url: string): void => {
+const renderAt = (url: string): { unmount: () => void } => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
+  return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[url]}>
         <AddPatient patientOnly={url.startsWith('/patients/add')} />
@@ -233,6 +233,28 @@ describe('Add Patient: a patient without a visit', () => {
       await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/patient/new-patient/info'));
       expect(createPatient).toHaveBeenCalledTimes(1);
       expect(checkDuplicatePatients).toHaveBeenCalledTimes(1);
+    }, 10000);
+
+    it('creates nothing when the page is left while the lookup is still pending', async () => {
+      let resolveLookup!: (value: { candidates: [] }) => void;
+      vi.mocked(checkDuplicatePatients).mockReturnValue(
+        new Promise((resolve) => {
+          resolveLookup = resolve;
+        })
+      );
+      vi.mocked(createPatient).mockResolvedValue({ patientId: 'new-patient' });
+      const user = userEvent.setup();
+      const { unmount } = renderAt('/patients/add');
+      await enterNewPatient(user);
+      await user.click(screen.getByTestId(dataTestIds.addPatientPage.addButton));
+      await waitFor(() => expect(checkDuplicatePatients).toHaveBeenCalledTimes(1));
+
+      unmount();
+      resolveLookup({ candidates: [] });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(createPatient).not.toHaveBeenCalled();
+      expect(navigateMock).not.toHaveBeenCalled();
     }, 10000);
 
     it('does not create the patient when the lookup fails until staff choose to continue', async () => {
