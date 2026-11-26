@@ -11,6 +11,7 @@ import {
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { getStripeClient } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
@@ -63,14 +64,17 @@ export const getAccountPayment = async (params: {
 }): Promise<BillingPatientAccountPayment> => {
   const { billingOystehr, clinicalPatientId, encounterId, paymentId, stripeClient } = params;
 
-  const [ehrData, billingNoticesByEncounter, claimsByEncounter] = await Promise.all([
+  const [ehrDataResult, billingNoticesResult, claimsResult] = await Promise.allSettled([
     getPatientPaymentVisits(billingOystehr, clinicalPatientId, encounterId),
     fetchPatientPaymentsByEncounterIds(billingOystehr, [encounterId]),
     fetchClaimsByEncounter(billingOystehr, [encounterId]),
   ]);
+  const ehrData = settledValueOrThrow(ehrDataResult);
   // the EHR only returns the visit when it is the patient's, so another patient's payment is never found
   const visit = ehrData.visits.find((candidate) => candidate.encounterId === encounterId);
   if (!visit) throw FHIR_RESOURCE_NOT_FOUND('Encounter');
+  const billingNoticesByEncounter = settledValueOrThrow(billingNoticesResult);
+  const claimsByEncounter = settledValueOrThrow(claimsResult);
   const notices = mergeBillingAndLegacyPaymentNotices(
     billingNoticesByEncounter.get(encounterId) ?? [],
     visit.legacyPaymentNotices

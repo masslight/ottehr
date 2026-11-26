@@ -1,8 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { STATEMENT_BILLING_CLAIM_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
-import { fetchPatientPaymentsByEncounterIds } from '../../../src/billing/claim-amounts';
+import {
+  fetchClaimResponsesByClaimIds,
+  fetchNioPaidByClaimId,
+  fetchPatientPaymentsByEncounterIds,
+} from '../../../src/billing/claim-amounts';
 import { findBillingClaimForEncounter } from '../../../src/billing/payments';
+import { fetchWriteOffsByClaimIds } from '../../../src/billing/write-offs';
 import { getBillingStatementLines } from '../../../src/shared/statements/get-billing-statement-lines';
 
 vi.mock('../../../src/billing/payments', async (importOriginal) => ({
@@ -12,6 +17,12 @@ vi.mock('../../../src/billing/payments', async (importOriginal) => ({
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../src/billing/claim-amounts')>()),
   fetchPatientPaymentsByEncounterIds: vi.fn(),
+  fetchClaimResponsesByClaimIds: vi.fn(),
+  fetchNioPaidByClaimId: vi.fn(),
+}));
+vi.mock('../../../src/billing/write-offs', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../src/billing/write-offs')>()),
+  fetchWriteOffsByClaimIds: vi.fn(),
 }));
 
 const oystehr = {} as Oystehr;
@@ -39,6 +50,9 @@ describe('getBillingStatementLines errors', () => {
       resourceType: 'Claim',
       id: 'claim-1',
     } as Awaited<ReturnType<typeof findBillingClaimForEncounter>>);
+    vi.mocked(fetchClaimResponsesByClaimIds).mockResolvedValue(new Map());
+    vi.mocked(fetchWriteOffsByClaimIds).mockResolvedValue(new Map());
+    vi.mocked(fetchNioPaidByClaimId).mockResolvedValue(new Map());
     vi.mocked(fetchPatientPaymentsByEncounterIds).mockRejectedValue(new Error('payments unavailable'));
 
     await expect(getBillingStatementLines(input)).rejects.toThrow('payments unavailable');

@@ -38,6 +38,7 @@ import { resolveCallerPractitionerRef } from '../../shared/practitioners';
 import { loadReferral } from '../../shared/referrals/load-referral';
 import { buildReferralTask, findOpenReferralTask } from '../../shared/referrals/referral-task';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { createOwnerReference, createTask } from '../../shared/tasks';
 import { ZambdaInput } from '../../shared/types/common';
 import { resolvePatientDocumentFolder } from '../shared/patient-document-folders';
@@ -72,7 +73,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
 
     // Verify the task exists and is an inbound-fax task
-    const [task, encounterSearchResults] = await Promise.all([
+    const [taskResult, encounterSearchResult] = await Promise.allSettled([
       oystehr.fhir
         .get<Task>({
           resourceType: 'Task',
@@ -94,6 +95,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             .then((bundle) => bundle.unbundle())
         : undefined,
     ]);
+    const task = settledValueOrThrow(taskResult);
 
     if (task.groupIdentifier?.value !== FAX_TASK.category) {
       throw INVALID_INPUT_ERROR(`Task/${taskId} is not an inbound-fax task`);
@@ -131,8 +133,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Everything that can reject the request runs before the folder is resolved: resolving can lazily
     // create the per-patient folder List, which a rejection afterwards would leave behind.
     let appointmentId: string | undefined;
-    if (encounterId && encounterSearchResults) {
-      const encounters = encounterSearchResults;
+    const encounters = settledValueOrThrow(encounterSearchResult);
+    if (encounterId && encounters) {
       const encounter = encounters.find((candidate) => candidate.id === encounterId);
       if (!encounter) {
         throw INVALID_INPUT_ERROR(`Encounter/${encounterId} not found for Patient/${patientId}`);
