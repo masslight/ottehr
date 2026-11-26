@@ -26,6 +26,9 @@ export const ClaimsListFiltersSchema = z.object({
   planType: stringList.optional(),
   type: z.array(z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES)).optional(),
   service: stringList.optional(),
+  cptCode: stringList.optional(),
+  modifier: stringList.optional(),
+  placeOfService: stringList.optional(),
   createdFrom: z.string().optional(),
   createdTo: z.string().optional(),
   serviceDateFrom: z.string().optional(),
@@ -64,6 +67,9 @@ export function claimsListFiltersToSearchInput(filters: ClaimsListFilters): Expo
   params.planType = list(filters.planType);
   params.type = list(filters.type);
   params.service = list(filters.service);
+  params.cptCode = list(filters.cptCode);
+  params.modifier = list(filters.modifier);
+  params.placeOfService = list(filters.placeOfService);
   if (filters.createdFrom) params.createdFrom = filters.createdFrom;
   if (filters.createdTo) params.createdTo = filters.createdTo;
   if (filters.serviceDateFrom) params.serviceDateFrom = filters.serviceDateFrom;

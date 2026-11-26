@@ -13,10 +13,11 @@ import { CLAIM_EXPORT_HEADERS, claimExportRow } from '../../../billing/claim-exp
 import {
   buildClaimFilterParams,
   CLAIM_LIST_PARAMS,
-  claimMatchesServiceDateRange,
+  claimMatchesInMemoryFilters,
   enrichAndMapClaims,
   fetchClaimsPageByIds,
   filterClaimsByPrimaryPlanType,
+  hasInMemoryClaimFilter,
   searchClaimsBySearchText,
 } from '../../../billing/claim-search';
 import { createBillingClient } from '../../../billing/shared';
@@ -104,7 +105,8 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
     sort: filters.searchText ? undefined : '_id',
   });
 
-  const filteringByServiceDate = Boolean(filters.serviceDateFrom || filters.serviceDateTo);
+  // Service date and service line filters have no search parameter; both read the dates' elements.
+  const filteringInMemory = hasInMemoryClaimFilter(filters);
   // Claim has no search parameter for its coverage's plan type, so each batch is narrowed in memory.
   const keepPlanTypes = async <T extends Claim>(claims: T[]): Promise<T[]> =>
     filters.planType?.length ? filterClaimsByPrimaryPlanType({ oystehr, claims, planTypes: filters.planType }) : claims;
@@ -136,15 +138,13 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
       oystehr,
       searchText: filters.searchText,
       filterParams,
-      withServiceDateElements: filteringByServiceDate,
+      withServiceDateElements: filteringInMemory,
       withInsuranceElements: Boolean(filters.planType?.length),
     });
-    const inDateRange = filteringByServiceDate
-      ? matched.claims.filter((claim) =>
-          claimMatchesServiceDateRange(claim, filters.serviceDateFrom, filters.serviceDateTo)
-        )
+    const inMemoryMatches = filteringInMemory
+      ? matched.claims.filter((claim) => claimMatchesInMemoryFilters(claim, filters))
       : matched.claims;
-    const matching = await keepPlanTypes(inDateRange);
+    const matching = await keepPlanTypes(inMemoryMatches);
     const claimIds = matching.map((claim) => claim.id);
     const withinLimit = claimIds.slice(0, EXPORT_CLAIMS_MATCH_LIMIT);
 
@@ -200,11 +200,7 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
 
     await addPage(
       await keepPlanTypes(
-        filteringByServiceDate
-          ? claims.filter((claim) =>
-              claimMatchesServiceDateRange(claim, filters.serviceDateFrom, filters.serviceDateTo)
-            )
-          : claims
+        filteringInMemory ? claims.filter((claim) => claimMatchesInMemoryFilters(claim, filters)) : claims
       ),
       includedResources
     );

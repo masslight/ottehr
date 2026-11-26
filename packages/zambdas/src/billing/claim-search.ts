@@ -2,6 +2,7 @@ import Oystehr, { FhirResourceReturnValue } from '@oystehr/sdk';
 import {
   Claim,
   ClaimResponse,
+  CodeableConcept,
   Coverage,
   Location,
   Organization,
@@ -290,6 +291,53 @@ export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: s
   if (toDay && day > toDay) return false;
   return true;
 };
+
+export type ClaimServiceLineFilterInput = Pick<SearchBillingClaimsInput, 'cptCode' | 'modifier' | 'placeOfService'>;
+
+export const hasServiceLineFilter = (params: ClaimServiceLineFilterInput): boolean =>
+  Boolean(params.cptCode?.length || params.modifier?.length || params.placeOfService?.length);
+
+const normalizeCode = (code: string | undefined): string => (code ?? '').trim().toUpperCase();
+
+const codesOf = (concept: CodeableConcept | undefined): string[] =>
+  (concept?.coding ?? []).map((coding) => normalizeCode(coding.code)).filter(Boolean);
+
+// Whether one of the claim's service lines matches every line filter given: one of its CPT codes, one
+// of its modifiers and one of its places of service (an unset filter matches any line). Asking it of
+// a single line keeps "99213 with modifier 25" from matching a claim whose 25 sits on another line.
+export function claimMatchesServiceLineFilter(claim: Claim, params: ClaimServiceLineFilterInput): boolean {
+  if (!hasServiceLineFilter(params)) return true;
+  const wanted = (values: string[] | undefined): Set<string> | undefined =>
+    values?.length ? new Set(values.map(normalizeCode)) : undefined;
+  const cptCodes = wanted(params.cptCode);
+  const modifiers = wanted(params.modifier);
+  const placesOfService = wanted(params.placeOfService);
+  const hasAny = (want: Set<string> | undefined, have: string[]): boolean =>
+    !want || have.some((code) => want.has(code));
+
+  return (claim.item ?? []).some(
+    (line) =>
+      hasAny(cptCodes, codesOf(line.productOrService)) &&
+      hasAny(
+        modifiers,
+        (line.modifier ?? []).flatMap((modifier) => codesOf(modifier))
+      ) &&
+      hasAny(placesOfService, codesOf(line.locationCodeableConcept))
+  );
+}
+
+// The claim filters no FHIR search parameter can apply, so they run over the scanned claims, which
+// must carry the service date elements (claimScanElements with withServiceDate).
+export type ClaimInMemoryFilterInput = ClaimServiceLineFilterInput &
+  Pick<SearchBillingClaimsInput, 'serviceDateFrom' | 'serviceDateTo'>;
+
+export const hasInMemoryClaimFilter = (params: ClaimInMemoryFilterInput): boolean =>
+  Boolean(params.serviceDateFrom || params.serviceDateTo) || hasServiceLineFilter(params);
+
+export const claimMatchesInMemoryFilters = (claim: Claim, params: ClaimInMemoryFilterInput): boolean =>
+  (!(params.serviceDateFrom || params.serviceDateTo) ||
+    claimMatchesServiceDateRange(claim, params.serviceDateFrom, params.serviceDateTo)) &&
+  claimMatchesServiceLineFilter(claim, params);
 
 export const CLAIM_SEARCH_TEXT_MATCH_LIMIT = 1000;
 export const CLAIM_SEARCH_TEXT_CONCURRENCY = 4;
@@ -608,8 +656,8 @@ export async function filterClaimsByPrimaryPlanType<T extends Pick<Claim, 'insur
 /**
  * Every claim a claims list search matches, as the scan fields only (id, meta, plus dates and total
  * when asked for) — for when the matches can't be paged by the server: a search text, a service
- * date range, a plan type, a sort with no search parameter, or a sum across all matches. Bounded by the scan
- * limits, so `incomplete` reports whether claims were left out.
+ * date range or service line filter, a plan type, a sort with no search parameter, or a sum across all
+ * matches. Bounded by the scan limits, so `incomplete` reports whether claims were left out.
  */
 export async function scanMatchingClaims({
   oystehr,
@@ -619,16 +667,14 @@ export async function scanMatchingClaims({
   withTotal,
 }: {
   oystehr: Oystehr;
-  params: Pick<
-    SearchBillingClaimsInput,
-    'searchText' | 'patientNameOnly' | 'serviceDateFrom' | 'serviceDateTo' | 'planType'
-  >;
+  params: Pick<SearchBillingClaimsInput, 'searchText' | 'patientNameOnly' | 'planType'> & ClaimInMemoryFilterInput;
   filterParams: ClaimSearchParam[];
   withServiceDate?: boolean;
   withTotal?: boolean;
 }): Promise<{ claims: FhirResourceReturnValue<Claim>[]; incomplete: boolean }> {
-  const filteringByServiceDate = Boolean(params.serviceDateFrom || params.serviceDateTo);
-  const withDates = Boolean(withServiceDate) || filteringByServiceDate;
+  const filteringInMemory = hasInMemoryClaimFilter(params);
+  // The service date elements include Claim.item, which the service line filters read too.
+  const withDates = Boolean(withServiceDate) || filteringInMemory;
   const filteringByPlanType = Boolean(params.planType?.length);
   const matched = params.searchText
     ? await searchClaimsBySearchText({
@@ -648,8 +694,8 @@ export async function scanMatchingClaims({
         withTotal,
         withInsurance: filteringByPlanType,
       });
-  let claims = filteringByServiceDate
-    ? matched.claims.filter((c) => claimMatchesServiceDateRange(c, params.serviceDateFrom, params.serviceDateTo))
+  let claims = filteringInMemory
+    ? matched.claims.filter((c) => claimMatchesInMemoryFilters(c, params))
     : matched.claims;
   if (params.planType?.length) {
     claims = await filterClaimsByPrimaryPlanType({ oystehr, claims, planTypes: params.planType });

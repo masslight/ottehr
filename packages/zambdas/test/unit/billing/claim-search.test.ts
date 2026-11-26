@@ -18,9 +18,12 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   buildClaimFilterParams,
   CLAIM_LIST_ELEMENTS,
+  claimMatchesInMemoryFilters,
   claimMatchesServiceDateRange,
+  claimMatchesServiceLineFilter,
   filterClaimsByPrimaryPlanType,
   getClaimServiceDate,
+  hasInMemoryClaimFilter,
   mapClaimToItem,
 } from '../../../src/billing/claim-search';
 import { getClaimTypeCoding } from '../../../src/billing/shared';
@@ -671,6 +674,72 @@ describe('claim search service date', () => {
   it('includes same-day claims when bounds are passed as ISO datetimes', () => {
     const claim = makeServiceDatedClaim('2026-07-21', '2026-07-19');
     expect(claimMatchesServiceDateRange(claim, '2026-07-19T00:00:00Z', '2026-07-19T23:59:59Z')).toBe(true);
+  });
+});
+
+describe('claim search service lines', () => {
+  const line = (cpt: string, modifiers: string[], pos?: string): NonNullable<Claim['item']>[number] => ({
+    sequence: 1,
+    productOrService: { coding: [{ system: 'http://www.ama-assn.org/go/cpt', code: cpt }] },
+    modifier: modifiers.map((code) => ({ coding: [{ code }] })),
+    ...(pos ? { locationCodeableConcept: { coding: [{ code: pos }] } } : {}),
+  });
+  const claimWith = (...items: NonNullable<Claim['item']>): Claim => ({
+    ...makeClaim('c-1', 100),
+    item: items,
+  });
+  const claim = claimWith(line('99213', ['25'], '11'), line('87880', ['QW'], '20'));
+
+  it('matches every claim when no line filter is set', () => {
+    expect(claimMatchesServiceLineFilter(claimWith(), {})).toBe(true);
+    expect(claimMatchesServiceLineFilter(claimWith(), { cptCode: [], modifier: [], placeOfService: [] })).toBe(true);
+  });
+
+  it('matches a claim with a line carrying any one of the CPT codes', () => {
+    expect(claimMatchesServiceLineFilter(claim, { cptCode: ['87880'] })).toBe(true);
+    expect(claimMatchesServiceLineFilter(claim, { cptCode: ['99999', '99213'] })).toBe(true);
+    expect(claimMatchesServiceLineFilter(claim, { cptCode: ['99214'] })).toBe(false);
+  });
+
+  it('matches modifiers and places of service, ignoring case and whitespace', () => {
+    expect(claimMatchesServiceLineFilter(claim, { modifier: ['qw'] })).toBe(true);
+    expect(claimMatchesServiceLineFilter(claim, { modifier: [' 59 '] })).toBe(false);
+    expect(claimMatchesServiceLineFilter(claim, { placeOfService: ['20'] })).toBe(true);
+    expect(claimMatchesServiceLineFilter(claim, { placeOfService: ['22'] })).toBe(false);
+  });
+
+  it('requires one line to match every filter, not the filters spread over lines', () => {
+    expect(claimMatchesServiceLineFilter(claim, { cptCode: ['99213'], modifier: ['25'], placeOfService: ['11'] })).toBe(
+      true
+    );
+    // 99213 is on the office line and QW on the urgent care line.
+    expect(claimMatchesServiceLineFilter(claim, { cptCode: ['99213'], modifier: ['QW'] })).toBe(false);
+    expect(claimMatchesServiceLineFilter(claim, { cptCode: ['87880'], placeOfService: ['11'] })).toBe(false);
+  });
+
+  it('matches a modifier on any position of the line', () => {
+    expect(claimMatchesServiceLineFilter(claimWith(line('20610', ['RT', '59'])), { modifier: ['59'] })).toBe(true);
+  });
+
+  it('never matches a claim without service lines or the asked-for fields', () => {
+    expect(claimMatchesServiceLineFilter(claimWith(), { cptCode: ['99213'] })).toBe(false);
+    expect(claimMatchesServiceLineFilter(claimWith(line('99213', [])), { modifier: ['25'] })).toBe(false);
+    expect(claimMatchesServiceLineFilter(claimWith(line('99213', [])), { placeOfService: ['11'] })).toBe(false);
+  });
+
+  it('combines the line filters with the service date range', () => {
+    const dated = claimWith({ ...line('99213', [], '11'), servicedPeriod: { start: '2026-07-19' } });
+    expect(hasInMemoryClaimFilter({ cptCode: ['99213'] })).toBe(true);
+    expect(hasInMemoryClaimFilter({ cptCode: [] })).toBe(false);
+    expect(
+      claimMatchesInMemoryFilters(dated, {
+        cptCode: ['99213'],
+        serviceDateFrom: '2026-07-01',
+        serviceDateTo: '2026-07-31',
+      })
+    ).toBe(true);
+    expect(claimMatchesInMemoryFilters(dated, { cptCode: ['99213'], serviceDateFrom: '2026-08-01' })).toBe(false);
+    expect(claimMatchesInMemoryFilters(dated, { cptCode: ['99214'], serviceDateFrom: '2026-07-01' })).toBe(false);
   });
 });
 

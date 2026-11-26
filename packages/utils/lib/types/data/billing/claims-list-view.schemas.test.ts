@@ -68,6 +68,19 @@ describe('claimsListFiltersToSearchInput: tags', () => {
   });
 });
 
+describe('claimsListFiltersToSearchInput: service lines', () => {
+  it('passes the CPT code, modifier and place of service filters', () => {
+    expect(
+      claimsListFiltersToSearchInput({ cptCode: ['99213'], modifier: ['25', 'QW'], placeOfService: ['11'] })
+    ).toEqual({ cptCode: ['99213'], modifier: ['25', 'QW'], placeOfService: ['11'] });
+  });
+
+  it('leaves out empty service line filters', () => {
+    expect(claimsListFiltersToSearchInput({ cptCode: [], modifier: [], placeOfService: [] })).toEqual({});
+    expect(isSameClaimsListView({ filters: { cptCode: [] }, layout: {} }, { filters: {}, layout: {} })).toBe(true);
+  });
+});
+
 describe('claimsListFiltersToSearchInput: plan type', () => {
   it('passes the chosen plan types and drops an empty choice', () => {
     expect(claimsListFiltersToSearchInput({ planType: ['12', 'MC'] })).toEqual({ planType: ['12', 'MC'] });

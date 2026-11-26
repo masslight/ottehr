@@ -299,6 +299,88 @@ describe('search-billing-claims sort', () => {
   });
 });
 
+type ServiceLine = NonNullable<Claim['item']>[number];
+
+const serviceLine = (cpt: string, modifiers: string[] = [], pos?: string): ServiceLine => ({
+  sequence: 1,
+  servicedDate: '2026-01-10',
+  productOrService: { coding: [{ code: cpt }] },
+  modifier: modifiers.map((code) => ({ coding: [{ code }] })),
+  ...(pos ? { locationCodeableConcept: { coding: [{ code: pos }] } } : {}),
+});
+
+const claimWithLines = (id: string, ...lines: ServiceLine[]): Claim =>
+  ({ ...servicedClaim(id, '2026-01-10'), item: lines }) as Claim;
+
+describe('search-billing-claims service line filters', () => {
+  let handler!: ZambdaHandler;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    ({ index: handler } = (await import('../../../src/billing/search-billing-claims/index')) as {
+      index: ZambdaHandler;
+    });
+  });
+
+  const search = async (input: SearchBillingClaimsInput): Promise<SearchBillingClaimsResponse> => {
+    const result = await handler(makeInput(input));
+    expect(result.statusCode).toBe(200);
+    return JSON.parse(result.body) as SearchBillingClaimsResponse;
+  };
+
+  // Claim has no search parameter for its lines, so a line filter sent down the server-paginated path
+  // would be silently dropped and every claim returned.
+  it.each<[string, SearchBillingClaimsInput]>([
+    ['CPT code', { cptCode: ['99213'] }],
+    ['modifier', { modifier: ['25'] }],
+    ['place of service', { placeOfService: ['11'] }],
+  ])('scans the service lines when filtering by %s alone', async (_, input) => {
+    stubSearches([
+      claimWithLines('match', serviceLine('99213', ['25'], '11')),
+      claimWithLines('other', serviceLine('87880')),
+    ]);
+
+    const response = await search({ ...input, pageSize: 25 });
+
+    expect(scanSearches()).toHaveLength(1);
+    const [{ params }] = scanSearches();
+    expect(paramNamed(params, '_include')).toBeUndefined();
+    expect(paramNamed(params, '_elements')?.value).toBe('id,meta,created,item,billablePeriod');
+    expect(response.claims.map((claim) => claim.id)).toEqual(['match']);
+    expect(response.total).toBe(1);
+  });
+
+  it('filters before counting and paging, and hydrates only the page', async () => {
+    stubSearches([
+      claimWithLines('a', serviceLine('99213')),
+      claimWithLines('skip-1', serviceLine('87880')),
+      claimWithLines('b', serviceLine('87880'), serviceLine('99213')),
+      claimWithLines('skip-2'),
+      claimWithLines('c', serviceLine('99213')),
+    ]);
+
+    const response = await search({ cptCode: ['99213'], offset: 1, pageSize: 1 });
+
+    expect(response.total).toBe(3);
+    expect(response.claims.map((claim) => claim.id)).toEqual(['b']);
+    expect(hydrationSearches()).toHaveLength(1);
+    expect(paramNamed(hydrationSearches()[0].params, '_id')?.value).toBe('b');
+  });
+
+  it('needs one line to carry the CPT code and the modifier together', async () => {
+    stubSearches([
+      claimWithLines('same-line', serviceLine('99213', ['25'])),
+      claimWithLines('split-lines', serviceLine('99213'), serviceLine('87880', ['25'])),
+    ]);
+
+    const response = await search({ cptCode: ['99213'], modifier: ['25'] });
+
+    expect(response.claims.map((claim) => claim.id)).toEqual(['same-line']);
+    expect(response.total).toBe(1);
+  });
+});
+
 describe('search-billing-claims response size limit', () => {
   let handler!: ZambdaHandler;
 

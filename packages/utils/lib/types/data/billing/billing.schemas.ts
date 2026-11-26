@@ -224,6 +224,9 @@ export const SearchBillingClaimsInputSchema = z.object({
   nonInsurancePayerId: oneOrMany(nonEmptyString.uuid()).optional(),
   service: oneOrMany(nonEmptyString).optional(),
   patientId: oneOrMany(nonEmptyString).optional(),
+  cptCode: oneOrMany(nonEmptyString).optional(),
+  modifier: oneOrMany(nonEmptyString).optional(),
+  placeOfService: oneOrMany(nonEmptyString).optional(),
   // Unset keeps the default order: most recently updated first.
   sort: ClaimSortSchema.optional(),
   offset: nonNegativeInt.optional(),
