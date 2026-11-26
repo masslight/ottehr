@@ -11,6 +11,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
@@ -27,6 +28,7 @@ import { InvoiceStatusChip } from '../components/InvoiceStatusChip';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { RecordInvoicePaymentDialog } from '../components/RecordInvoicePaymentDialog';
 import { Row } from '../components/Row';
+import { VoidInvoiceDialog } from '../components/VoidInvoiceDialog';
 import { invoicePaymentMethodLabel } from '../constants/invoice';
 import { useApiClients } from '../hooks/useAppClients';
 import { downloadUrl } from '../utils/downloadFile';
@@ -135,7 +137,12 @@ function InvoiceSections({
         <Row label="Issue date" value={formatDate(invoice.issueDate)} />
         <Row label="Due date" value={formatDate(invoice.dueDate)} />
         <Row label="Amount" value={formatCurrency(invoice.amount)} />
-        <Row label="Balance" value={invoice.balance !== undefined && formatCurrency(invoice.balance)} hideBorder />
+        <Row
+          label="Balance"
+          value={invoice.balance !== undefined && formatCurrency(invoice.balance)}
+          hideBorder={invoice.status !== 'cancelled'}
+        />
+        {invoice.status === 'cancelled' && <Row label="Void reason" value={invoice.voidReason} hideBorder />}
       </ReadOnlySection>
       <ReadOnlySection title="Payments">
         {invoice.payments.length === 0
@@ -166,6 +173,7 @@ export default function InvoiceDetail(): ReactElement {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [recordingPayment, setRecordingPayment] = useState(false);
   const [collectingCardPayment, setCollectingCardPayment] = useState(false);
+  const [voiding, setVoiding] = useState(false);
 
   const invoice = useQuery({
     queryKey: ['billing-invoice', invoiceId],
@@ -179,8 +187,12 @@ export default function InvoiceDetail(): ReactElement {
       }),
   });
 
-  const canRecordPayment =
-    invoice.data?.status === 'issued' && invoice.data.amount > 0 && invoice.data.balance === invoice.data.amount;
+  const isLocked = !(
+    invoice.data?.status === 'issued' &&
+    invoice.data.amount > 0 &&
+    invoice.data.balance === invoice.data.amount
+  );
+  const isVoid = invoice.data?.status === 'cancelled';
 
   const download = async ({
     pick,
@@ -260,19 +272,26 @@ export default function InvoiceDetail(): ReactElement {
             flexGrow: 1,
           }}
         />
-        <Button variant="contained" disabled={!canRecordPayment} onClick={() => setRecordingPayment(true)}>
+        <Button variant="contained" disabled={isLocked} onClick={() => setRecordingPayment(true)}>
           Record payment
         </Button>
-        <Button variant="outlined" disabled={!canRecordPayment} onClick={() => setCollectingCardPayment(true)}>
+        <Button variant="outlined" disabled={isLocked} onClick={() => setCollectingCardPayment(true)}>
           Collect card payment
         </Button>
-        <Button
-          startIcon={downloading ? <CircularProgress size={14} /> : <DownloadIcon />}
-          disabled={!invoice.data?.pdfUrl || downloading}
-          onClick={() => void downloadPdf()}
-        >
-          Download invoice
+        <Button variant="outlined" color="error" disabled={isLocked} onClick={() => setVoiding(true)}>
+          Void invoice
         </Button>
+        <Tooltip title={isVoid ? 'This invoice is void, so its PDF is no longer available' : ''}>
+          <span>
+            <Button
+              startIcon={downloading ? <CircularProgress size={14} /> : <DownloadIcon />}
+              disabled={!invoice.data?.pdfUrl || downloading || isVoid}
+              onClick={() => void downloadPdf()}
+            >
+              Download invoice
+            </Button>
+          </span>
+        </Tooltip>
       </Box>
       {downloadError && (
         <Alert
@@ -319,6 +338,12 @@ export default function InvoiceDetail(): ReactElement {
             open={collectingCardPayment}
             onClose={() => setCollectingCardPayment(false)}
             onPaid={() => invoice.refetch()}
+            invoice={invoice.data}
+          />
+          <VoidInvoiceDialog
+            open={voiding}
+            onClose={() => setVoiding(false)}
+            onVoided={() => invoice.refetch()}
             invoice={invoice.data}
           />
         </>

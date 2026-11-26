@@ -91,6 +91,7 @@ import {
   UpdateBillingProviderInputSchema,
   UpdateBillingResourceInputSchema,
   UpdateChargeItemDefinitionInputSchema,
+  VoidBillingInvoiceInputSchema,
   VoidBillingPatientPaymentInputSchema,
   VoidClaimWriteOffInputSchema,
   VoidEraInputSchema,
@@ -287,6 +288,11 @@ export const recordBillingNioInvoicePayment = (
   parameters: z.input<typeof RecordBillingNioInvoicePaymentInputSchema>
 ): Promise<RecordBillingNioInvoicePaymentResponse> =>
   executeBillingZambda(oystehr, 'record-billing-nio-invoice-payment', parameters);
+
+export const voidBillingNioInvoice = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof VoidBillingInvoiceInputSchema>
+): Promise<OkResponse> => executeBillingZambda(oystehr, 'void-billing-nio-invoice', parameters);
 
 export const presignBillingInvoicePaymentAttachment = (
   oystehr: Oystehr,

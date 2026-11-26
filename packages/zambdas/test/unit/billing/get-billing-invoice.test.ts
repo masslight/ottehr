@@ -277,6 +277,32 @@ describe('get-billing-invoice', () => {
     expect(result.pastDue).toBe(false);
   });
 
+  it('gives a void invoice its reason and no balance, since nothing is owed on it', async () => {
+    const { oystehr } = setup({
+      invoices: [
+        {
+          ...nioInvoice(),
+          status: 'cancelled',
+          cancelledReason: 'Billed the wrong payer',
+        },
+      ],
+    });
+
+    const result = await performEffect({
+      oystehr,
+      invoiceId: INVOICE_ID,
+      secrets,
+      today: TODAY,
+    });
+
+    expect(result).toMatchObject({
+      status: 'cancelled',
+      voidReason: 'Billed the wrong payer',
+      pastDue: false,
+    });
+    expect(result.balance).toBeUndefined();
+  });
+
   it('finds payments by the invoice payment tag', async () => {
     const { oystehr, search } = setup();
 
@@ -436,6 +462,26 @@ describe('get-billing-invoice', () => {
   it('leaves the PDF link out when the invoice has no PDF', async () => {
     const { oystehr } = setup({
       pdfs: [],
+    });
+
+    const result = await performEffect({
+      oystehr,
+      invoiceId: INVOICE_ID,
+      secrets,
+      today: TODAY,
+    });
+
+    expect(result.pdfUrl).toBeUndefined();
+  });
+
+  it('leaves the PDF link out of a void invoice, so a refetch after a void cannot download it', async () => {
+    const { oystehr } = setup({
+      invoices: [
+        {
+          ...nioInvoice(),
+          status: 'cancelled',
+        },
+      ],
     });
 
     const result = await performEffect({

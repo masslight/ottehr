@@ -19,8 +19,8 @@ import {
 import { resolveInvoiceStripePayer } from './invoice-stripe';
 import { fetchById } from './shared';
 
-// A reserving request creates its PaymentIntent within seconds; until then Stripe has nothing to show.
-export const CARD_RESERVATION_GRACE_MINUTES = 2;
+// Lambda's maximum runtime: until then a reserving request may still reach Stripe.
+export const CARD_RESERVATION_GRACE_MINUTES = 15;
 
 const CHARGING_STATUSES: Stripe.PaymentIntent.Status[] = [
   'processing',
@@ -44,7 +44,7 @@ export async function settleOtherCardReservation({
   // only called when another payment holds a reservation
   getStripe: () => Stripe;
   invoiceId: string;
-  paymentId: string;
+  paymentId?: string;
   agent: ProvenanceAgent;
   secrets: Secrets | null;
   now?: DateTime;
