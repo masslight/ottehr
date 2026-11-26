@@ -8,6 +8,7 @@ import { UpdateBillingCoverageInputSchema } from 'utils/lib/types/data/billing/b
 import { APIErrorCode, FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { resolvePayerOrganization } from '../custom-insurance-org.helpers';
@@ -53,7 +54,7 @@ async function complexValidation(
   oystehr: Oystehr,
   authorizationHeader: string | undefined
 ): Promise<ComplexValidationResult> {
-  const [{ coverage, patientId }, agent] = await Promise.all([
+  const [coverageResult, agentResult] = await Promise.allSettled([
     (async () => {
       const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.coverageId);
       const patientId = getIdFromReference(coverage.beneficiary?.reference);
@@ -78,6 +79,8 @@ async function complexValidation(
     // and keep working without a resolvable caller.
     params.claimId ? resolveClaimActor('caller', oystehr, authorizationHeader, params.secrets) : undefined,
   ]);
+  const { coverage, patientId } = settledValueOrThrow(coverageResult);
+  const agent = settledValueOrThrow(agentResult);
 
   return { patientId, coverage, agent };
 }
@@ -92,11 +95,13 @@ export async function performEffect(
   const currentSubscriberId = params.relationship
     ? getIdFromReference(coverage.subscriber?.reference, 'RelatedPerson')
     : undefined;
-  const [accounts, payerOrg, currentSubscriber] = await Promise.all([
+  const [accountsResult, payerOrgResult, currentSubscriberResult] = await Promise.allSettled([
     params.insuranceType !== undefined ? getPatientAccounts(oystehr, patientId) : [],
     params.payerId ? resolvePayerOrganization(oystehr, params.payerId) : undefined,
     currentSubscriberId ? findById<RelatedPerson>(oystehr, 'RelatedPerson', currentSubscriberId) : undefined,
   ]);
+  const accounts = settledValueOrThrow(accountsResult);
+  const payerOrg = settledValueOrThrow(payerOrgResult);
 
   // Coverage status is not part of the billing product model; keep every coverage active.
   coverage.status = 'active';
@@ -117,6 +122,7 @@ export async function performEffect(
       if (coverage.class?.[0]) coverage.class[0].value = params.groupNumber;
     }
   }
+  const currentSubscriber = settledValueOrThrow(currentSubscriberResult);
 
   // RelatedPerson create/update happens before the Coverage PUT; a delete happens after (so the
   // coverage no longer references it). All of it goes in one transaction.

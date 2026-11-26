@@ -10,6 +10,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { assignPractitionerIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -23,10 +24,12 @@ export const index = wrapHandler('assign-practitioner', async (input: ZambdaInpu
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
   console.log('Created Oystehr client');
 
-  const [validatedData, user] = await Promise.all([
+  const [validatedDataResult, userResult] = await Promise.allSettled([
     complexValidation(oystehr, validatedParameters),
     userMe(validatedParameters.userToken, validatedParameters.secrets),
   ]);
+  const validatedData = settledValueOrThrow(validatedDataResult);
+  const user = settledValueOrThrow(userResult);
 
   const response = await performEffect(oystehr, user, validatedData);
   return {

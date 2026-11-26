@@ -44,6 +44,7 @@ import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { getFreeFormEncounterSearchParams, toFreeFormEncounterRows } from '../../shared/free-form-encounters';
 
@@ -80,10 +81,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     secrets: input.secrets,
   };
 
-  const [, response] = await Promise.all([
+  const [validationResult, responseResult] = await Promise.allSettled([
     complexValidation(effectInput, oystehrClient),
     performEffect(effectInput, oystehrClient),
   ]);
+  settledValueOrThrow(validationResult);
+  const response = settledValueOrThrow(responseResult);
 
   return lambdaResponse(200, response);
 });

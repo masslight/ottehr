@@ -15,6 +15,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import { deleteZ3Object } from '../../shared/z3Utils';
@@ -52,7 +53,7 @@ const performEffect = async (
 ): Promise<DeleteApprovedPatientEducationOutput> => {
   const { documentReferenceId } = validatedInput;
 
-  const [docRef, listSearch] = await Promise.all([
+  const [docRefResult, listSearchResult] = await Promise.allSettled([
     oystehr.fhir.get<DocumentReference>({
       resourceType: 'DocumentReference',
       id: documentReferenceId,
@@ -67,6 +68,7 @@ const performEffect = async (
       ],
     }),
   ]);
+  const docRef = settledValueOrThrow(docRefResult);
   const isApprovedPatientEducation = (docRef.type?.coding ?? []).some(
     (c) => c.code === PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE
   );
@@ -75,7 +77,7 @@ const performEffect = async (
   }
   const z3Url = docRef.content?.[0]?.attachment?.url;
 
-  const list = listSearch.unbundle()[0];
+  const list = settledValueOrThrow(listSearchResult).unbundle()[0];
 
   const requests: BatchInputRequest<List | DocumentReference>[] = [];
   const deleteDocRef: BatchInputDeleteRequest = {

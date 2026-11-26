@@ -14,6 +14,7 @@ import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
+import { settledValueOrThrow } from '../../../../shared/settled';
 import { ZambdaInput } from '../../../../shared/types/common';
 import {
   getBundledOrderResources,
@@ -43,10 +44,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const now = DateTime.now();
 
   console.log('getting resources needed for submit lab');
-  const [currentUser, bundledOrdersByOrderNumber] = await Promise.all([
+  const [currentUserResult, bundledOrdersByOrderNumberResult] = await Promise.allSettled([
     userMe(userToken, secrets),
     getBundledOrderResources(oystehr, m2mToken, serviceRequestIDs, manualOrder),
   ]);
+  const currentUser = settledValueOrThrow(currentUserResult);
+  const bundledOrdersByOrderNumber = settledValueOrThrow(bundledOrdersByOrderNumberResult);
   console.log('successfully retrieved resources');
 
   // submit to oystehr labs when NOT manual order

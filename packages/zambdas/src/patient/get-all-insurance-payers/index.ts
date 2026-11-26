@@ -16,6 +16,7 @@ import {
 import { listCustomInsuranceOrganizations } from '../../shared/custom-insurance-org-directory';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 
 interface Input {
@@ -66,7 +67,7 @@ export async function getAllInsurancePayers(
   oystehr: Oystehr,
   prependIdentifier?: boolean
 ): Promise<QuestionnaireItemAnswerOption[]> {
-  const [payers, customOrgs] = await Promise.all([
+  const [payersResult, customOrgsResult] = await Promise.allSettled([
     (async (): Promise<Organization[]> => {
       console.group('listPayers');
       const allPayers: Organization[] = [];
@@ -88,6 +89,7 @@ export async function getAllInsurancePayers(
       ? listCustomInsuranceOrganizations(oystehr, {})
       : Promise.resolve([]),
   ]);
+  const payers = settledValueOrThrow(payersResult);
 
   let error: APIError | undefined;
   const mappedResults = payers
@@ -112,6 +114,7 @@ export async function getAllInsurancePayers(
   // per-deployment: with the flag off, only Oystehr payers are offered (existing coverages that
   // already reference a custom insurance organization still resolve and display correctly).
   if (FEATURE_FLAGS_CONFIG.customOrganizationsEnabled) {
+    const customOrgs = settledValueOrThrow(customOrgsResult);
     mappedResults.push(...customOrgs.map((org) => formatCustomInsuranceOrgAsAnswerOption(org, prependIdentifier)));
   }
 

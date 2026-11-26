@@ -8,6 +8,7 @@ import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { PATIENT_NOTE_TAG, TASK_NOTE_TAG, toNoteDto } from '../../../shared/notes';
 import { getMyPractitionerId } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
 
@@ -31,7 +32,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   if (taskIds) {
-    const [callerId, resources] = await Promise.all([
+    const [callerIdResult, resourcesResult] = await Promise.allSettled([
       getMyPractitionerId(getUserToken(input), secrets),
       getAllFhirSearchPages<Communication>(
         {
@@ -46,6 +47,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         oystehr
       ),
     ]);
+    const callerId = settledValueOrThrow(callerIdResult);
+    const resources = settledValueOrThrow(resourcesResult);
     const output: GetNotesOutput = { notes: resources.map((note) => toNoteDto(note, callerId)), hasMore: false };
     return { body: JSON.stringify(output), statusCode: 200 };
   }

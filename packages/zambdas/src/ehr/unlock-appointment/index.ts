@@ -20,6 +20,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { getSignatureProvenanceDeleteRequests } from '../../shared/deleteSignatureProvenances';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -52,7 +53,7 @@ export const performEffect = async (
   if (encounterId) {
     // Unlocking voids the recorded signature, so drop its Provenances; a re-sign then records a
     // fresh signing time instead of surfacing the stale one on the regenerated visit note.
-    const [user, encounter, provenanceDeleteRequests] = await Promise.all([
+    const [userResult, encounterResult, provenanceDeleteRequestsResult] = await Promise.allSettled([
       userMe(userToken, secrets),
       oystehr.fhir.get<Encounter>({
         resourceType: 'Encounter',
@@ -60,7 +61,8 @@ export const performEffect = async (
       }),
       getSignatureProvenanceDeleteRequests(oystehr, [encounterId]),
     ]);
-    const unlockedByText = getStaffCriticalUpdateBy(user);
+    const unlockedByText = getStaffCriticalUpdateBy(settledValueOrThrow(userResult));
+    const encounter = settledValueOrThrow(encounterResult);
 
     if (!encounter) {
       throw new Error(`Encounter with ID ${encounterId} not found`);
@@ -77,7 +79,7 @@ export const performEffect = async (
     });
 
     await oystehr.fhir.batch({
-      requests: [patchRequest, ...provenanceDeleteRequests],
+      requests: [patchRequest, ...settledValueOrThrow(provenanceDeleteRequestsResult)],
     });
 
     return {
@@ -89,7 +91,7 @@ export const performEffect = async (
     throw new Error('Either appointmentId or encounterId is required');
   }
 
-  const [user, appointment, provenanceDeleteRequests] = await Promise.all([
+  const [userResult, appointmentResult, provenanceDeleteRequestsResult] = await Promise.allSettled([
     userMe(userToken, secrets),
     oystehr.fhir.get<Appointment>({
       resourceType: 'Appointment',
@@ -111,7 +113,8 @@ export const performEffect = async (
         return getSignatureProvenanceDeleteRequests(oystehr, visitEncounterIds);
       }),
   ]);
-  const unlockedByText = getStaffCriticalUpdateBy(user);
+  const unlockedByText = getStaffCriticalUpdateBy(settledValueOrThrow(userResult));
+  const appointment = settledValueOrThrow(appointmentResult);
 
   if (!appointment) {
     throw new Error(`Appointment with ID ${appointmentId} not found`);
@@ -130,7 +133,7 @@ export const performEffect = async (
 
   // Execute the patch
   await oystehr.fhir.batch({
-    requests: [patchRequest, ...provenanceDeleteRequests],
+    requests: [patchRequest, ...settledValueOrThrow(provenanceDeleteRequestsResult)],
   });
 
   return {

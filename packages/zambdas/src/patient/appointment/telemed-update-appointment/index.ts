@@ -15,6 +15,7 @@ import { createUpdateUserRelatedResources, creatingPatientUpdateRequest } from '
 import { checkOrCreateM2MClientToken, getUser, userHasAccessToPatient } from '../../../shared/auth';
 import { truncateForLog } from '../../../shared/logging';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateUpdateAppointmentParams } from './validateRequestParameters';
 
@@ -81,7 +82,7 @@ export async function updateAppointment(
   const { patient, locationState } = params;
 
   // if it is a returning patient
-  const [resources, location] = await Promise.all([
+  const [resourcesResult, locationResult] = await Promise.allSettled([
     oystehr.fhir
       .search<Appointment | Patient | Encounter>({
         resourceType: 'Appointment',
@@ -103,6 +104,7 @@ export async function updateAppointment(
       .then((bundle) => bundle.unbundle()),
     locationState ? getTelemedLocation(oystehr, locationState) : Promise.resolve(undefined),
   ]);
+  const resources = settledValueOrThrow(resourcesResult);
 
   const fhirAppointment = resources.find((res) => {
     return res.resourceType === 'Appointment';
@@ -145,7 +147,7 @@ export async function updateAppointment(
   };
 
   if (locationState) {
-    const locationId = location?.id;
+    const locationId = settledValueOrThrow(locationResult)?.id;
 
     const locationParticipantIndex = fhirAppointment.participant?.findIndex(
       (p) => p.actor?.reference?.startsWith('Location/')

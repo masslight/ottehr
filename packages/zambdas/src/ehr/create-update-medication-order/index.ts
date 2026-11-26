@@ -91,10 +91,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { orderId, orderData, newStatus } = validatedParameters;
   let response: Awaited<ReturnType<typeof performEffect>>;
   try {
-    const [practitionerId, orderResources] = await Promise.all([
+    const [practitionerIdResult, orderResourcesResult] = await Promise.allSettled([
       getMyPractitionerId(userToken, validatedParameters.secrets),
       orderId && (orderData || newStatus) ? getOrderResources(oystehr, orderId) : undefined,
     ]);
+    const practitionerId = settledValueOrThrow(practitionerIdResult);
+    const orderResources = settledValueOrThrow(orderResourcesResult);
     response = await performEffect(oystehr, billingOystehr, validatedParameters, practitionerId, orderResources);
   } catch (error) {
     throw fhirValidationErrorToApiError(error) ?? error;

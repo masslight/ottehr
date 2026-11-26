@@ -22,6 +22,7 @@ import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { getMyPractitionerId } from '../../../../shared/practitioners';
 import { wrapHandler } from '../../../../shared/sentry';
+import { settledValueOrThrow } from '../../../../shared/settled';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { makeSoftDeleteStatusPatchRequest } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -169,11 +170,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const [currentUserPractitionerId, resources] = await Promise.all([
+  const [currentUserPractitionerIdResult, resourcesResult] = await Promise.allSettled([
     getMyPractitionerId(userToken, secrets),
     getInHouseLabOrderRelatedResources(oystehr, serviceRequestId),
   ]);
+  const currentUserPractitionerId = settledValueOrThrow(currentUserPractitionerIdResult);
   console.log(`User initiating delete action is Practitioner/${currentUserPractitionerId}`);
+
+  const resources = settledValueOrThrow(resourcesResult);
 
   if (!resources.serviceRequest) {
     return {

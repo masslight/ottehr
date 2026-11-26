@@ -5,6 +5,7 @@ import { setNpi } from 'utils/lib/fhir/helpers';
 import { UpdateBillingProviderInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { commitClaimResourceChange, resolveClaimActor } from '../provenance';
@@ -58,10 +59,12 @@ export async function performEffect(
   callerAgent?: ProvenanceAgent | Promise<ProvenanceAgent | undefined>
 ): Promise<{ id: string }> {
   if (params.kind === 'individual') {
-    const [provider, agent] = await Promise.all([
+    const [providerResult, agentResult] = await Promise.allSettled([
       fetchById<Practitioner>(oystehr, 'Practitioner', params.providerId),
       callerAgent,
     ]);
+    const agent = settledValueOrThrow(agentResult);
+    const provider = settledValueOrThrow(providerResult);
     const before = structuredClone(provider);
     provider.name = [{ family: params.lastName, given: [params.firstName] }];
     applyIdentifiersAndAddress(provider, params);
@@ -70,10 +73,12 @@ export async function performEffect(
     return save(oystehr, params, provider, before, agent);
   }
 
-  const [provider, agent] = await Promise.all([
+  const [providerResult, agentResult] = await Promise.allSettled([
     fetchById<Organization>(oystehr, 'Organization', params.providerId),
     callerAgent,
   ]);
+  const agent = settledValueOrThrow(agentResult);
+  const provider = settledValueOrThrow(providerResult);
   const before = structuredClone(provider);
   provider.name = params.name;
   applyIdentifiersAndAddress(provider, params);

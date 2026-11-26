@@ -6,6 +6,7 @@ import { SaveServiceFacilityInputSchema } from 'utils/lib/types/data/billing/bil
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { commitClaimResourceChange, resolveClaimActor } from '../provenance';
@@ -49,7 +50,7 @@ export async function complexValidation(
 ): Promise<{ existing: Location | undefined; agent: ProvenanceAgent | undefined }> {
   const { facilityId } = params;
 
-  const [existing, agent] = await Promise.all([
+  const [existingResult, agentResult] = await Promise.allSettled([
     // Duplicate NPI/CLIA numbers are allowed (e.g. several sites billed under one NPI); the UI warns
     // about them via search-billing-service-facilities instead of blocking the save.
     facilityId ? fetchById<Location>(oystehr, 'Location', facilityId) : undefined,
@@ -58,6 +59,8 @@ export async function complexValidation(
     // and keep working without a resolvable caller.
     params.claimId ? resolveClaimActor('caller', oystehr, authorizationHeader, params.secrets) : undefined,
   ]);
+  const existing = settledValueOrThrow(existingResult);
+  const agent = settledValueOrThrow(agentResult);
 
   return { existing, agent };
 }

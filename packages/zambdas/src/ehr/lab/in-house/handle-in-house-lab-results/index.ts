@@ -67,6 +67,7 @@ import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { createInHouseLabResultPDF } from '../../../../shared/pdf/labs-results-form-pdf';
 import { getMyPractitionerId } from '../../../../shared/practitioners';
 import { wrapHandler } from '../../../../shared/sentry';
+import { settledValueOrThrow } from '../../../../shared/settled';
 import { createOwnerReference } from '../../../../shared/tasks';
 import { ZambdaInput } from '../../../../shared/types/common';
 import {
@@ -210,7 +211,7 @@ const getInHouseLabResultResources = async (
   existingDiagnosticReport: DiagnosticReport | undefined;
   resultEntryMode: EntryMode;
 }> => {
-  const [curUserPractitionerId, labOrderResourcesBundle] = await Promise.all([
+  const [curUserPractitionerIdResult, labOrderResourcesBundleResult] = await Promise.allSettled([
     getMyPractitionerId(userToken, secrets),
     oystehr.fhir.search<
       ServiceRequest | Patient | Encounter | Specimen | Task | Schedule | Location | DiagnosticReport
@@ -267,7 +268,8 @@ const getInHouseLabResultResources = async (
       ],
     }),
   ]);
-  const labOrderResources = labOrderResourcesBundle.unbundle();
+  const curUserPractitionerId = settledValueOrThrow(curUserPractitionerIdResult);
+  const labOrderResources = settledValueOrThrow(labOrderResourcesBundleResult).unbundle();
 
   console.log('labOrderResources', JSON.stringify(labOrderResources));
 

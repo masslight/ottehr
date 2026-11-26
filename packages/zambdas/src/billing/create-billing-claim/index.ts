@@ -96,7 +96,7 @@ async function performEffect(
   params: CreateClaimParams,
   callerAgent: Promise<ProvenanceAgent>
 ): Promise<{ claimId: string }> {
-  const [agent, originals] = await Promise.all([
+  const [agentResult, originalsResult] = await Promise.allSettled([
     callerAgent,
     (async () => {
       // before any working copies get created, so a bad ordering provider leaves nothing behind
@@ -107,6 +107,8 @@ async function performEffect(
       return readOriginals(oystehr, params);
     })(),
   ]);
+  const agent = settledValueOrThrow(agentResult);
+  const originals = settledValueOrThrow(originalsResult);
   const copies = await createWorkingCopies(oystehr, originals);
 
   // Resolve the payer's display up front so the claim's references (and therefore its history

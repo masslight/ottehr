@@ -29,6 +29,7 @@ import { CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM } from 'utils/lib/types/data/billi
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { isValidUUID } from 'utils/lib/validation/helper';
+import { settledValueOrThrow } from '../shared/settled';
 import {
   fetchClaimResponsesByClaimIds,
   fetchNioPaidByClaimId,
@@ -159,7 +160,7 @@ export async function buildClaimFilterParams({
   params: ClaimFilterInput;
   sort?: string;
 }): Promise<ClaimSearchParam[]> {
-  const [insurerFilter, linkedPatientIds] = await Promise.all([
+  const [insurerFilterResult, linkedPatientIdsResult] = await Promise.allSettled([
     (async (): Promise<string | undefined> => {
       if (params.payerId?.length) {
         // A business-id-shaped payerId ("OTR-...") names a custom insurance organization rather than an
@@ -187,6 +188,7 @@ export async function buildClaimFilterParams({
       )
     ),
   ]);
+  const insurerFilter = settledValueOrThrow(insurerFilterResult);
 
   const filterParams: ClaimSearchParam[] = [
     {
@@ -246,7 +248,7 @@ export async function buildClaimFilterParams({
       value: `le${params.updatedBefore}`,
     });
   if (params.patientId?.length) {
-    filterParams.push(patientSearchParam([...new Set(linkedPatientIds.flat())]));
+    filterParams.push(patientSearchParam([...new Set(settledValueOrThrow(linkedPatientIdsResult).flat())]));
   }
   pushTagFilter(CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM, params.service);
   if (insurerFilter)
