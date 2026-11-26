@@ -8,9 +8,9 @@ import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
 import { ChargeBillingNioInvoiceCardInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { RecordBillingNioInvoicePaymentResponse } from 'utils/lib/types/data/billing/billing.types';
 import {
+  BILLING_INVOICE_CONFLICT_ERROR,
   GENERIC_STRIPE_PAYMENT_ERROR,
   parseStripeError,
-  SPECIFIC_STRIPE_PAYMENT_ERROR,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
 } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -166,7 +166,7 @@ export async function performEffect({
     });
   } catch (error) {
     console.error(`Charged ${paymentIntent.id} for invoice ${invoiceNumber} but could not record it`, error);
-    throw SPECIFIC_STRIPE_PAYMENT_ERROR(
+    throw BILLING_INVOICE_CONFLICT_ERROR(
       `The card was charged (${paymentIntent.id}), but the payment couldn't be recorded on invoice ` +
         `${invoiceNumber}. Refresh the invoice before trying again.`
     );

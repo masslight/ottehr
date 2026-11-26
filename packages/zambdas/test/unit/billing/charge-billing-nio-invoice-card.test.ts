@@ -20,6 +20,7 @@ import {
   PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
 import {
+  APIErrorCode,
   BILLING_INVOICE_CONFLICT_ERROR,
   GENERIC_STRIPE_PAYMENT_ERROR,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
@@ -498,7 +499,39 @@ describe('charge-billing-nio-invoice-card', () => {
         now: NOW,
       })
     ).rejects.toMatchObject({
+      code: APIErrorCode.BILLING_INVOICE_CONFLICT,
       message: expect.stringContaining('The card was charged (pi_1)'),
+    });
+  });
+
+  it('charges an amount under the balance and leaves the invoice issued', async () => {
+    const { oystehr, stripe, createPaymentIntent, transaction } = setup();
+
+    await performEffect({
+      oystehr,
+      stripe,
+      params: {
+        ...params,
+        amountInCents: 20000,
+      },
+      now: NOW,
+    });
+
+    expect(createPaymentIntent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 20000,
+      }),
+      expect.anything()
+    );
+    expect(writtenNotices(transaction).map((notice) => [notice.request?.reference, notice.amount.value])).toEqual([
+      ['Claim/claim-1', 180],
+      ['Claim/claim-2', 20],
+    ]);
+    const [invoicePatch] = transaction.mock.calls[0][0].requests;
+    expect(JSON.parse(atob(invoicePatch.resource.data))).toContainEqual({
+      op: 'replace',
+      path: '/status',
+      value: 'issued',
     });
   });
 });

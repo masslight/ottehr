@@ -25,7 +25,7 @@ import {
 } from 'utils/lib/types/errors';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
-import { getInvoiceBalanceInCents, invoiceHasPayment } from './claim-amounts';
+import { getInvoiceBalanceInCents, getInvoiceClaimBalanceInCents } from './claim-amounts';
 import {
   assertInvoiceTakesRecordedPayments,
   buildInvoicePaymentAttachment,
@@ -76,7 +76,7 @@ export async function readPayableInvoice({
   ]);
   const recorded = notices.some((notice) => getNioInvoicePaymentId(notice) === paymentId);
   if (!recorded) {
-    assertInvoicePayableInFull({
+    assertInvoicePayable({
       invoice,
       notices,
       amountInCents,
@@ -106,7 +106,7 @@ export const cardPaymentReservationOperations = (
   },
 ];
 
-function assertInvoicePayableInFull({
+function assertInvoicePayable({
   invoice,
   notices,
   amountInCents,
@@ -127,11 +127,10 @@ function assertInvoicePayableInFull({
   if (reservation && reservation.paymentId !== paymentId) throw cardPaymentInProgressError(invoice);
 
   const balanceInCents = getInvoiceBalanceInCents(invoice, notices);
-  if (invoiceHasPayment(invoice, notices)) {
-    throw INVALID_INPUT_ERROR(`Invoice ${invoiceNumber} already has a payment, and only full payments can be recorded`);
-  }
-  if (amountInCents !== balanceInCents) {
-    throw INVALID_INPUT_ERROR(`The payment must be the invoice balance of ${formatCurrency(balanceInCents / 100)}`);
+  if (amountInCents > balanceInCents) {
+    throw INVALID_INPUT_ERROR(
+      `The payment can't be more than the invoice balance of ${formatCurrency(balanceInCents / 100)}`
+    );
   }
 }
 
@@ -146,15 +145,17 @@ export async function recordInvoicePayment({
   createdISO: string;
 }): Promise<void> {
   await withVersionConflictRetries(async () => {
-    const { invoice, recorded } = await readPayableInvoice({
+    const { invoice, notices, recorded } = await readPayableInvoice({
       oystehr,
       invoiceId: payment.invoiceId,
       paymentId: payment.paymentId,
       amountInCents: payment.amountInCents,
     });
     if (recorded) return;
+    const paysInFull = payment.amountInCents === getInvoiceBalanceInCents(invoice, notices);
     await oystehr.fhir.transaction<FhirResource>({
       requests: [
+        // always written, so concurrent partial payments can't overpay the balance they each read
         getPatchBinary({
           resourceType: 'Invoice',
           resourceId: payment.invoiceId,
@@ -163,13 +164,14 @@ export async function recordInvoicePayment({
             {
               op: 'replace',
               path: '/status',
-              value: 'balanced',
+              value: paysInFull ? 'balanced' : 'issued',
             },
             ...(getInvoiceCardPaymentReservation(invoice) ? cardPaymentReservationOperations(invoice, undefined) : []),
           ],
         }),
         ...invoicePaymentRequests({
           invoice,
+          notices,
           payment,
           createdISO,
         }),
@@ -220,18 +222,63 @@ export async function recordInvoiceCardPayment({
   });
 }
 
+// Fills each claim's unpaid share of the invoice, in invoice line order.
+function allocateInvoicePayment({
+  invoice,
+  notices,
+  amountInCents,
+}: {
+  invoice: Invoice;
+  notices: PaymentNotice[];
+  amountInCents: number;
+}): {
+  claimId: string;
+  amountCents: number;
+}[] {
+  let remainingCents = amountInCents;
+  const allocations = getBillingInvoiceClaims(invoice).flatMap(({ claimId }) => {
+    const allocatedCents = Math.min(
+      remainingCents,
+      getInvoiceClaimBalanceInCents({
+        invoice,
+        claimId,
+        notices,
+      })
+    );
+    remainingCents -= allocatedCents;
+    return allocatedCents > 0
+      ? [
+          {
+            claimId,
+            amountCents: allocatedCents,
+          },
+        ]
+      : [];
+  });
+  if (remainingCents > 0) {
+    throw new Error(
+      `The payment is ${formatCurrency(remainingCents / 100)} more than invoice ` +
+        `${getInvoiceNumber(invoice) ?? invoice.id}'s claims have left unpaid`
+    );
+  }
+  return allocations;
+}
+
 function invoicePaymentRequests({
   invoice,
+  notices,
   payment,
   createdISO,
 }: {
   invoice: Invoice;
+  notices: PaymentNotice[];
   payment: InvoicePayment;
   createdISO: string;
 }): BatchInputRequest<FhirResource>[] {
   const {
     invoiceId,
     paymentId,
+    amountInCents,
     paymentMethod,
     paymentDate,
     reference,
@@ -242,7 +289,11 @@ function invoicePaymentRequests({
     secrets,
   } = payment;
   if (attachment && !secrets) throw MISSING_REQUEST_SECRETS;
-  const lines = getBillingInvoiceClaims(invoice);
+  const lines = allocateInvoicePayment({
+    invoice,
+    notices,
+    amountInCents,
+  });
   const noticeFullUrls = lines.map(() => `urn:uuid:${randomUUID()}`);
   const noticeRequests = lines.flatMap(({ claimId, amountCents }, index): BatchInputRequest<FhirResource>[] => {
     const notice = buildPaymentNotice({

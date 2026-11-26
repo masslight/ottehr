@@ -125,9 +125,11 @@ const existingPayment = (paymentId: string, amount: number): PaymentNotice => ({
 const recordedPaymentNotice = ({
   claimId,
   amountInCents,
+  paymentId = PAYMENT_ID,
 }: {
   claimId: string;
   amountInCents: number;
+  paymentId?: string;
 }): PaymentNotice => ({
   ...buildPaymentNotice({
     request: {
@@ -140,7 +142,7 @@ const recordedPaymentNotice = ({
     paymentMethod: 'check',
     identifier: {
       system: NIO_INVOICE_PAYMENT_ID_SYSTEM,
-      value: PAYMENT_ID,
+      value: paymentId,
     },
     paymentDate: '2026-11-18',
     createdISO: '2026-11-19T15:00:00.000Z',
@@ -155,7 +157,7 @@ const recordedPaymentNotice = ({
     },
     invoiceId: INVOICE_ID,
   }),
-  id: `notice-${claimId}`,
+  id: `notice-${paymentId}-${claimId}`,
 });
 
 const recordedPayment = (): PaymentNotice[] => [
@@ -225,6 +227,12 @@ const params = {
 
 const writtenRequests = (transaction: ReturnType<typeof vi.fn>): BatchInputRequest<FhirResource>[] =>
   transaction.mock.calls[0][0].requests;
+
+const writtenInvoiceStatus = (transaction: ReturnType<typeof vi.fn>): string | undefined => {
+  const [invoicePatch] = writtenRequests(transaction) as { resource: { data: string } }[];
+  const operations: { path: string; value: unknown }[] = JSON.parse(atob(invoicePatch.resource.data));
+  return operations.find((operation) => operation.path === '/status')?.value as string | undefined;
+};
 
 const writtenNotices = (transaction: ReturnType<typeof vi.fn>): PaymentNotice[] =>
   writtenRequests(transaction)
@@ -429,7 +437,7 @@ describe('record-billing-nio-invoice-payment', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('refuses an amount other than the balance', async () => {
+  it('refuses an amount over the balance', async () => {
     const { oystehr, transaction } = setup();
 
     await expect(
@@ -438,12 +446,64 @@ describe('record-billing-nio-invoice-payment', () => {
         getStripe,
         params: {
           ...params,
-          amountInCents: 18000,
+          amountInCents: 32001,
         },
         now: NOW,
       })
-    ).rejects.toEqual(INVALID_INPUT_ERROR('The payment must be the invoice balance of $320.00'));
+    ).rejects.toEqual(INVALID_INPUT_ERROR("The payment can't be more than the invoice balance of $320.00"));
     expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('pays claims in invoice order and leaves a partially paid invoice issued', async () => {
+    const { oystehr, transaction } = setup();
+
+    await performEffect({
+      oystehr,
+      getStripe,
+      params: {
+        ...params,
+        amountInCents: 20000,
+      },
+      now: NOW,
+    });
+
+    expect(writtenNotices(transaction).map((notice) => [notice.request?.reference, notice.amount.value])).toEqual([
+      ['Claim/claim-1', 180],
+      ['Claim/claim-2', 20],
+    ]);
+    expect(writtenInvoiceStatus(transaction)).toBe('issued');
+  });
+
+  it("pays what's left on each claim and balances the invoice once its balance is paid", async () => {
+    const { oystehr, transaction } = setup({
+      notices: [
+        recordedPaymentNotice({
+          claimId: 'claim-1',
+          amountInCents: 18000,
+          paymentId: 'earlier-payment',
+        }),
+        recordedPaymentNotice({
+          claimId: 'claim-2',
+          amountInCents: 2000,
+          paymentId: 'earlier-payment',
+        }),
+      ],
+    });
+
+    await performEffect({
+      oystehr,
+      getStripe,
+      params: {
+        ...params,
+        amountInCents: 12000,
+      },
+      now: NOW,
+    });
+
+    expect(writtenNotices(transaction).map((notice) => [notice.request?.reference, notice.amount.value])).toEqual([
+      ['Claim/claim-2', 120],
+    ]);
+    expect(writtenInvoiceStatus(transaction)).toBe('balanced');
   });
 
   it('refuses an invoice that is not issued', async () => {
@@ -463,7 +523,7 @@ describe('record-billing-nio-invoice-payment', () => {
     ).rejects.toEqual(INVALID_INPUT_ERROR("Invoice INV-00042 is cancelled, so it can't take a payment"));
   });
 
-  it('refuses an invoice that already has a payment toward it', async () => {
+  it('refuses more than the balance left after an earlier payment', async () => {
     const { oystehr } = setup({
       notices: [existingPayment('other-payment', 100)],
     });
@@ -474,13 +534,11 @@ describe('record-billing-nio-invoice-payment', () => {
         getStripe,
         params: {
           ...params,
-          amountInCents: 22000,
+          amountInCents: 22001,
         },
         now: NOW,
       })
-    ).rejects.toEqual(
-      INVALID_INPUT_ERROR('Invoice INV-00042 already has a payment, and only full payments can be recorded')
-    );
+    ).rejects.toEqual(INVALID_INPUT_ERROR("The payment can't be more than the invoice balance of $220.00"));
   });
 
   it('refuses a patient invoice', async () => {

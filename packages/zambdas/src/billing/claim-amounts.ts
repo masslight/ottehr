@@ -29,7 +29,7 @@ import {
 import { ClaimNioPayment, ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { fetchAllPages } from '../shared/fhir';
-import { PATIENT_PAYMENT_IDENTIFIER_FILTER } from './payments';
+import { PATIENT_PAYMENT_IDENTIFIER_FILTER, paymentNoticeClaimId } from './payments';
 import { ERA_STATUS_CODE_EXTENSION, isEraProcessingProvenance } from './shared';
 
 export const OYSTEHR_ADJUDICATION_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication';
@@ -405,6 +405,22 @@ export function getInvoiceBalanceInCents(invoice: Invoice, notices: PaymentNotic
   if (!invoice.id) throw new Error('An invoice balance needs a saved invoice');
   const invoicePayments = notices.filter((notice) => getPaymentNoticeInvoiceId(notice) === invoice.id);
   return Math.round(((invoice.totalGross?.value ?? 0) - sumPatientPayments(invoicePayments)) * 100);
+}
+
+export function getInvoiceClaimBalanceInCents({
+  invoice,
+  claimId,
+  notices,
+}: {
+  invoice: Invoice;
+  claimId: string;
+  notices: PaymentNotice[];
+}): number {
+  const lineCents = getBillingInvoiceClaims(invoice).find((line) => line.claimId === claimId)?.amountCents ?? 0;
+  const claimPayments = notices.filter(
+    (notice) => getPaymentNoticeInvoiceId(notice) === invoice.id && paymentNoticeClaimId(notice) === claimId
+  );
+  return Math.max(lineCents - Math.round(sumPatientPayments(claimPayments) * 100), 0);
 }
 
 export function invoiceHasPayment(invoice: Invoice, notices: PaymentNotice[]): boolean {
