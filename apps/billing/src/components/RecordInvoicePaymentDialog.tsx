@@ -292,7 +292,13 @@ export function RecordInvoicePaymentDialog({
         </FormProvider>
       </DialogContent>
       <DialogActions>
-        <Button onClick={closeIfIdle} disabled={submitting}>
+        <Button
+          onClick={closeIfIdle}
+          disabled={submitting}
+          sx={{
+            mr: 'auto',
+          }}
+        >
           Cancel
         </Button>
         <Button

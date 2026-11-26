@@ -11,6 +11,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  getBillingInvoiceClaims,
   getPaymentNoticeInvoiceId,
   NIO_INVOICE_PAYMENT_ID_SYSTEM,
   PAYMENT_REFERENCE_IDENTIFIER_SYSTEM,
@@ -404,6 +405,11 @@ export function getInvoiceBalanceInCents(invoice: Invoice, notices: PaymentNotic
   if (!invoice.id) throw new Error('An invoice balance needs a saved invoice');
   const invoicePayments = notices.filter((notice) => getPaymentNoticeInvoiceId(notice) === invoice.id);
   return Math.round(((invoice.totalGross?.value ?? 0) - sumPatientPayments(invoicePayments)) * 100);
+}
+
+export function invoiceHasPayment(invoice: Invoice, notices: PaymentNotice[]): boolean {
+  const totalInCents = getBillingInvoiceClaims(invoice).reduce((sum, line) => sum + line.amountCents, 0);
+  return getInvoiceBalanceInCents(invoice, notices) !== totalInCents;
 }
 
 export function toClaimPatientPayment(notice: PaymentNotice): ClaimPatientPayment {

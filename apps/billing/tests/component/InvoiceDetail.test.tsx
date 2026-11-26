@@ -10,12 +10,14 @@ import InvoiceDetail from '../../src/pages/InvoiceDetail';
 const mocks = vi.hoisted(() => ({
   getInvoice: vi.fn(),
   listCards: vi.fn(),
+  voidInvoice: vi.fn(),
   downloadUrl: vi.fn(),
   client: {},
 }));
 vi.mock('../../src/api/api', () => ({
   getBillingInvoice: mocks.getInvoice,
   listBillingNioInvoicePaymentMethods: mocks.listCards,
+  voidBillingNioInvoice: mocks.voidInvoice,
 }));
 vi.mock('../../src/hooks/useAppClients', () => ({
   useApiClients: () => ({
@@ -166,6 +168,20 @@ describe('InvoiceDetail', () => {
     expect(balanceLabel.parentElement).toHaveTextContent('Balance-');
   });
 
+  it('shows a void invoice with its reason and no balance', async () => {
+    mocks.getInvoice.mockResolvedValue({
+      ...invoice,
+      status: 'cancelled',
+      balance: undefined,
+      voidReason: 'Billed the wrong payer',
+    });
+    renderPage();
+
+    expect(await screen.findByText('Void')).toBeInTheDocument();
+    expect(screen.getByText('Balance').parentElement).toHaveTextContent('Balance-');
+    expect(screen.getByText('Void reason').parentElement).toHaveTextContent('Void reasonBilled the wrong payer');
+  });
+
   it('offers to record a payment or collect a card payment on an unpaid invoice', async () => {
     mocks.getInvoice.mockResolvedValue(unpaidInvoice);
     renderPage();
@@ -219,6 +235,88 @@ describe('InvoiceDetail', () => {
     expect(mocks.listCards).toHaveBeenCalledWith(mocks.client, {
       invoiceId: 'invoice-1',
     });
+  });
+
+  it('voids an unpaid invoice with a reason, then shows it as void', async () => {
+    const user = userEvent.setup();
+    mocks.getInvoice.mockResolvedValue(unpaidInvoice);
+    renderPage();
+    await screen.findByRole('heading', { name: 'INV-00042' });
+    mocks.getInvoice.mockResolvedValue({
+      ...unpaidInvoice,
+      status: 'cancelled',
+      balance: undefined,
+      voidReason: 'Billed the wrong payer',
+    });
+
+    const voidInvoice = screen.getByRole('button', { name: 'Void invoice' });
+    await user.click(voidInvoice);
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByText(/void invoice INV-00042 for \$320\.00/)).toBeInTheDocument();
+    const reason = dialog.getByRole('textbox', { name: 'Reason *' });
+    await user.type(reason, 'Billed the wrong payer');
+    const confirm = dialog.getByRole('button', { name: 'Void' });
+    await user.click(confirm);
+
+    expect(mocks.voidInvoice).toHaveBeenCalledWith(mocks.client, {
+      invoiceId: 'invoice-1',
+      reason: 'Billed the wrong payer',
+    });
+    expect(await screen.findByText('Void')).toBeInTheDocument();
+    const voidedInvoiceButton = await screen.findByRole('button', { name: 'Void invoice' });
+    expect(voidedInvoiceButton).toBeDisabled();
+  });
+
+  it.each([
+    [
+      'paid',
+      {
+        status: 'balanced',
+        balance: 0,
+      },
+    ],
+    [
+      'void',
+      {
+        status: 'cancelled',
+        balance: undefined,
+      },
+    ],
+    [
+      'partly paid',
+      {
+        balance: 140,
+      },
+    ],
+  ])('does not offer to void a %s invoice', async (_label, overrides) => {
+    mocks.getInvoice.mockResolvedValue({
+      ...unpaidInvoice,
+      ...overrides,
+    });
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'INV-00042' });
+    const voidInvoice = screen.getByRole('button', { name: 'Void invoice' });
+    expect(voidInvoice).toBeDisabled();
+  });
+
+  it("doesn't download a void invoice's PDF, and says why on hover", async () => {
+    const user = userEvent.setup();
+    mocks.getInvoice.mockResolvedValue({
+      ...invoice,
+      status: 'cancelled',
+      balance: undefined,
+    });
+    renderPage();
+    await screen.findByRole('heading', { name: 'INV-00042' });
+
+    const download = screen.getByRole('button', { name: 'Download invoice' });
+    expect(download).toBeDisabled();
+    await user.hover(download.parentElement!);
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'This invoice is void, so its PDF is no longer available'
+    );
   });
 
   it('opens the record payment dialog for the balance', async () => {

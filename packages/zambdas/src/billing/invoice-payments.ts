@@ -4,7 +4,6 @@ import { Operation } from 'fast-json-patch';
 import { Extension, FhirResource, Identifier, Invoice, PaymentNotice, ProvenanceAgent } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  BillingInvoiceClaim,
   getBillingInvoiceClaims,
   getInvoiceCardPaymentReservation,
   getInvoiceNumber,
@@ -26,7 +25,7 @@ import {
 } from 'utils/lib/types/errors';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
-import { getInvoiceBalanceInCents } from './claim-amounts';
+import { getInvoiceBalanceInCents, invoiceHasPayment } from './claim-amounts';
 import {
   assertInvoiceTakesRecordedPayments,
   buildInvoicePaymentAttachment,
@@ -128,15 +127,13 @@ function assertInvoicePayableInFull({
   if (reservation && reservation.paymentId !== paymentId) throw cardPaymentInProgressError(invoice);
 
   const balanceInCents = getInvoiceBalanceInCents(invoice, notices);
-  if (balanceInCents !== sumLines(getBillingInvoiceClaims(invoice))) {
+  if (invoiceHasPayment(invoice, notices)) {
     throw INVALID_INPUT_ERROR(`Invoice ${invoiceNumber} already has a payment, and only full payments can be recorded`);
   }
   if (amountInCents !== balanceInCents) {
     throw INVALID_INPUT_ERROR(`The payment must be the invoice balance of ${formatCurrency(balanceInCents / 100)}`);
   }
 }
-
-const sumLines = (lines: BillingInvoiceClaim[]): number => lines.reduce((sum, line) => sum + line.amountCents, 0);
 
 // Locked to the invoice version the balance was read at; a writer that loses a race re-reads.
 export async function recordInvoicePayment({

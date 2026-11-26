@@ -281,6 +281,7 @@ export function NioInvoiceDialog({
           disabled={creating}
           sx={{
             color: 'text.secondary',
+            mr: 'auto',
           }}
         >
           {notDownloadedInvoiceNumber ? 'Close' : 'Cancel'}

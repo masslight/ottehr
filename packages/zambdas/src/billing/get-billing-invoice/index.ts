@@ -104,11 +104,13 @@ export async function performEffect({
   const [claims, notices, pdfUrl] = await Promise.all([
     fetchInvoiceClaimLines(oystehr, invoice),
     fetchInvoicePaymentNotices(oystehr, [invoiceId]),
-    findInvoicePdfDownloadUrl({
-      oystehr,
-      invoiceId,
-      secrets,
-    }),
+    invoice.status === 'cancelled'
+      ? undefined
+      : findInvoicePdfDownloadUrl({
+          oystehr,
+          invoiceId,
+          secrets,
+        }),
   ]);
   const organization = resources.find(
     (resource): resource is Organization =>
@@ -126,11 +128,12 @@ export async function performEffect({
     kind: 'nio',
     number: getInvoiceNumber(invoice),
     recipient: getNioInvoiceRecipient(invoice, organization),
-    balance: getInvoiceBalanceInCents(invoice, notices) / 100,
+    balance: invoice.status === 'cancelled' ? undefined : getInvoiceBalanceInCents(invoice, notices) / 100,
     pastDue: isInvoicePastDue(invoice, today),
     claims,
     payments,
     pdfUrl,
+    voidReason: invoice.cancelledReason,
   };
 }
 

@@ -254,7 +254,13 @@ export function CollectInvoiceCardPaymentDialog({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={closeIfIdle} disabled={submitting}>
+        <Button
+          onClick={closeIfIdle}
+          disabled={submitting}
+          sx={{
+            mr: 'auto',
+          }}
+        >
           Cancel
         </Button>
         <Button

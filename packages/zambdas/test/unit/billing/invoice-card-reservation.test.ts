@@ -242,7 +242,7 @@ describe('settleOtherCardReservation', () => {
 
   it("ignores another invoice's charge under the same payment id", async () => {
     const { oystehr, stripe, transaction, patch } = setup({
-      invoice: reservedInvoice(NOW.minus({ minutes: 10 })),
+      invoice: reservedInvoice(NOW.minus({ minutes: 20 })),
       paymentIntents: [
         {
           ...otherIntent('succeeded'),
@@ -293,7 +293,7 @@ describe('settleOtherCardReservation', () => {
 
   it('refuses while a retry renewed the reservation within the grace period', async () => {
     const { oystehr, stripe, patch } = setup({
-      invoice: reservedInvoice(NOW.minus({ minutes: 10 }), NOW.minus({ seconds: 30 })),
+      invoice: reservedInvoice(NOW.minus({ minutes: 20 }), NOW.minus({ seconds: 30 })),
     });
 
     await expect(settle(oystehr, stripe)).rejects.toEqual(IN_PROGRESS);
@@ -307,6 +307,25 @@ describe('settleOtherCardReservation', () => {
 
     await expect(settle(oystehr, stripe)).rejects.toEqual(IN_PROGRESS);
     expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('refuses while a stalled request could still reach Stripe', async () => {
+    const { oystehr, stripe, patch } = setup({
+      invoice: reservedInvoice(NOW.minus({ minutes: 14 })),
+    });
+
+    await expect(settle(oystehr, stripe)).rejects.toEqual(IN_PROGRESS);
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('releases a reservation with nothing in Stripe once no request can still reach it', async () => {
+    const { oystehr, stripe, patch } = setup({
+      invoice: reservedInvoice(NOW.minus({ minutes: 16 })),
+    });
+
+    await settle(oystehr, stripe);
+
+    expect(patch).toHaveBeenCalledTimes(1);
   });
 
   it('releases a reservation that never charged', async () => {
