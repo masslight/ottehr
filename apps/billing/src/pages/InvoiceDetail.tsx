@@ -39,6 +39,9 @@ interface DownloadableFile {
   url: string;
 }
 
+const UNRESOLVED_CARD_PAYMENT = 'A card payment may have gone through. Try it again before recording another payment.';
+const UNRESOLVED_MANUAL_PAYMENT = 'A payment may have been recorded. Try it again before charging a card.';
+
 const formatPaymentLine = ({ method, reference, amount }: BillingInvoicePayment): string =>
   `${invoicePaymentMethodLabel(method)}${reference ? ` #${reference}` : ''} - ${formatCurrency(amount)}`;
 
@@ -272,12 +275,28 @@ export default function InvoiceDetail(): ReactElement {
             flexGrow: 1,
           }}
         />
-        <Button variant="contained" disabled={!takesPayment} onClick={() => setRecordingPayment(true)}>
-          Record payment
-        </Button>
-        <Button variant="outlined" disabled={!takesPayment} onClick={() => setCollectingCardPayment(true)}>
-          Collect card payment
-        </Button>
+        <Tooltip title={unresolvedCardAttempt ? UNRESOLVED_CARD_PAYMENT : ''}>
+          <span>
+            <Button
+              variant="contained"
+              disabled={!takesPayment || unresolvedCardAttempt !== null}
+              onClick={() => setRecordingPayment(true)}
+            >
+              Record payment
+            </Button>
+          </span>
+        </Tooltip>
+        <Tooltip title={unresolvedManualPayment ? UNRESOLVED_MANUAL_PAYMENT : ''}>
+          <span>
+            <Button
+              variant="outlined"
+              disabled={!takesPayment || unresolvedManualPayment !== null}
+              onClick={() => setCollectingCardPayment(true)}
+            >
+              Collect card payment
+            </Button>
+          </span>
+        </Tooltip>
         <Button variant="outlined" color="error" disabled={!voidable} onClick={() => setVoiding(true)}>
           Void invoice
         </Button>

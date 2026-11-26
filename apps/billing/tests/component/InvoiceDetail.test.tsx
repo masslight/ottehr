@@ -407,6 +407,57 @@ describe('InvoiceDetail', () => {
     expect(second).toEqual(first);
   });
 
+  it('takes no manual payment while a card charge outcome is unknown', async () => {
+    const user = userEvent.setup();
+    mocks.getInvoice.mockResolvedValue(unpaidInvoice);
+    mocks.listCards.mockResolvedValue({
+      cards: [
+        {
+          id: 'pm_1',
+          brand: 'visa',
+          lastFour: '4242',
+          expMonth: 12,
+          expYear: 2099,
+          default: true,
+        },
+      ],
+    });
+    mocks.charge.mockRejectedValueOnce(new Error('Network error'));
+    renderPage();
+    await screen.findByRole('heading', { name: 'INV-00042' });
+    const collectCardPayment = screen.getByRole('button', { name: 'Collect card payment' });
+
+    await user.click(collectCardPayment);
+    await within(screen.getByRole('dialog')).findByText(/4242/);
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Charge card' }));
+    await within(screen.getByRole('dialog')).findByText('Network error');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    const recordPayment = screen.getByRole('button', { name: 'Record payment' });
+    expect(recordPayment).toBeDisabled();
+    expect(collectCardPayment).toBeEnabled();
+  });
+
+  it('charges no card while a manual payment outcome is unknown', async () => {
+    const user = userEvent.setup();
+    mocks.getInvoice.mockResolvedValue(unpaidInvoice);
+    mocks.record.mockRejectedValueOnce(new Error('Network error'));
+    renderPage();
+    await screen.findByRole('heading', { name: 'INV-00042' });
+    const recordPayment = screen.getByRole('button', { name: 'Record payment' });
+
+    await user.click(recordPayment);
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Record payment' }));
+    await within(screen.getByRole('dialog')).findByText('Network error');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    const collectCardPayment = screen.getByRole('button', { name: 'Collect card payment' });
+    expect(collectCardPayment).toBeDisabled();
+    expect(recordPayment).toBeEnabled();
+  });
+
   it('reopens the record payment dialog with the balance after an edited amount was cancelled', async () => {
     const user = userEvent.setup();
     mocks.getInvoice.mockResolvedValue(unpaidInvoice);
