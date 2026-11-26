@@ -1,0 +1,91 @@
+import { DEFAULT_SPECIALTY_TRANSFER_OPTIONS, OTHER_SPECIALTY_TRANSFER_OPTION } from 'utils/lib/fhir/disposition';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { PacketDocumentKind } from 'utils/lib/types/api/document-packet.types';
+import {
+  REFERRAL_DEFAULTS,
+  ReferralAsk,
+  ReferralDTO,
+  ReferralEarlierDocument,
+  ReferralScheduler,
+  ReferralUrgency,
+  SaveReferralInput,
+} from 'utils/lib/types/api/referrals/referrals.types';
+import { toAddressBookTag } from 'utils/lib/types/data/address-book';
+
+export const specialtyTag = (specialty: string): string | undefined =>
+  specialty && specialty !== OTHER_SPECIALTY_TRANSFER_OPTION ? toAddressBookTag(specialty) || undefined : undefined;
+
+export interface ReferralFormValues {
+  specialty: string;
+  specialtyOther: string;
+  recipientName: string;
+  recipientContactId: string;
+  recipientFax: string;
+  recipientPhone: string;
+  reason: string;
+  urgency: ReferralUrgency;
+  whatIsAsked: ReferralAsk;
+  whoSchedules: ReferralScheduler;
+  responseRequested: boolean;
+  includeDocuments: PacketDocumentKind[];
+  earlierDocuments: ReferralEarlierDocument[];
+  notesToRecipient: string;
+}
+
+export const toReferralFormValues = (
+  referral?: ReferralDTO,
+  hasVisit = true,
+  specialtyOptions: string[] = DEFAULT_SPECIALTY_TRANSFER_OPTIONS
+): ReferralFormValues => {
+  const listed = !referral || specialtyOptions.includes(referral.specialty);
+  return {
+    specialty: referral ? (listed ? referral.specialty : OTHER_SPECIALTY_TRANSFER_OPTION) : '',
+    specialtyOther: referral && !listed ? referral.specialty : '',
+    recipientName: referral?.recipient?.name ?? '',
+    recipientContactId: referral?.recipient?.contactId ?? '',
+    recipientFax: formatPhoneNumberDisplay(referral?.recipient?.fax),
+    recipientPhone: referral?.recipient?.phone ?? '',
+    reason: referral?.reason ?? '',
+    urgency: referral?.urgency ?? REFERRAL_DEFAULTS.urgency,
+    whatIsAsked: referral?.whatIsAsked ?? REFERRAL_DEFAULTS.whatIsAsked,
+    whoSchedules: referral?.whoSchedules ?? REFERRAL_DEFAULTS.whoSchedules,
+    responseRequested: referral?.responseRequested ?? REFERRAL_DEFAULTS.responseRequested,
+    includeDocuments: referral?.includeDocuments ?? (hasVisit ? [...REFERRAL_DEFAULTS.includeDocuments] : []),
+    earlierDocuments: referral?.earlierDocuments ?? [],
+    notesToRecipient: referral?.notesToRecipient ?? '',
+  };
+};
+
+export const toSaveReferralInput = (
+  values: ReferralFormValues,
+  ids: { patientId: string; encounterId?: string; referralId?: string; unavailableDocuments?: PacketDocumentKind[] }
+): SaveReferralInput => ({
+  referralId: ids.referralId,
+  patientId: ids.patientId,
+  encounterId: ids.encounterId,
+  specialty: values.specialty === OTHER_SPECIALTY_TRANSFER_OPTION ? values.specialtyOther.trim() : values.specialty,
+  recipientContactId: values.recipientContactId || undefined,
+  recipientFax: values.recipientContactId ? values.recipientFax.trim() || undefined : undefined,
+  reason: values.reason.trim(),
+  urgency: values.urgency,
+  whatIsAsked: values.whatIsAsked,
+  whoSchedules: values.whoSchedules,
+  responseRequested: values.recipientContactId ? values.responseRequested : false,
+  includeDocuments: ids.encounterId
+    ? values.includeDocuments.filter((kind) => !ids.unavailableDocuments?.includes(kind))
+    : [],
+  earlierDocumentIds: values.earlierDocuments.map((document) => document.id),
+  notesToRecipient: values.notesToRecipient.trim() || undefined,
+});
+
+export const NO_RECIPIENT_TEXT = 'No recipient: patient chooses a provider their insurance covers';
+export const NO_RECIPIENT_LABEL = 'No recipient';
+
+export const NO_FAX_SEND_TEXT =
+  'No fax number. Enter one in the Fax field, or add it to the contact in the Directory for future referrals.';
+export const NO_RECIPIENT_SEND_TEXT = 'Pick a recipient with a fax number to send by fax.';
+
+export const faxBlockedReason = (hasRecipient: boolean, fax: string | undefined): string => {
+  if (!hasRecipient) return NO_RECIPIENT_SEND_TEXT;
+  return fax?.trim() ? '' : NO_FAX_SEND_TEXT;
+};

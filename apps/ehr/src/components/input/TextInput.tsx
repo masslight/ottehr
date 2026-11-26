@@ -1,4 +1,4 @@
-import { Box, FormHelperText, InputBaseComponentProps, InputProps, Skeleton, TextField } from '@mui/material';
+import { Box, InputBaseComponentProps, InputProps, Skeleton, TextField } from '@mui/material';
 import React from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
@@ -15,6 +15,8 @@ type Props = {
   inputProps?: InputBaseComponentProps;
   InputProps?: InputProps;
   dataTestId?: string;
+  disabled?: boolean;
+  helperText?: string;
 };
 
 export const TextInput: React.FC<Props> = ({
@@ -29,6 +31,8 @@ export const TextInput: React.FC<Props> = ({
   inputProps,
   InputProps,
   dataTestId,
+  disabled,
+  helperText,
 }) => {
   const { control } = useFormContext();
   return !loading ? (
@@ -56,9 +60,11 @@ export const TextInput: React.FC<Props> = ({
             inputProps={inputProps}
             InputProps={InputProps}
             fullWidth
+            disabled={disabled}
             data-testid={dataTestId}
+            helperText={error ? error.message : helperText}
+            FormHelperTextProps={{ sx: { mx: 0 } }}
           />
-          {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}
         </Box>
       )}
     />

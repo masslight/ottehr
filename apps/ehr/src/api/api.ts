@@ -55,6 +55,7 @@ import {
   ChangeInPersonVisitStatusResponse,
 } from 'utils/lib/types/api/change-in-person-visit-status/change-in-person-visit-status.types';
 import { MigrateExamDataInput, MigrateExamDataOutput } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChatDataInput, GetChatDataResponse } from 'utils/lib/types/api/chat-data.types';
 import {
   CreateEmCodeInput,
   DeleteEmCodeInput,
@@ -1270,6 +1271,19 @@ export const userActivation = async (
     return chooseJson(response);
   } catch (error: unknown) {
     throw new Error(JSON.stringify(error));
+  }
+};
+
+export const getChatData = async (oystehr: Oystehr, parameters: GetChatDataInput): Promise<GetChatDataResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-chat-data',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };
 
@@ -3287,6 +3301,7 @@ export interface FileInboundFaxInput {
   folderId: string;
   internalName?: string;
   documentName: string;
+  referralId?: string;
   encounterId?: string;
   reviewTaskAssignee?: { id: string; name: string };
   // Note: the fax PDF url is intentionally not sent; the zambda reads the authoritative

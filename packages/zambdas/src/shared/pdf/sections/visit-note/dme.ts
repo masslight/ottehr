@@ -6,10 +6,9 @@ import {
   formatDmeBillingCode,
   formatDmeDuration,
 } from 'utils/lib/types/api/dme.types';
-import { drawBlockHeader } from '../../helpers/render/blockHeader';
-import { drawRegularText } from '../../helpers/render/regularText';
-import { createConfiguredSection, DataComposer } from '../../pdf-common';
+import { DataComposer } from '../../pdf-common';
 import { DmeOrdersData, PdfSection } from '../../types';
+import { createTitledLinesSection } from '../titledLines';
 
 export const composeDmeOrders: DataComposer<{ dmeOrders?: DmeOrderDTO[] }, DmeOrdersData> = ({ dmeOrders }) => ({
   dmeOrders: (dmeOrders ?? []).map((order) => {
@@ -34,17 +33,9 @@ export const composeDmeOrders: DataComposer<{ dmeOrders?: DmeOrderDTO[] }, DmeOr
 export const createDmeOrdersSection = <TData extends { dmeOrders?: DmeOrdersData }>(): PdfSection<
   TData,
   DmeOrdersData
-> => {
-  return createConfiguredSection(null, () => ({
+> =>
+  createTitledLinesSection({
     title: 'Durable Medical Equipment',
-    dataSelector: (data) => data.dmeOrders,
-    shouldRender: (sectionData) => !!sectionData.dmeOrders.length,
-    render: (client, data, styles) => {
-      data.dmeOrders.forEach((order) => {
-        drawBlockHeader(client, styles, order.itemName, styles.textStyles.blockSubHeader);
-        order.lines.forEach((line) => drawRegularText(client, styles, line));
-      });
-      client.drawSeparatedLine(styles.lineStyles.separator);
-    },
-  }));
-};
+    dataSelector: (data: TData) => data.dmeOrders,
+    blocks: (data) => data.dmeOrders.map((order) => ({ title: order.itemName, lines: order.lines })),
+  });

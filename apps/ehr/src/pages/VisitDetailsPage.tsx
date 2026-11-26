@@ -1086,7 +1086,7 @@ export default function VisitDetailsPage(): ReactElement {
   const photoIdCardSlot = (
     <CardThumbnail
       item={idCards}
-      title="ID Card"
+      title="Photo ID"
       appointmentID={appointmentID}
       filesMutator={filesMutation}
       uploadingFileType={uploadingFileType}

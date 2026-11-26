@@ -1,17 +1,14 @@
 import { progressNoteIcon } from '@ehrTheme/icons';
 import CallSplitIcon from '@mui/icons-material/CallSplit';
-import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import {
-  Badge,
   Box,
   Button,
   capitalize,
   darken,
   GridLegacy as Grid,
-  IconButton,
   MenuItem,
   Stack,
   TableCell,
@@ -52,6 +49,7 @@ import { getSupportPhoneFor } from 'utils/lib/utils/support-dialog';
 import { formatMinutes, getDurationOfStatus, getVisitTotalTime, NON_LOS_STATUSES } from 'utils/lib/utils/visitUtils';
 import { NOTES_WIDTH_MIN } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
+import { ChatIconButton } from '../features/chat/ChatIconButton';
 import ChatModal from '../features/chat/ChatModal';
 import { InfoIconsToolTip } from '../features/visits/shared/components/InfoIconsToolTip';
 import { useOystehrAPIClient } from '../features/visits/shared/hooks/useOystehrAPIClient';
@@ -1039,60 +1037,7 @@ export default function AppointmentTableRow({
         ></AppointmentNote>
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
-        {showChatIcon && (
-          <IconButton
-            sx={{
-              backgroundColor: theme.palette.primary.main,
-              width: '36px',
-              height: '36px',
-              borderRadius: '100%',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              '&:hover': {
-                backgroundColor: theme.palette.primary.main,
-              },
-            }}
-            onClick={(_event) => {
-              setChatModalOpen(true);
-            }}
-            aria-label={hasUnread ? 'unread messages chat icon' : 'chat icon, no unread messages'}
-          >
-            {/* todo reduce code duplication */}
-            {hasUnread ? (
-              <Badge
-                variant="dot"
-                color="warning"
-                sx={{
-                  '& .MuiBadge-badge': {
-                    width: '14px',
-                    height: '14px',
-                    borderRadius: '10px',
-                    border: '2px solid white',
-                    top: '-4px',
-                    right: '-4px',
-                  },
-                }}
-              >
-                <ChatOutlineIcon
-                  sx={{
-                    color: theme.palette.primary.contrastText,
-                    height: '20px',
-                    width: '20px',
-                  }}
-                />
-              </Badge>
-            ) : (
-              <ChatOutlineIcon
-                sx={{
-                  color: theme.palette.primary.contrastText,
-                  height: '20px',
-                  width: '20px',
-                }}
-              />
-            )}
-          </IconButton>
-        )}
+        {showChatIcon && <ChatIconButton hasUnread={hasUnread} onClick={() => setChatModalOpen(true)} />}
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
         <Stack direction={'row'} spacing={1} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>

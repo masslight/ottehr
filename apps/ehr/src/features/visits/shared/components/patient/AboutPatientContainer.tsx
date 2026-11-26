@@ -1,4 +1,3 @@
-import { Box } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, Fragment, ReactNode, useMemo } from 'react';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
@@ -17,8 +16,7 @@ interface AboutPatientContainerProps {
   patientId?: string;
   encounterId?: string;
   /**
-   * Optional content rendered right-aligned in the section header, next to the "Patient summary"
-   * title (e.g. the visit page's compact photo-ID card thumbnail). Omitted on the standalone
+   * Optional content rendered at the top of the section body (e.g. the visit page's Photo ID front/back cards). Omitted on the standalone
    * patient-info page.
    */
   headerSlot?: ReactNode;
@@ -70,40 +68,31 @@ export const AboutPatientContainer: FC<AboutPatientContainerProps> = ({
 
   const saveButton = <SectionSaveButton fieldKeys={FIELD_KEYS} patientId={patientId} encounterId={encounterId} />;
   return (
-    <PatientRecordFormSection
-      formSection={patientSummary}
-      titleWidget={
-        headerSlot ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {headerSlot}
-            {saveButton}
-          </Box>
-        ) : (
-          saveButton
-        )
-      }
-    >
-      {Object.values(patientSummary.items).map((item) => {
-        const suggestion = hiddenFields.includes(item.key) ? undefined : photoIdSuggestions[item.key];
-        return (
-          <Fragment key={item.key}>
-            <PatientRecordFormField
-              item={item}
-              hiddenFormFields={hiddenFields}
-              requiredFormFields={requiredFields}
-              isLoading={isLoading}
-            />
-            {suggestion && (
-              <InsuranceCardAiSuggestionRow
-                fieldKey={item.key}
-                suggestedDisplay={suggestion.display}
-                suggestedFormValue={suggestion.formValue}
-                suggestedComparable={suggestion.comparable}
+    <PatientRecordFormSection formSection={patientSummary} titleWidget={saveButton}>
+      <>
+        {headerSlot}
+        {Object.values(patientSummary.items).map((item) => {
+          const suggestion = hiddenFields.includes(item.key) ? undefined : photoIdSuggestions[item.key];
+          return (
+            <Fragment key={item.key}>
+              <PatientRecordFormField
+                item={item}
+                hiddenFormFields={hiddenFields}
+                requiredFormFields={requiredFields}
+                isLoading={isLoading}
               />
-            )}
-          </Fragment>
-        );
-      })}
+              {suggestion && (
+                <InsuranceCardAiSuggestionRow
+                  fieldKey={item.key}
+                  suggestedDisplay={suggestion.display}
+                  suggestedFormValue={suggestion.formValue}
+                  suggestedComparable={suggestion.comparable}
+                />
+              )}
+            </Fragment>
+          );
+        })}
+      </>
     </PatientRecordFormSection>
   );
 };

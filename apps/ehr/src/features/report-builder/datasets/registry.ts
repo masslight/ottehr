@@ -7,11 +7,13 @@ import { billingRulesDataset } from './billing-rules';
 import { adhocEncountersDataset } from './encounters';
 import { medicationInventoryDataset } from './medication-inventory';
 import { patientsDataset } from './patients';
+import { referralsDataset } from './referrals';
 import { AdHocDataset } from './types';
 
 export const AD_HOC_DATASETS: AdHocDataset[] = [
   adhocEncountersDataset,
   patientsDataset,
+  referralsDataset,
   billingDataset,
   billingClaimsDataset,
   billingRulesDataset,

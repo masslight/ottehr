@@ -19,8 +19,10 @@ import {
 import { getLocationContactPhone } from 'utils/lib/utils/support-dialog';
 import { getPcpPatchOpsFromDetails } from '../../ehr/shared/harvest';
 import { sendDocumentLinkEmailAttempt } from '../document-link-email';
+import { getPatientFolders } from '../patient-folders';
 import { PacketCoverSheetData } from '../pdf/types';
 import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
+import { markReferralSent } from '../referrals/mark-referral-sent';
 import { sendFaxAttempt } from '../send-fax-attempt';
 import {
   buildPacketForRecipient,
@@ -29,9 +31,9 @@ import {
   toDocumentPacketBody,
   uploadDocumentPacket,
 } from './build-document-packet';
-import { DocumentPacketPlan, getPatientFolders } from './resolve-packet-source';
+import { DocumentPacketPlan } from './resolve-packet-source';
 
-const DEFAULT_TIMEZONE = 'America/New_York';
+export const DEFAULT_TIMEZONE = 'America/New_York';
 const DEFAULT_VISIT_TYPE_LABEL = 'Visit';
 
 /**
@@ -55,7 +57,7 @@ export const deliverDocumentPacket = async (args: {
 
   const { patient, appointmentId, encounterId } = plan;
   const patientId = patient.id!;
-  const timezone = plan.timezone || organizationTimezone(organization) || DEFAULT_TIMEZONE;
+  const timezone = plan.timezone || resourceTimezone(organization) || DEFAULT_TIMEZONE;
 
   if (plan.sections.length === 0) {
     throw new Error('No documents could be collected for the document packet. Nothing was sent.');
@@ -196,6 +198,8 @@ const sendPacketToRecipient = async (args: {
       faxNumber: recipient.faxNumber,
       media: uploaded.pdfInfo.uploadURL,
       userPractitioner: senderPractitioner,
+      basedOnReference: plan.basedOnReference,
+      basedOnVersionId: plan.basedOnVersionId,
     },
     oystehr
   );
@@ -252,9 +256,9 @@ export const buildSharedCoverSheetFields = (args: {
   };
 };
 
-/** The practice's own timezone, for packets with no visit whose office timezone could be used. */
-const organizationTimezone = (organization: Organization): string | undefined =>
-  organization.extension?.find((extension) => extension.url === TIMEZONE_EXTENSION_URL)?.valueString;
+/** The timezone recorded on an office or the practice, for documents with no visit whose timezone could be used. */
+export const resourceTimezone = (resource: Location | Organization | undefined): string | undefined =>
+  resource?.extension?.find((extension) => extension.url === TIMEZONE_EXTENSION_URL)?.valueString;
 
 /** "Follow-Up Visit" for annotation follow-ups, otherwise the appointment's service category, else "Visit". */
 export const resolveVisitTypeLabel = (
@@ -329,4 +333,14 @@ export const savePcpIfRequested = async (
     console.error('[document-packet] failed to save the recipient as the patient PCP', error);
     captureException(error);
   }
+};
+
+export const markReferralSentIfDelivered = async (
+  referralId: string,
+  faxedVersionId: string | undefined,
+  results: DocumentPacketRecipientResult[],
+  oystehr: Oystehr
+): Promise<void> => {
+  if (!results.some((result) => result.status === 'sent' && !result.email)) return;
+  await markReferralSent(referralId, faxedVersionId, oystehr);
 };

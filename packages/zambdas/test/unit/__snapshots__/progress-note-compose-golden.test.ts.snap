@@ -240,6 +240,7 @@ exports[`composeProgressNoteData — golden chart data > matches the golden snap
     "patientInstructions": [
       "Rest, fluids, ibuprofen as needed",
     ],
+    "referrals": [],
     "subSpecialtyFollowup": [
       "ENT ",
     ],
@@ -272,6 +273,7 @@ exports[`composeProgressNoteData — golden chart data > matches the golden snap
     "patientInstructions": [
       "Rest, fluids, ibuprofen as needed",
     ],
+    "referrals": [],
     "subSpecialtyFollowup": [
       "ENT ",
     ],

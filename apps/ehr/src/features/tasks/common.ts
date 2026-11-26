@@ -1,6 +1,7 @@
 import { Patient } from 'fhir/r4b';
 import { getFullName } from 'utils/lib/fhir/patient';
 import { DME_TASK } from 'utils/lib/types/api/dme.types';
+import { REFERRAL_TASK } from 'utils/lib/types/api/referrals/referrals.types';
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import {
@@ -40,6 +41,7 @@ export const TASK_CATEGORY_LABEL: Record<string, string> = {
   [MANUAL_TASK.category.coding]: 'Coding',
   [MANUAL_TASK.category.billing]: 'Billing',
   [FAX_TASK.category]: 'Fax',
+  [REFERRAL_TASK.category]: 'Referrals',
   [PATIENT_REQUEST_TASK.category]: 'Patient Request',
   [MANUAL_TASK.category.other]: 'Other',
 };

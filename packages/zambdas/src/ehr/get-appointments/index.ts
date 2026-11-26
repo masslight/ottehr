@@ -18,12 +18,7 @@ import {
 import { DateTime } from 'luxon';
 import { appointmentAttendanceTypeAppointment, appointmentTypeForAppointment } from 'utils/lib/fhir/appointments';
 import { chunkThings, getChatContainsUnreadMessages, ZAP_SMS_MEDIUM_CODE } from 'utils/lib/fhir/chat';
-import {
-  PRIVATE_EXTENSION_BASE_URL,
-  ROOM_EXTENSION_URL,
-  SERVICE_CATEGORY_SYSTEM,
-  TIMEZONE_EXTENSION_URL,
-} from 'utils/lib/fhir/constants';
+import { ROOM_EXTENSION_URL, SERVICE_CATEGORY_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
@@ -40,7 +35,7 @@ import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
 import { getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { GetAppointmentsZambdaInput, GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
-import { SMSModel, SMSRecipient } from 'utils/lib/types/api/messaging.types';
+import { SMSModel } from 'utils/lib/types/api/messaging.types';
 import {
   AppointmentRelatedResources,
   InPersonAppointmentInformation,
@@ -50,6 +45,7 @@ import { APPOINTMENT_SEARCH_TOO_BROAD_ERROR } from 'utils/lib/types/errors';
 import { isTruthy } from 'utils/lib/types/utils';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { buildSmsRecipients, isUserRelatedPerson } from '../../shared/chat-recipients';
 import { deadlineFromContext } from '../../shared/concurrency';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getPaperworkCompleteness } from '../../shared/paperwork-completeness';
@@ -117,9 +113,6 @@ export const assignNextFlagsByPartition = (
     return appointment;
   });
 };
-
-const isUserRelatedPerson = (rp: RelatedPerson): boolean =>
-  getCoding(rp.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson';
 
 // Provenances for the whole board are fetched with a comma-separated `target` OR list. The chunk
 // size only bounds how large a single response can get; it is not a URL-length limit, since the SDK
@@ -810,24 +803,7 @@ const makeAppointmentInformation = (
   if (patientRef) {
     try {
       const rps = patientToRPMap[patientRef] ?? [];
-      const recipientsMap = new Map<string, SMSRecipient>();
-
-      rps.forEach((rp) => {
-        const rpRef = `RelatedPerson/${rp.id}`;
-        const phones = rpToPhoneNumbersMap[rpRef] ?? new Set<string>();
-
-        phones.forEach((phone) => {
-          const key = `${rpRef}|${phone}`;
-          if (!recipientsMap.has(key)) {
-            recipientsMap.set(key, {
-              recipientResourceUri: rpRef,
-              smsNumber: phone,
-            });
-          }
-        });
-      });
-
-      const recipients = Array.from(recipientsMap.values());
+      const recipients = buildSmsRecipients(rps, rpToPhoneNumbersMap);
       // A patient with no RelatedPerson holding an SMS number simply has no smsModel. That is ordinary data, not an
       // error, so it is neither logged nor reported: on a polled board it would repeat for every such row every tick.
       if (recipients.length > 0) {

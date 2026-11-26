@@ -12,6 +12,7 @@ export interface FloatingCardPreviewProps {
   backUrl?: string;
   title: string;
   defaultFace?: CardPreviewFace;
+  faceRequestId?: number;
   /**
    * Optional extra header controls (e.g. a rotate button), rendered between the face toggle and the
    * close button. Pass a function to render controls for the currently SHOWN face (e.g. a rotate
@@ -74,6 +75,7 @@ const FloatingCardPreview: React.FC<FloatingCardPreviewProps> = ({
   backUrl,
   title,
   defaultFace = 'front',
+  faceRequestId,
   headerActions,
   emptyStateSlot,
 }) => {
@@ -93,6 +95,14 @@ const FloatingCardPreview: React.FC<FloatingCardPreviewProps> = ({
     }
     prevOpenRef.current = open;
   }, [open, defaultFace]);
+
+  const prevFaceRequestRef = useRef(faceRequestId);
+  useEffect(() => {
+    if (open && faceRequestId !== prevFaceRequestRef.current) {
+      setFace(defaultFace);
+    }
+    prevFaceRequestRef.current = faceRequestId;
+  }, [open, faceRequestId, defaultFace]);
 
   // Escape dismisses the panel (listener only while open).
   useEffect(() => {

@@ -1,23 +1,37 @@
 import Oystehr from '@oystehr/sdk';
-import { DocumentReference, Encounter, List, Location, Patient } from 'fhir/r4b';
+import { DocumentReference, Encounter, List, Location, Patient, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { getReferralDetails, getReferralEarlierDocumentIds, getReferralStatus } from 'utils/lib/fhir/referral';
 import { Secrets } from 'utils/lib/secrets';
-import { DocumentPacketSource, PACKET_DOCUMENT_ORDER } from 'utils/lib/types/api/document-packet.types';
+import {
+  DOCUMENT_PACKET_DOCUMENT_LABELS,
+  DocumentPacketSource,
+  PACKET_DOCUMENT_ORDER,
+  REFERRAL_FORM_PACKET_DOCUMENT_KIND,
+} from 'utils/lib/types/api/document-packet.types';
+import { isReferralEditable, REFERRAL_STATUS_LABELS } from 'utils/lib/types/api/referrals/referrals.types';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
+import { getPatientFolders } from '../patient-folders';
 import { PacketCoverSheetSubject } from '../pdf/types';
 import { getAppointmentAndRelatedResources } from '../pdf/visit-details-pdf/get-video-resources';
 import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
+import { loadReferral } from '../referrals/load-referral';
+import { getOrCreateReferralForm } from '../referrals/referral-form';
 import {
   buildDocumentPacketSection,
   createDocumentPacketByteBudget,
   DocumentPacketSection,
 } from './build-document-packet';
-import { collectDocumentParts, collectMedicalRecordParts, getPacketSourceDocument } from './collect-patient-documents';
-import { collectVisitPacketParts } from './collect-visit-documents';
+import {
+  collectDocumentParts,
+  collectMedicalRecordParts,
+  collectReferralDocumentParts,
+  getPacketSourceDocument,
+} from './collect-patient-documents';
+import { collectVisitPacketParts, DocumentPacketPart } from './collect-visit-documents';
 import { resolvePatientDisplayId, resolveVisitTypeLabel } from './deliver-document-packet';
 
 /**
@@ -39,6 +53,9 @@ export interface DocumentPacketPlan {
   /** The office's timezone for a single-visit packet; patient-level packets fall back to the practice. */
   timezone?: string;
   listResources: List[];
+  /** `ServiceRequest/<id>` for a referral packet, recorded on each delivery attempt as `Task.basedOn`. */
+  basedOnReference?: string;
+  basedOnVersionId?: string;
 }
 
 /**
@@ -87,7 +104,122 @@ export const resolveDocumentPacketPlan = async (args: {
         patientId: source.patientId,
         documentReferenceId: source.documentReferenceId,
       });
+    case 'referral':
+      return resolveReferral({ oystehr, token, secrets, referralId: source.referralId });
   }
+};
+
+export interface ReferralFaxContext {
+  serviceRequest: ServiceRequest;
+  patientId: string;
+  encounterId?: string;
+  appointmentId?: string;
+}
+
+export const assertReferralFaxable = (serviceRequest: ServiceRequest): void => {
+  const status = getReferralStatus(serviceRequest);
+  if (!isReferralEditable(status)) {
+    throw INVALID_INPUT_ERROR(`A referral that is ${REFERRAL_STATUS_LABELS[status]} cannot be faxed`);
+  }
+};
+
+export const resolveReferralFaxContext = async (oystehr: Oystehr, referralId: string): Promise<ReferralFaxContext> => {
+  const serviceRequest = await loadReferral(oystehr, referralId);
+  assertReferralFaxable(serviceRequest);
+  const patientId = getIdFromReference(serviceRequest.subject?.reference, 'Patient');
+  if (!patientId) throw INVALID_INPUT_ERROR(`Referral ${referralId} names no patient`);
+
+  const encounterId = getIdFromReference(serviceRequest.encounter?.reference, 'Encounter');
+  if (!encounterId) return { serviceRequest, patientId };
+
+  const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
+  if (encounter.subject?.reference !== `Patient/${patientId}`) {
+    throw INVALID_INPUT_ERROR(`Referral ${referralId} names a visit of another patient`);
+  }
+  const appointmentId = getIdFromReference(encounter.appointment?.[0]?.reference, 'Appointment');
+  return { serviceRequest, patientId, encounterId, appointmentId };
+};
+
+const resolveReferral = async (args: {
+  oystehr: Oystehr;
+  token: string;
+  secrets: Secrets | null;
+  referralId: string;
+}): Promise<DocumentPacketPlan> => {
+  const { oystehr, token, secrets, referralId } = args;
+  const sourceType = 'referral';
+
+  const { serviceRequest, patientId, appointmentId } = await resolveReferralFaxContext(oystehr, referralId);
+  const basedOnReference = `ServiceRequest/${referralId}`;
+  const basedOnVersionId = serviceRequest.meta?.versionId;
+  const [formPart, earlierParts] = await Promise.all([
+    resolveReferralFormPart(serviceRequest, { oystehr, secrets, token }),
+    collectReferralDocumentParts(oystehr, patientId, getReferralEarlierDocumentIds(serviceRequest), secrets),
+  ]);
+  const budget = createDocumentPacketByteBudget(sourceType);
+
+  if (appointmentId) {
+    const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
+    if (!visitResources?.appointment?.id || !visitResources.patient?.id) {
+      throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Visit resources could not be resolved for appointment ${appointmentId}`);
+    }
+    if (visitResources.patient.id !== patientId) {
+      throw INVALID_INPUT_ERROR(`Visit ${appointmentId} does not belong to this patient`);
+    }
+    const kinds = getReferralDetails(serviceRequest)?.includeDocuments ?? [];
+    const parts = [
+      formPart,
+      ...(await collectVisitPacketParts({ oystehr, token, secrets, kinds, visitResources })),
+      ...earlierParts,
+    ];
+    return {
+      sourceType,
+      patient: visitResources.patient,
+      sections: [
+        await buildDocumentPacketSection({ token, subject: buildVisitSubject(visitResources), parts, budget }),
+      ],
+      appointmentId: visitResources.appointment.id,
+      encounterId: visitResources.encounter?.id,
+      location: visitResources.location,
+      timezone: visitResources.timezone,
+      listResources: visitResources.listResources,
+      basedOnReference,
+      basedOnVersionId,
+    };
+  }
+
+  const [patient, listResources] = await Promise.all([
+    oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
+    getPatientFolders(oystehr, patientId),
+  ]);
+  const subject: PacketCoverSheetSubject = {
+    patientName: getFullestAvailableName(patient, true) ?? '',
+    patientId: resolvePatientDisplayId(patient),
+    visitTypeLabel: 'Referral',
+  };
+  return {
+    sourceType,
+    patient,
+    sections: [await buildDocumentPacketSection({ token, subject, parts: [formPart, ...earlierParts], budget })],
+    listResources,
+    basedOnReference,
+    basedOnVersionId,
+  };
+};
+
+const resolveReferralFormPart = async (
+  serviceRequest: ServiceRequest,
+  args: { oystehr: Oystehr; secrets: Secrets | null; token: string }
+): Promise<DocumentPacketPart> => {
+  const { documentReference, z3Url } = await getOrCreateReferralForm(serviceRequest, args);
+  if (!documentReference.id) throw new Error(`Referral ${serviceRequest.id} form DocumentReference has no id`);
+  return {
+    kind: REFERRAL_FORM_PACKET_DOCUMENT_KIND,
+    title: DOCUMENT_PACKET_DOCUMENT_LABELS[REFERRAL_FORM_PACKET_DOCUMENT_KIND],
+    documentReferenceId: documentReference.id,
+    z3Url,
+    contentType: documentReference.content?.[0]?.attachment?.contentType,
+  };
 };
 
 const resolveVisits = async (args: {
@@ -261,15 +393,3 @@ const buildVisitSubject = (visitResources: {
     visitTypeLabel: resolveVisitTypeLabel(visitResources as Parameters<typeof resolveVisitTypeLabel>[0]),
   };
 };
-
-/** The patient's document folders, so a packet lands in the Docs UI like any other document. */
-export const getPatientFolders = async (oystehr: Oystehr, patientId: string): Promise<List[]> =>
-  (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [
-        { name: 'subject', value: `Patient/${patientId}` },
-        { name: 'code', value: PATIENT_FOLDERS_CODE },
-      ],
-    })
-  ).unbundle();

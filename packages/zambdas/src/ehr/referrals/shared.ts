@@ -1,0 +1,365 @@
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import {
+  Communication,
+  DocumentReference,
+  Encounter,
+  FhirResource,
+  Patient,
+  Practitioner,
+  Reference,
+  ServiceRequest,
+  Task,
+} from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { TASK_CATEGORY_IDENTIFIER } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import {
+  getOutboundDeliveryAttemptStatus,
+  getOutboundDeliveryChannel,
+  getOutboundDeliveryRecipientSnapshot,
+} from 'utils/lib/fhir/outbound-delivery';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
+import {
+  getReferralDetails,
+  getReferralEarlierDocumentIds,
+  getReferralNotesToRecipient,
+  getReferralReason,
+  getReferralRecipientContactId,
+  getReferralSpecialty,
+  getReferralStatus,
+  getReferralUrgency,
+  isReferralServiceRequest,
+  REFERRAL_FORM_DOC_REF_DOCTYPE,
+} from 'utils/lib/fhir/referral';
+import {
+  isReferralOpen,
+  REFERRAL_DEFAULTS,
+  REFERRAL_TASK,
+  ReferralDTO,
+  ReferralEarlierDocument,
+  ReferralRecipient,
+} from 'utils/lib/types/api/referrals/referrals.types';
+import { getTaskInputValue } from 'utils/lib/types/data/tasks/types';
+import { compareDates } from 'utils/lib/utils/dateUtils';
+import { loadRecipientsFor } from '../../shared/referrals/recipient';
+import { findReferralDocuments, toReferralEarlierDocument } from '../../shared/referrals/referral-documents';
+import {
+  buildReferralTask,
+  isOpenTask,
+  newestTask,
+  referralOverdueAt,
+  referralTaskSettleRequest,
+  withoutOverdueNotifiedTag,
+} from '../../shared/referrals/referral-task';
+
+/** Ids per `_id` / `based-on` / `related` search, so the query string stays well under URL limits. */
+const ID_SEARCH_CHUNK = 50;
+
+const searchByValues = async <T extends FhirResource>(
+  oystehr: Oystehr,
+  resourceType: T['resourceType'],
+  paramName: string,
+  values: string[],
+  extraParams: { name: string; value: string }[] = []
+): Promise<T[]> => {
+  const unique = [...new Set(values)];
+  const results: T[] = [];
+  for (let i = 0; i < unique.length; i += ID_SEARCH_CHUNK) {
+    const chunk = unique.slice(i, i + ID_SEARCH_CHUNK);
+    results.push(
+      ...(await getAllFhirSearchPages<T>(
+        { resourceType, params: [{ name: paramName, value: chunk.join(',') }, ...extraParams] },
+        oystehr
+      ))
+    );
+  }
+  return results;
+};
+
+const isReferralTask = (task: Task): boolean =>
+  task.groupIdentifier?.system === TASK_CATEGORY_IDENTIFIER && task.groupIdentifier.value === REFERRAL_TASK.category;
+
+const isReferralForm = (docRef: DocumentReference): boolean =>
+  !!docRef.type?.coding?.some(
+    (coding) =>
+      coding.system === REFERRAL_FORM_DOC_REF_DOCTYPE.system && coding.code === REFERRAL_FORM_DOC_REF_DOCTYPE.code
+  );
+
+const newestFirst = <T extends { authoredOn?: string; date?: string }>(a: T, b: T): number =>
+  compareDates(a.authoredOn ?? a.date, b.authoredOn ?? b.date);
+
+const oldestFirst = <T extends { authoredOn?: string; date?: string }>(a: T, b: T): number => newestFirst(b, a);
+
+export const pickReferralTask = (tasks: Task[]): Task | undefined => {
+  const sorted = [...tasks].sort(newestFirst);
+  return sorted.find(isOpenTask) ?? sorted[0];
+};
+
+export const sortReferrals = (referrals: ReferralDTO[]): ReferralDTO[] =>
+  [...referrals].sort((a, b) => {
+    const openDiff = Number(isReferralOpen(b.status)) - Number(isReferralOpen(a.status));
+    return openDiff !== 0 ? openDiff : b.createdAt.localeCompare(a.createdAt);
+  });
+
+export interface ReferralDTOContext {
+  recipient?: ReferralRecipient;
+  referringProviderName?: string;
+  appointmentId?: string;
+  task?: Task;
+  formDocumentReference?: DocumentReference;
+  responseDocumentReferences?: DocumentReference[];
+  earlierDocuments?: ReferralEarlierDocument[];
+  lastFax?: ReferralDTO['lastFax'];
+}
+
+export const toReferralDTO = (serviceRequest: ServiceRequest, context: ReferralDTOContext): ReferralDTO => {
+  const details = getReferralDetails(serviceRequest);
+  const recipientContactId = getReferralRecipientContactId(serviceRequest);
+  const recipient =
+    context.recipient ??
+    (recipientContactId
+      ? { contactId: recipientContactId, name: serviceRequest.performer?.[0]?.display ?? '' }
+      : undefined);
+  return {
+    id: serviceRequest.id ?? '',
+    patientId: getIdFromReference(serviceRequest.subject?.reference, 'Patient') ?? '',
+    encounterId: getIdFromReference(serviceRequest.encounter?.reference, 'Encounter'),
+    appointmentId: context.appointmentId,
+    specialty: getReferralSpecialty(serviceRequest),
+    recipient,
+    reason: getReferralReason(serviceRequest),
+    urgency: getReferralUrgency(serviceRequest),
+    whatIsAsked: details?.whatIsAsked ?? REFERRAL_DEFAULTS.whatIsAsked,
+    whoSchedules: details?.whoSchedules ?? REFERRAL_DEFAULTS.whoSchedules,
+    responseRequested: details?.responseRequested ?? REFERRAL_DEFAULTS.responseRequested,
+    includeDocuments: details?.includeDocuments ?? [],
+    earlierDocuments: context.earlierDocuments ?? [],
+    notesToRecipient: getReferralNotesToRecipient(serviceRequest),
+    referringProvider: {
+      id: getIdFromReference(serviceRequest.requester?.reference, 'Practitioner'),
+      name: serviceRequest.requester?.display ?? context.referringProviderName ?? '',
+    },
+    status: getReferralStatus(serviceRequest),
+    createdAt: serviceRequest.authoredOn ?? '',
+    sentAt: details?.sentAt,
+    givenToPatientAt: details?.givenToPatientAt,
+    givenToPatientBy: details?.givenToPatientBy,
+    closedAt: details?.closedAt,
+    closedBy: details?.closedBy,
+    closeReason: details?.closeReason,
+    outcome: details?.outcome,
+    taskId: context.task?.id,
+    taskStatus: context.task?.status,
+    overdueAt: context.task?.restriction?.period?.end,
+    formDocumentReferenceId: context.formDocumentReference?.id,
+    responseDocumentReferenceIds: (context.responseDocumentReferences ?? [])
+      .map((docRef) => docRef.id)
+      .filter((id): id is string => !!id),
+    lastFax: context.lastFax,
+  };
+};
+
+const latestFaxAttempt = async (
+  oystehr: Oystehr,
+  attemptsByReferral: Map<string, Task[]>
+): Promise<Map<string, ReferralDTO['lastFax']>> => {
+  const latest = new Map(
+    [...attemptsByReferral].map(([referralId, attempts]) => [referralId, [...attempts].sort(newestFirst)[0]])
+  );
+  const communicationIds = [...latest.values()]
+    .map((task) => getOutboundDeliveryRecipientSnapshot(task).communicationId)
+    .filter((id): id is string => !!id);
+  const communications = new Map(
+    (await searchByValues<Communication>(oystehr, 'Communication', '_id', communicationIds)).map((communication) => [
+      communication.id,
+      communication,
+    ])
+  );
+  return new Map(
+    [...latest].map(([referralId, task]) => [
+      referralId,
+      {
+        attemptId: task.id ?? '',
+        status: getOutboundDeliveryAttemptStatus(
+          task,
+          communications.get(getOutboundDeliveryRecipientSnapshot(task).communicationId ?? '')
+        ),
+        sentAt: task.executionPeriod?.start ?? task.authoredOn,
+      },
+    ])
+  );
+};
+
+const groupBy = <T>(items: T[], key: (item: T) => string | undefined): Map<string, T[]> => {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const k = key(item);
+    if (!k) continue;
+    groups.set(k, [...(groups.get(k) ?? []), item]);
+  }
+  return groups;
+};
+
+const loadEarlierDocumentsFor = async (
+  oystehr: Oystehr,
+  serviceRequests: ServiceRequest[]
+): Promise<Map<string, ReferralEarlierDocument[]>> => {
+  const withDocuments = serviceRequests.filter(
+    (serviceRequest) => getReferralEarlierDocumentIds(serviceRequest).length
+  );
+  const byPatient = groupBy(withDocuments, (serviceRequest) =>
+    getIdFromReference(serviceRequest.subject?.reference, 'Patient')
+  );
+  const result = new Map<string, ReferralEarlierDocument[]>();
+  for (const [patientId, patientReferrals] of byPatient) {
+    const found = await findReferralDocuments(
+      oystehr,
+      patientId,
+      patientReferrals.flatMap(getReferralEarlierDocumentIds)
+    );
+    for (const serviceRequest of patientReferrals) {
+      result.set(
+        serviceRequest.id!,
+        getReferralEarlierDocumentIds(serviceRequest).flatMap((id) => {
+          const document = found.get(id);
+          return document ? [toReferralEarlierDocument(document)] : [];
+        })
+      );
+    }
+  }
+  return result;
+};
+
+const basedOnReferralId = (task: Task): string | undefined =>
+  task.basedOn?.map((ref) => getIdFromReference(ref.reference, 'ServiceRequest')).find((id) => !!id);
+
+const relatedReferralId = (docRef: DocumentReference): string | undefined =>
+  docRef.context?.related?.map((ref) => getIdFromReference(ref.reference, 'ServiceRequest')).find((id) => !!id);
+
+/** What a caller has already loaded for the referrals, so building their DTOs does not fetch it again. */
+export interface PreloadedReferralResources {
+  recipients?: Map<string, ReferralRecipient>;
+  encounters?: Encounter[];
+  earlierDocuments?: Map<string, ReferralEarlierDocument[]>;
+}
+
+export const buildReferralDTOs = async (
+  oystehr: Oystehr,
+  serviceRequests: ServiceRequest[],
+  preloaded: PreloadedReferralResources = {}
+): Promise<ReferralDTO[]> => {
+  const referrals = serviceRequests.filter(
+    (serviceRequest) => serviceRequest.id && isReferralServiceRequest(serviceRequest)
+  );
+  if (!referrals.length) return [];
+  const referralRefs = referrals.map((serviceRequest) => `ServiceRequest/${serviceRequest.id}`);
+  const encounterIds = referrals
+    .map((serviceRequest) => getIdFromReference(serviceRequest.encounter?.reference, 'Encounter'))
+    .filter((id): id is string => !!id);
+  const practitionerIdsWithoutDisplay = referrals
+    .filter((serviceRequest) => !serviceRequest.requester?.display)
+    .map((serviceRequest) => getIdFromReference(serviceRequest.requester?.reference, 'Practitioner'))
+    .filter((id): id is string => !!id);
+
+  const [recipients, tasks, docRefs, encounters, practitioners, earlierDocuments] = await Promise.all([
+    preloaded.recipients ?? loadRecipientsFor(oystehr, referrals),
+    searchByValues<Task>(oystehr, 'Task', 'based-on', referralRefs),
+    searchByValues<DocumentReference>(oystehr, 'DocumentReference', 'related', referralRefs, [
+      { name: 'status', value: 'current' },
+    ]),
+    preloaded.encounters ?? searchByValues<Encounter>(oystehr, 'Encounter', '_id', encounterIds),
+    searchByValues<Practitioner>(oystehr, 'Practitioner', '_id', practitionerIdsWithoutDisplay),
+    preloaded.earlierDocuments ?? loadEarlierDocumentsFor(oystehr, referrals),
+  ]);
+
+  const referralTasks = groupBy(tasks.filter(isReferralTask), basedOnReferralId);
+  const faxAttempts = groupBy(
+    tasks.filter((task) => getOutboundDeliveryChannel(task) === 'fax'),
+    basedOnReferralId
+  );
+  const lastFaxes = await latestFaxAttempt(oystehr, faxAttempts);
+  const formsByReferral = groupBy(docRefs.filter(isReferralForm), relatedReferralId);
+  const responsesByReferral = groupBy(
+    docRefs.filter((docRef) => !isReferralForm(docRef)),
+    relatedReferralId
+  );
+  const appointmentByEncounter = new Map(
+    encounters.map((encounter) => [
+      encounter.id,
+      getIdFromReference(encounter.appointment?.[0]?.reference, 'Appointment'),
+    ])
+  );
+  const practitionerNames = new Map(
+    practitioners.map((practitioner) => [practitioner.id, getFullestAvailableName(practitioner)])
+  );
+
+  return sortReferrals(
+    referrals.map((serviceRequest) => {
+      const id = serviceRequest.id!;
+      return toReferralDTO(serviceRequest, {
+        recipient: recipients.get(id),
+        referringProviderName: practitionerNames.get(
+          getIdFromReference(serviceRequest.requester?.reference, 'Practitioner') ?? ''
+        ),
+        appointmentId: appointmentByEncounter.get(
+          getIdFromReference(serviceRequest.encounter?.reference, 'Encounter') ?? ''
+        ),
+        task: pickReferralTask(referralTasks.get(id) ?? []),
+        formDocumentReference: [...(formsByReferral.get(id) ?? [])].sort(newestFirst)[0],
+        responseDocumentReferences: [...(responsesByReferral.get(id) ?? [])].sort(oldestFirst),
+        earlierDocuments: earlierDocuments.get(id),
+        lastFax: lastFaxes.get(id),
+      });
+    })
+  );
+};
+
+export const referralTaskRequests = (args: {
+  serviceRequest: ServiceRequest;
+  referralReference: string;
+  openTasks: Task[];
+  patient: Patient;
+  recipient?: ReferralRecipient;
+  owner: Reference;
+  location?: { id: string; name?: string };
+}): BatchInputRequest<FhirResource>[] => {
+  const { serviceRequest, referralReference, openTasks, patient, recipient, owner, location } = args;
+  const details = getReferralDetails(serviceRequest);
+
+  if (!details?.responseRequested) return openTasks.map((task) => referralTaskSettleRequest(task, 'cancelled'));
+
+  const urgency = getReferralUrgency(serviceRequest);
+  const task = buildReferralTask({
+    serviceRequest,
+    referralReference,
+    patient,
+    recipientName: recipient?.name,
+    owner,
+    location,
+  });
+  const anchor =
+    details.sentAt ?? details.givenToPatientAt ?? DateTime.now().toUTC().toISO() ?? new Date().toISOString();
+  const restriction: Task['restriction'] = { period: { end: referralOverdueAt(urgency, anchor) } };
+
+  const openTask = newestTask(openTasks);
+  if (openTask) {
+    const urgencyChanged = getTaskInputValue(openTask, REFERRAL_TASK.input.urgency) !== urgency;
+    return [
+      {
+        method: 'PUT',
+        url: `/Task/${openTask.id}`,
+        resource: {
+          ...(urgencyChanged ? withoutOverdueNotifiedTag(openTask) : openTask),
+          description: task.description,
+          input: task.input,
+          ...(urgencyChanged ? { restriction } : {}),
+        },
+        ifMatch: makeOptimisticLockIfMatchHeader(openTask),
+      },
+    ];
+  }
+
+  return [{ method: 'POST', url: '/Task', resource: { ...task, restriction } }];
+};

@@ -48,6 +48,7 @@ export function makeOutboundDeliveryAttempt(data: OutboundDeliveryAttemptData): 
     focus: data.appointmentId ? { reference: `Appointment/${data.appointmentId}`, type: 'Appointment' } : undefined,
     requester: data.requesterReference ? { reference: data.requesterReference } : undefined,
     partOf: data.parentAttemptId ? [{ reference: `Task/${data.parentAttemptId}` }] : undefined,
+    basedOn: data.basedOnReference ? [{ reference: data.basedOnReference }] : undefined,
     authoredOn,
     executionPeriod: { start: authoredOn },
     identifier: data.sourceIdentifier
@@ -79,6 +80,7 @@ export function makeOutboundDeliveryAttempt(data: OutboundDeliveryAttemptData): 
       ...(data.senderOrganizationReference
         ? [input(OUTBOUND_DELIVERY_INPUT_CODES.senderOrganization, undefined, data.senderOrganizationReference)]
         : []),
+      ...(data.basedOnVersionId ? [input(OUTBOUND_DELIVERY_INPUT_CODES.basedOnVersion, data.basedOnVersionId)] : []),
     ].filter(hasValue),
     output: data.communicationReference
       ? [

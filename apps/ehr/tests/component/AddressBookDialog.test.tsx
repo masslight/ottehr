@@ -35,6 +35,10 @@ vi.mock('src/features/address-book/addressBook.api', () => api);
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {} }) }));
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
 vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
+const progressNoteConfig = vi.hoisted(() => ({
+  current: { data: undefined as { specialtyTransferOptions: string[] } | undefined, isLoading: false },
+}));
+vi.mock('src/hooks/useProgressNoteConfig', () => ({ useProgressNoteConfig: () => progressNoteConfig.current }));
 // Plain <input> so the test doesn't fight react-imask.
 vi.mock('ui-components/lib/components/InputMask', () => ({
   InputMask: (props: any) => <input {...props} onChange={(e) => props.onChange(e)} />,
@@ -51,6 +55,7 @@ const renderDialog = (ui: ReactElement): void => {
 describe('AddressBookDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    progressNoteConfig.current = { data: undefined, isLoading: false };
     api.searchAddressBook.mockResolvedValue({ contacts: [existing] });
   });
 
@@ -243,5 +248,60 @@ describe('AddressBookDialog', () => {
 
     expect(api.deleteAddressBookContact).toHaveBeenCalledWith(expect.anything(), { contactId: existing.id });
     expect(onDeleted).toHaveBeenCalled();
+  });
+
+  it('tells the user why the server refused the delete, and keeps the contact', async () => {
+    const user = userEvent.setup();
+    const onDeleted = vi.fn();
+    api.deleteAddressBookContact.mockRejectedValue({
+      message: "This contact is the recipient of 2 referrals and can't be deleted.",
+      code: 4340,
+    });
+    renderDialog(<AddressBookDialog contact={existing} onClose={vi.fn()} onSaved={vi.fn()} onDeleted={onDeleted} />);
+
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.click(screen.getByTestId('dialog-proceed-button'));
+
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith(
+        "This contact is the recipient of 2 referrals and can't be deleted.",
+        { variant: 'error' }
+      )
+    );
+    expect(enqueueSnackbar).toHaveBeenCalledTimes(1);
+    expect(onDeleted).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a generic message when a failed delete carries none', async () => {
+    const user = userEvent.setup();
+    api.deleteAddressBookContact.mockRejectedValue({});
+    renderDialog(<AddressBookDialog contact={existing} onClose={vi.fn()} onSaved={vi.fn()} onDeleted={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.click(screen.getByTestId('dialog-proceed-button'));
+
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Failed to delete the contact. Please try again.', {
+        variant: 'error',
+      })
+    );
+  });
+
+  it("suggests the practice's configured specialties as tags, as the referral form filters by them", async () => {
+    const user = userEvent.setup();
+    progressNoteConfig.current = {
+      data: { specialtyTransferOptions: ['Sleep Medicine', 'OB/GYN'] },
+      isLoading: false,
+    };
+    api.searchAddressBook.mockResolvedValue({ contacts: [] });
+    renderDialog(<AddressBookDialog onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await user.click(screen.getByLabelText('Tags'));
+
+    const options = (await screen.findAllByRole('option')).map((option) => option.textContent);
+    expect(options).toContain('sleep medicine');
+    expect(options).toContain('ob gyn');
+    expect(options).not.toContain('ob/gyn');
+    expect(options).not.toContain('orthopedics');
   });
 });

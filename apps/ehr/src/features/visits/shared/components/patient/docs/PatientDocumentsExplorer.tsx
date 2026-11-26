@@ -16,11 +16,14 @@ import { SendDocumentsDialog } from 'src/features/send-documents/ui/SendDocument
 import { useDownloadDocumentsZip } from 'src/hooks/useDownloadDocumentsZip';
 import {
   DocumentVisitRef,
+  filterFolderDocuments,
+  PatientDocumentInfo,
   PatientDocumentsFilters,
   PatientDocumentsFolder,
   useGetPatientDocs,
 } from 'src/hooks/useGetPatientDocs';
 import { PatientVisitOption, usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
 import { describeIncompleteArchive, isSingleFileDownload, makeDocumentsZipFileName } from './documentsZip';
 import { PatientDocumentFoldersColumn, PatientDocumentFoldersColumnSkeleton } from './PatientDocumentFoldersColumn';
@@ -45,6 +48,23 @@ const DOWNLOAD_ERROR_MESSAGES = {
   },
 };
 
+export type PatientDocumentsPickerOptions = {
+  /** Internal names of the folders offered; documents filed only elsewhere are not listed. */
+  folderNames: readonly string[];
+  isDocumentAllowed: (folderName: string, document: PatientDocumentInfo) => boolean;
+  /** Leaves this visit's documents and the visit itself out of the picker. */
+  excludeEncounterId?: string;
+  initialSelectedIds?: string[];
+  /** Start filtered to the most recent past visit that has offered documents, with them ticked. */
+  preselectLatestVisit?: boolean;
+  /** Every change of the selection; `documentsById` holds each document listed so far. */
+  onSelectionChange: (selectedIds: string[], documentsById: ReadonlyMap<string, PatientDocumentInfo>) => void;
+};
+
+const isDocumentOfVisit = (document: PatientDocumentInfo, visit: DocumentVisitRef): boolean =>
+  (!!document.encounterId && document.encounterId === visit.encounterId) ||
+  (!!document.appointmentId && document.appointmentId === visit.appointmentId);
+
 export type PatientDocumentsExplorerProps = {
   patientId: string;
   patient?: Patient;
@@ -62,6 +82,8 @@ export type PatientDocumentsExplorerProps = {
    * Set by visit surfaces when the chart is locked or the user may not edit it.
    */
   readOnly?: boolean;
+  /** Picker mode: no upload, scan, download or row actions; omitted everywhere else. */
+  picker?: PatientDocumentsPickerOptions;
 };
 
 /**
@@ -76,13 +98,14 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   initialFolderName,
   initialFolderId,
   readOnly = false,
+  picker,
 }) => {
   const theme = useTheme();
 
   const {
-    documents,
+    documents: allDocuments,
     isLoadingDocuments,
-    documentsFolders,
+    documentsFolders: allDocumentsFolders,
     isLoadingFolders,
     searchDocuments,
     downloadDocument,
@@ -90,7 +113,11 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     documentActions,
   } = useGetPatientDocs(patientId, undefined, { uploadEncounterId });
 
-  const { visitOptions, isLoading: isLoadingVisits } = usePatientVisitOptions(patientId);
+  const {
+    visitOptions: allVisitOptions,
+    visitsByEncounterId,
+    isLoading: isLoadingVisits,
+  } = usePatientVisitOptions(patientId);
   const [searchDocNameFieldValue, setSearchDocNameFieldValue] = useState<string>('');
   const [docNameTextDebounced, setDocNameTextDebounced] = useState<string>('');
   const [searchDocAddedDate, setSearchDocAddedDate] = useState<DateTime | null>(null);
@@ -99,8 +126,95 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   const [uploadMode, setUploadMode] = useState<UploadDocumentMode | null>(null);
   const [pendingSelectInternalName, setPendingSelectInternalName] = useState<string | null>(null);
   const [documentIdToSend, setDocumentIdToSend] = useState<string | null>(null);
-  const [selectedDocumentIds, setSelectedDocumentIds] = useState<GridRowSelectionModel>([]);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<GridRowSelectionModel>(
+    picker?.initialSelectedIds ?? []
+  );
   const { downloadDocumentsZip, isDownloading: isDownloadingDocuments } = useDownloadDocumentsZip();
+
+  const [seenDocuments, setSeenDocuments] = useState<ReadonlyMap<string, PatientDocumentInfo>>(new Map());
+  const [hasPreselected, setHasPreselected] = useState(false);
+  const isPicker = !!picker;
+  useEffect(() => {
+    if (!isPicker || !allDocuments?.length) return;
+    setSeenDocuments((seen) => new Map([...seen, ...allDocuments.map((document) => [document.id, document] as const)]));
+  }, [isPicker, allDocuments]);
+  // The seen list catches up a render late; the documents on screen are always known.
+  const knownDocuments = useMemo(
+    () => new Map([...seenDocuments, ...(allDocuments ?? []).map((document) => [document.id, document] as const)]),
+    [seenDocuments, allDocuments]
+  );
+
+  const excludedVisit: DocumentVisitRef | undefined = useMemo(
+    () =>
+      picker?.excludeEncounterId
+        ? {
+            encounterId: picker.excludeEncounterId,
+            appointmentId: visitsByEncounterId.get(picker.excludeEncounterId)?.appointmentId,
+          }
+        : undefined,
+    [picker?.excludeEncounterId, visitsByEncounterId]
+  );
+  const visitOptions = useMemo(
+    () => allVisitOptions.filter((visit) => visit.encounterId !== excludedVisit?.encounterId),
+    [allVisitOptions, excludedVisit]
+  );
+
+  const documentsFolders = useMemo(() => {
+    if (!picker) return allDocumentsFolders;
+    return filterFolderDocuments(
+      allDocumentsFolders.filter((folder) => !!folder.internalName && picker.folderNames.includes(folder.internalName)),
+      (documentId, folder) => {
+        const document = knownDocuments.get(documentId);
+        return (
+          !!document &&
+          picker.isDocumentAllowed(folder.internalName!, document) &&
+          !(excludedVisit && isDocumentOfVisit(document, excludedVisit))
+        );
+      }
+    );
+  }, [picker, allDocumentsFolders, knownDocuments, excludedVisit]);
+
+  const documents = useMemo(() => {
+    if (!picker || !allDocuments) return allDocuments;
+    const offeredIds = new Set(
+      documentsFolders.flatMap((folder) =>
+        (folder.documentsRefs ?? []).map((ref) => getIdFromReference(ref.reference?.reference, 'DocumentReference'))
+      )
+    );
+    return allDocuments.filter((document) => offeredIds.has(document.id));
+  }, [picker, allDocuments, documentsFolders]);
+
+  useEffect(() => {
+    if (!picker?.preselectLatestVisit || hasPreselected) return;
+    // Folders always include the system ones once loaded, so an empty list means they have not arrived yet.
+    if (isLoadingFolders || !allDocumentsFolders.length || isLoadingVisits || !documents) return;
+    setHasPreselected(true);
+    const now = DateTime.now();
+    const latestVisit = visitOptions.find((visit) => {
+      const visitDate = visit.dateTime ? DateTime.fromISO(visit.dateTime) : undefined;
+      return (
+        !!visitDate?.isValid && visitDate <= now && documents.some((document) => isDocumentOfVisit(document, visit))
+      );
+    });
+    if (!latestVisit) return;
+    setSelectedVisit(latestVisit);
+    setSelectedDocumentIds(
+      documents.filter((document) => isDocumentOfVisit(document, latestVisit)).map((document) => document.id)
+    );
+  }, [
+    picker?.preselectLatestVisit,
+    hasPreselected,
+    isLoadingFolders,
+    allDocumentsFolders.length,
+    isLoadingVisits,
+    documents,
+    visitOptions,
+  ]);
+
+  const onPickerSelectionChange = picker?.onSelectionChange;
+  useEffect(() => {
+    onPickerSelectionChange?.(selectedDocumentIds.map(String), knownDocuments);
+  }, [onPickerSelectionChange, selectedDocumentIds, knownDocuments]);
 
   const packetSource = useMemo(
     () =>
@@ -375,7 +489,7 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
                 : 'All Documents'}
             </Typography>
 
-            {!readOnly && (
+            {!readOnly && !picker && (
               <>
                 <RoundedButton
                   variant="outlined"
@@ -395,16 +509,18 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
               </>
             )}
 
-            <RoundedButton
-              disabled={isDownloadingDocuments}
-              loading={isDownloadingDocuments}
-              variant="outlined"
-              startIcon={<DownloadIcon fontSize="small" />}
-              onClick={() => void handleDownloadSelectedDocuments()}
-              data-testid={dataTestIds.patientDocsPage.downloadSelectedDocumentsButton}
-            >
-              Download
-            </RoundedButton>
+            {!picker && (
+              <RoundedButton
+                disabled={isDownloadingDocuments}
+                loading={isDownloadingDocuments}
+                variant="outlined"
+                startIcon={<DownloadIcon fontSize="small" />}
+                onClick={() => void handleDownloadSelectedDocuments()}
+                data-testid={dataTestIds.patientDocsPage.downloadSelectedDocumentsButton}
+              >
+                Download
+              </RoundedButton>
+            )}
           </Box>
 
           <PatientDocumentsExplorerTable
@@ -414,6 +530,7 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
             patientId={patientId}
             selectedDocumentIds={selectedDocumentIds}
             onSelectedDocumentIdsChange={setSelectedDocumentIds}
+            pickerMode={!!picker}
           />
         </Grid>
       </Grid>

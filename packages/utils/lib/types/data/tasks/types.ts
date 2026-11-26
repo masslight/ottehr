@@ -24,6 +24,7 @@ export interface Task {
   alert?: TaskAlertCode;
   completable: boolean;
   reopenable?: boolean;
+  overdue?: boolean;
   chat?: {
     hasUnread: boolean;
   };
