@@ -20,6 +20,7 @@ import {
   MANUAL_PAYMENT_CONFLICT_ERROR,
 } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
+import { readPayableInvoice } from '../../../src/billing/invoice-payments';
 import { buildPaymentNotice } from '../../../src/billing/payments';
 import { performEffect } from '../../../src/billing/record-billing-nio-invoice-payment';
 
@@ -683,5 +684,29 @@ describe('record-billing-nio-invoice-payment', () => {
     );
     expect(list).toHaveBeenCalled();
     expect(transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('readPayableInvoice', () => {
+  it('reads the invoice before its payments, so a payment landing between the reads fails the lock', async () => {
+    const { oystehr, search, resultsByType } = setup();
+    const reads: string[] = [];
+    search.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
+      reads.push(`start ${resourceType}`);
+      await Promise.resolve();
+      reads.push(`end ${resourceType}`);
+      return {
+        unbundle: () => resultsByType[resourceType],
+      };
+    });
+
+    await readPayableInvoice({
+      oystehr,
+      invoiceId: INVOICE_ID,
+      paymentId: PAYMENT_ID,
+      amountInCents: 32000,
+    });
+
+    expect(reads).toEqual(['start Invoice', 'end Invoice', 'start PaymentNotice', 'end PaymentNotice']);
   });
 });

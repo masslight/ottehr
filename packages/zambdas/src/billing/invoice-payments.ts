@@ -70,10 +70,9 @@ export async function readPayableInvoice({
   paymentId: string;
   amountInCents: number;
 }): Promise<PayableInvoice> {
-  const [invoice, notices] = await Promise.all([
-    fetchById<Invoice>(oystehr, 'Invoice', invoiceId),
-    fetchInvoicePaymentNotices(oystehr, [invoiceId]),
-  ]);
+  // invoice first, so a payment landing between the reads fails the caller's lock
+  const invoice = await fetchById<Invoice>(oystehr, 'Invoice', invoiceId);
+  const notices = await fetchInvoicePaymentNotices(oystehr, [invoiceId]);
   const recorded = notices.some((notice) => getNioInvoicePaymentId(notice) === paymentId);
   if (!recorded) {
     assertInvoicePayable({
@@ -155,7 +154,7 @@ export async function recordInvoicePayment({
     const paysInFull = payment.amountInCents === getInvoiceBalanceInCents(invoice, notices);
     await oystehr.fhir.transaction<FhirResource>({
       requests: [
-        // always written, so concurrent partial payments can't overpay the balance they each read
+        // always written, so concurrent payments can't overpay
         getPatchBinary({
           resourceType: 'Invoice',
           resourceId: payment.invoiceId,
@@ -222,7 +221,7 @@ export async function recordInvoiceCardPayment({
   });
 }
 
-// Fills each claim's unpaid share of the invoice, in invoice line order.
+// Fills claims' unpaid shares in invoice line order.
 function allocateInvoicePayment({
   invoice,
   notices,
