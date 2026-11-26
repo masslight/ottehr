@@ -67,14 +67,17 @@ export function RecordInvoicePaymentDialog({
   onClose,
   onRecorded,
   invoice,
+  idempotencyKey,
 }: {
   open: boolean;
   onClose: () => void;
   onRecorded: () => Promise<unknown> | void;
   invoice: Pick<BillingInvoiceDetail, 'id' | 'balance'>;
+  // kept until a payment is recorded, so a lost response can't be recorded twice
+  idempotencyKey: string;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
-  // the balance it opened with, so a refetch after a payment doesn't block a retry
+  // fixed at opening, so a refetch can't block a retry
   const [openedBalance] = useState(invoice.balance ?? 0);
   const methods = useForm<InvoicePaymentForm>({
     defaultValues: defaultValues(openedBalance),
@@ -83,38 +86,27 @@ export function RecordInvoicePaymentDialog({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  // One key per opening, so a resend after a lost response is refused rather than recorded twice,
-  // even when its details were edited.
-  const attempt = useRef<{
-    idempotencyKey: string;
-    invoiceId: string;
-    upload?: {
-      file: File;
-      attachment: RecordBillingNioInvoicePaymentInput['attachment'];
-    };
+  const upload = useRef<{
+    file: File;
+    attachment: RecordBillingNioInvoicePaymentInput['attachment'];
   } | null>(null);
 
   const submit = async (form: InvoicePaymentForm): Promise<void> => {
     if (!oystehrZambda) return;
     const reference = form.reference.trim() || undefined;
     const amountInCents = toAmountInCents(form.amount);
-    attempt.current ??= {
-      idempotencyKey: crypto.randomUUID(),
-      invoiceId: invoice.id,
-    };
-    const current = attempt.current;
-    const { idempotencyKey, invoiceId } = current;
+    const invoiceId = invoice.id;
 
     setSubmitting(true);
     setSubmitError('');
     try {
-      if (form.file && current.upload?.file !== form.file) {
+      if (form.file && upload.current?.file !== form.file) {
         const { uploadUrl, path } = await presignBillingInvoicePaymentAttachment(oystehrZambda, {
           invoiceId,
           fileName: form.file.name,
         });
         await uploadObjectToZ3(form.file, uploadUrl, form.file.type);
-        current.upload = {
+        upload.current = {
           file: form.file,
           attachment: {
             path,
@@ -127,7 +119,7 @@ export function RecordInvoicePaymentDialog({
           },
         };
       }
-      const attachment = form.file ? current.upload?.attachment : undefined;
+      const attachment = form.file ? upload.current?.attachment : undefined;
       await recordBillingNioInvoicePayment(oystehrZambda, {
         invoiceId,
         amountInCents,

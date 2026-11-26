@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { Elements } from '@stripe/react-stripe-js';
 import { useQuery } from '@tanstack/react-query';
-import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { AddCreditCardForm } from 'ui-components/lib/components/AddCreditCardForm';
 import { loadStripe } from 'ui-components/lib/utils/stripe';
@@ -41,6 +41,12 @@ const isRefusedCharge = (error: unknown): boolean =>
 interface CardPaymentForm {
   amount: string;
   cardId: string;
+}
+
+export interface CardChargeAttempt {
+  idempotencyKey: string;
+  cardId: string;
+  amountInCents: number;
 }
 
 function AddCardSection({
@@ -101,32 +107,31 @@ export function CollectInvoiceCardPaymentDialog({
   onClose,
   onPaid,
   invoice,
+  unresolvedAttempt,
+  onUnresolvedAttemptChange,
 }: {
   open: boolean;
   onClose: () => void;
   onPaid: () => Promise<unknown> | void;
   invoice: Pick<BillingInvoiceDetail, 'id' | 'balance'>;
+  // a charge that may have gone through; reopening resends it
+  unresolvedAttempt: CardChargeAttempt | null;
+  onUnresolvedAttemptChange: (attempt: CardChargeAttempt | null) => void;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
-  // the balance it opened with, so a refetch after a charge doesn't block a retry
   const [openedBalance] = useState(invoice.balance ?? 0);
   const { control, handleSubmit, setValue, watch } = useForm<CardPaymentForm>({
     defaultValues: {
-      amount: openedBalance.toFixed(2),
-      cardId: '',
+      amount: unresolvedAttempt ? (unresolvedAttempt.amountInCents / 100).toFixed(2) : openedBalance.toFixed(2),
+      cardId: unresolvedAttempt?.cardId ?? '',
     },
   });
   const [addingCard, setAddingCard] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const [retryOnly, setRetryOnly] = useState(false);
+  const retryOnly = unresolvedAttempt !== null;
+  const locked = submitting || retryOnly;
   const cardId = watch('cardId');
-
-  const lastAttempt = useRef<{
-    idempotencyKey: string;
-    cardId: string;
-    amountInCents: number;
-  } | null>(null);
 
   const cards = useQuery({
     queryKey: ['billing-nio-invoice-cards', invoice.id],
@@ -149,14 +154,8 @@ export function CollectInvoiceCardPaymentDialog({
     setAddingCard(false);
   };
 
-  const submit = async (form: CardPaymentForm): Promise<void> => {
+  const charge = async (attempt: CardChargeAttempt): Promise<void> => {
     if (!oystehrZambda) return;
-    lastAttempt.current ??= {
-      idempotencyKey: crypto.randomUUID(),
-      cardId: form.cardId,
-      amountInCents: toAmountInCents(form.amount),
-    };
-    const attempt = lastAttempt.current;
     setSubmitting(true);
     setSubmitError('');
     try {
@@ -173,16 +172,22 @@ export function CollectInvoiceCardPaymentDialog({
           defaultError: 'Failed to charge the card',
         })
       );
-      const refused = isRefusedCharge(err);
-      if (refused) lastAttempt.current = null;
-      setRetryOnly(!refused);
+      onUnresolvedAttemptChange(isRefusedCharge(err) ? null : attempt);
       setSubmitting(false);
       return;
     }
+    onUnresolvedAttemptChange(null);
     setSubmitting(false);
     onClose();
     await onPaid();
   };
+
+  const submit = (form: CardPaymentForm): Promise<void> =>
+    charge({
+      idempotencyKey: crypto.randomUUID(),
+      cardId: form.cardId,
+      amountInCents: toAmountInCents(form.amount),
+    });
 
   const closeIfIdle = (): void => {
     if (!submitting) onClose();
@@ -224,14 +229,14 @@ export function CollectInvoiceCardPaymentDialog({
             name="amount"
             minInCents={STRIPE_MINIMUM_CHARGE_IN_CENTS}
             maxInCents={Math.round(openedBalance * 100)}
-            disabled={retryOnly}
+            disabled={locked}
           />
           <CardSelect
             control={control}
             name="cardId"
             cards={savedCards}
             loading={cards.isPending}
-            disabled={retryOnly}
+            disabled={locked}
             error={
               cards.isError
                 ? getApiError({
@@ -246,7 +251,7 @@ export function CollectInvoiceCardPaymentDialog({
             <AddCardSection invoiceId={invoice.id} onAdded={addCard} />
           ) : (
             <Box>
-              <Button size="small" onClick={() => setAddingCard(true)} disabled={submitting || retryOnly}>
+              <Button size="small" onClick={() => setAddingCard(true)} disabled={locked}>
                 Add card
               </Button>
             </Box>
@@ -266,7 +271,7 @@ export function CollectInvoiceCardPaymentDialog({
         <Button
           variant="contained"
           startIcon={submitting ? <CircularProgress size={14} /> : <CreditCardIcon fontSize="small" />}
-          onClick={handleSubmit(submit)}
+          onClick={unresolvedAttempt ? () => void charge(unresolvedAttempt) : handleSubmit(submit)}
           disabled={submitting || !cardId || addingCard}
         >
           {retryOnly ? 'Try again' : 'Charge card'}

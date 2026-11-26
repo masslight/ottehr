@@ -10,6 +10,8 @@ import InvoiceDetail from '../../src/pages/InvoiceDetail';
 const mocks = vi.hoisted(() => ({
   getInvoice: vi.fn(),
   listCards: vi.fn(),
+  charge: vi.fn(),
+  record: vi.fn(),
   voidInvoice: vi.fn(),
   downloadUrl: vi.fn(),
   client: {},
@@ -17,6 +19,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../src/api/api', () => ({
   getBillingInvoice: mocks.getInvoice,
   listBillingNioInvoicePaymentMethods: mocks.listCards,
+  chargeBillingNioInvoiceCard: mocks.charge,
+  recordBillingNioInvoicePayment: mocks.record,
   voidBillingNioInvoice: mocks.voidInvoice,
 }));
 vi.mock('../../src/hooks/useAppClients', () => ({
@@ -332,6 +336,70 @@ describe('InvoiceDetail', () => {
 
     const dialog = within(screen.getByRole('dialog'));
     expect(dialog.getByRole('textbox', { name: 'Amount *' })).toHaveValue('320.00');
+  });
+
+  it('reopens the card payment dialog on a charge whose outcome was lost, and resends it', async () => {
+    const user = userEvent.setup();
+    mocks.getInvoice.mockResolvedValue(unpaidInvoice);
+    mocks.listCards.mockResolvedValue({
+      cards: [
+        {
+          id: 'pm_1',
+          brand: 'visa',
+          lastFour: '4242',
+          expMonth: 12,
+          expYear: 2099,
+          default: true,
+        },
+      ],
+    });
+    mocks.charge.mockRejectedValueOnce(new Error('Network error')).mockResolvedValueOnce({
+      paymentId: 'payment-1',
+    });
+    renderPage();
+    await screen.findByRole('heading', { name: 'INV-00042' });
+    const collectCardPayment = screen.getByRole('button', { name: 'Collect card payment' });
+
+    await user.click(collectCardPayment);
+    await within(screen.getByRole('dialog')).findByText(/4242/);
+    const amount = within(screen.getByRole('dialog')).getByRole('textbox', { name: 'Amount *' });
+    await user.clear(amount);
+    await user.type(amount, '100');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Charge card' }));
+    await within(screen.getByRole('dialog')).findByText('Network error');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await user.click(collectCardPayment);
+
+    const reopened = within(screen.getByRole('dialog'));
+    expect(reopened.getByRole('textbox', { name: 'Amount *' })).toHaveValue('100.00');
+    await user.click(reopened.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(mocks.charge).toHaveBeenCalledTimes(2));
+    const [[, first], [, second]] = mocks.charge.mock.calls;
+    expect(second).toEqual(first);
+  });
+
+  it('records with the same key after reopening on a payment whose outcome was lost', async () => {
+    const user = userEvent.setup();
+    mocks.getInvoice.mockResolvedValue(unpaidInvoice);
+    mocks.record.mockRejectedValueOnce(new Error('Network error')).mockResolvedValueOnce({
+      paymentId: 'payment-1',
+    });
+    renderPage();
+    await screen.findByRole('heading', { name: 'INV-00042' });
+    const recordPayment = screen.getByRole('button', { name: 'Record payment' });
+
+    await user.click(recordPayment);
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Record payment' }));
+    await within(screen.getByRole('dialog')).findByText('Network error');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await user.click(recordPayment);
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Record payment' }));
+
+    await waitFor(() => expect(mocks.record).toHaveBeenCalledTimes(2));
+    const [[, first], [, second]] = mocks.record.mock.calls;
+    expect(second.idempotencyKey).toBe(first.idempotencyKey);
   });
 
   it('reopens the record payment dialog with the balance after an edited amount was cancelled', async () => {

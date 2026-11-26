@@ -23,7 +23,7 @@ import { CLAIM_STATUS_FIELDS_BY_KEY, getActiveStatusGroup } from 'utils/lib/type
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingInvoice } from '../api/api';
 import { ClaimStatusValueChip } from '../components/ClaimStatusValueChip';
-import { CollectInvoiceCardPaymentDialog } from '../components/CollectInvoiceCardPaymentDialog';
+import { CardChargeAttempt, CollectInvoiceCardPaymentDialog } from '../components/CollectInvoiceCardPaymentDialog';
 import { InvoiceStatusChip } from '../components/InvoiceStatusChip';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { RecordInvoicePaymentDialog } from '../components/RecordInvoicePaymentDialog';
@@ -174,6 +174,9 @@ export default function InvoiceDetail(): ReactElement {
   const [recordingPayment, setRecordingPayment] = useState(false);
   const [collectingCardPayment, setCollectingCardPayment] = useState(false);
   const [voiding, setVoiding] = useState(false);
+  // outlive each opening, so reopening after an unknown outcome can't pay twice
+  const [recordPaymentKey, setRecordPaymentKey] = useState(() => crypto.randomUUID());
+  const [unresolvedCardAttempt, setUnresolvedCardAttempt] = useState<CardChargeAttempt | null>(null);
 
   const invoice = useQuery({
     queryKey: ['billing-invoice', invoiceId],
@@ -325,13 +328,17 @@ export default function InvoiceDetail(): ReactElement {
       )}
       {invoice.data && (
         <>
-          {/* mounted only while open, so each opening starts from the current balance */}
+          {/* mounted only while open, so each opening starts fresh */}
           {recordingPayment && (
             <RecordInvoicePaymentDialog
               open
               onClose={() => setRecordingPayment(false)}
-              onRecorded={() => invoice.refetch()}
+              onRecorded={() => {
+                setRecordPaymentKey(crypto.randomUUID());
+                return invoice.refetch();
+              }}
               invoice={invoice.data}
+              idempotencyKey={recordPaymentKey}
             />
           )}
           {collectingCardPayment && (
@@ -340,6 +347,8 @@ export default function InvoiceDetail(): ReactElement {
               onClose={() => setCollectingCardPayment(false)}
               onPaid={() => invoice.refetch()}
               invoice={invoice.data}
+              unresolvedAttempt={unresolvedCardAttempt}
+              onUnresolvedAttemptChange={setUnresolvedCardAttempt}
             />
           )}
           <VoidInvoiceDialog

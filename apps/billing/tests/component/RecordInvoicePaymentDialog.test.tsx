@@ -38,6 +38,7 @@ const renderDialog = (): void => {
         id: 'invoice-1',
         balance: 320,
       }}
+      idempotencyKey="payment-key-1"
     />
   );
 };
@@ -250,6 +251,7 @@ describe('RecordInvoicePaymentDialog', () => {
           id: 'invoice-1',
           balance,
         }}
+        idempotencyKey="payment-key-1"
       />
     );
     const { rerender } = render(dialog(320));
