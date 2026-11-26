@@ -185,7 +185,7 @@ const createRadiologyOrderFormStyles: StyleFactory = (assets) => {
         newLineAfter: true,
       },
       faxResults: { fontSize: 12, font: assets.fonts.bold, spacing: 3, newLineAfter: true },
-      signature: { fontSize: 20, font: assets.fonts.signature, spacing: 5, newLineAfter: true },
+      signature: { fontSize: 16, font: assets.fonts.signature, spacing: 5, newLineAfter: true },
       signatureCredentials: { fontSize: 13, font: assets.fonts.regular, spacing: 5, newLineAfter: true },
       regular: bodyLine,
       fieldText: bodyLine,
