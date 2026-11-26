@@ -1,9 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Device, Location, Organization, Practitioner, Provenance } from 'fhir/r4b';
+import { Device, Location, Organization, PaymentNotice, Practitioner, Provenance } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isPayerUrl } from 'utils/lib/helpers/helpers';
+import { paymentStatusLabel } from 'utils/lib/helpers/rcm/payment-status';
 import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
 import { GetClaimHistoryInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
@@ -22,7 +24,7 @@ import {
   GetClaimHistoryResponse,
 } from 'utils/lib/types/data/billing/claim-history';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { sendErrors } from '../../shared/errors';
+import { sendErrors, sendWarning } from '../../shared/errors';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
@@ -83,8 +85,9 @@ export async function performEffect(oystehr: Oystehr, params: GetClaimHistoryPar
       agentsByRef.set(`${r.resourceType}/${r.id}`, r);
   });
 
+  const paymentAmountsById = await fetchPaymentAmountsById(oystehr, provenances, environment);
   const entries: ClaimHistoryEntry[] = provenances
-    .map((provenance) => toHistoryEntry(provenance, agentsByRef, environment))
+    .map((provenance) => toHistoryEntry(provenance, agentsByRef, paymentAmountsById, environment))
     // Newest first. Sort here rather than relying on a server-side _sort on `recorded`.
     .sort((a, b) => (a.recorded < b.recorded ? 1 : a.recorded > b.recorded ? -1 : 0));
 
@@ -169,9 +172,45 @@ function attachEntityRefs(provenance: Provenance, changes: ClaimFieldChange[], e
   }
 }
 
+async function fetchPaymentAmountsById(
+  oystehr: Oystehr,
+  provenances: Provenance[],
+  environment: string
+): Promise<Map<string, number>> {
+  const paymentNoticeIds = [
+    ...new Set(
+      provenances
+        .map((provenance) => getIdFromReference(provenance.target?.[0]?.reference, 'PaymentNotice'))
+        .filter((id): id is string => !!id)
+    ),
+  ];
+  if (paymentNoticeIds.length === 0) return new Map();
+  const notices = await getAllFhirSearchPages<PaymentNotice>(
+    {
+      resourceType: 'PaymentNotice',
+      params: [
+        {
+          name: '_id',
+          value: paymentNoticeIds.join(','),
+        },
+      ],
+    },
+    oystehr
+  );
+  const amountsById = new Map(notices.map((notice) => [notice.id ?? '', notice.amount?.value ?? 0]));
+  const missingIds = paymentNoticeIds.filter((id) => !amountsById.has(id));
+  if (missingIds.length > 0) {
+    sendWarning('Claim history references PaymentNotices that were not found', environment, {
+      paymentNoticeIds: missingIds,
+    });
+  }
+  return amountsById;
+}
+
 function toHistoryEntry(
   provenance: Provenance,
   agentsByRef: Map<string, Practitioner | Device>,
+  paymentAmountsById: Map<string, number>,
   environment: string
 ): ClaimHistoryEntry {
   const activityCode = provenance.activity?.coding?.[0]?.code;
@@ -201,6 +240,8 @@ function toHistoryEntry(
   const resourceType = targetRef?.split('/')[0] ?? '';
   const message = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_NOTE_EXTENSION_URL)?.valueString;
   const acknowledgment = parseAcknowledgment(provenance, environment);
+  const changes = parseChanges(provenance, environment);
+  const paymentAmount = paymentAmountsById.get(getIdFromReference(targetRef, 'PaymentNotice') ?? '');
   return {
     id: provenance.id ?? '',
     recorded: provenance.recorded ?? '',
@@ -209,10 +250,30 @@ function toHistoryEntry(
       display: actorDisplay(agentsByRef.get(agentRef ?? ''), agentRef ?? ''),
       type: agentTypeCode === 'system' ? 'system' : 'user',
     },
-    changes: parseChanges(provenance, environment),
+    changes: paymentAmount === undefined ? changes : labelPaymentStatuses(changes, paymentAmount),
     ...(message ? { message } : {}),
     ...(acknowledgment ? { acknowledgment } : {}),
   };
+}
+
+// Older entries store the raw status, which can't tell whether a refund had settled.
+function labelPaymentStatuses(changes: ClaimFieldChange[], amount: number): ClaimFieldChange[] {
+  const label = (status: string | null): string | null =>
+    status
+      ? paymentStatusLabel({
+          status,
+          amount,
+        })
+      : status;
+  return changes.map((change) =>
+    change.field === 'status'
+      ? {
+          ...change,
+          previousValue: label(change.previousValue),
+          newValue: label(change.newValue),
+        }
+      : change
+  );
 }
 
 // Values are display strings captured at write time; this pass only (a) attaches screen links for

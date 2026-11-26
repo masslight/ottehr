@@ -47,6 +47,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES,
   CODE_SYSTEM_SERVICE_CATEGORY_CODE_NAMES,
 } from 'utils/lib/helpers/rcm/constants';
+import { paymentStatusLabel } from 'utils/lib/helpers/rcm/payment-status';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { otherColors } from 'utils/lib/theme/billing-palette';
 import { DrugUnitCode, MEDICARE_SECONDARY_REASON_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
@@ -148,7 +149,6 @@ import {
   defaultCoverageFormValues,
 } from '../constants/coverage';
 import { invoicePaymentMethodLabel } from '../constants/invoice';
-import { paymentStatusLabel } from '../constants/payment';
 import { useApiClients } from '../hooks/useAppClients';
 import { useCoverage } from '../hooks/useCoverage';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';

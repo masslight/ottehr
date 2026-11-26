@@ -1173,6 +1173,16 @@ describe('ClaimDetail — patient payments', () => {
           method: 'card',
           description: 'partial refund',
           status: 'active',
+          outcome: 'complete',
+        },
+        {
+          paymentNoticeId: 'pn-3',
+          paymentDate: '2026-07-12',
+          amount: -5,
+          method: 'card',
+          description: 'refund awaiting stripe',
+          status: 'active',
+          outcome: 'queued',
         },
       ],
     });
@@ -1193,6 +1203,19 @@ describe('ClaimDetail — patient payments', () => {
       .getAllByRole('cell')
       .map((cell) => cell.textContent);
     expect(refundCells).toEqual(['07/11/2026', 'card', 'partial refund', '-', 'Refunded', '-$20.00']);
+
+    const pendingRefundRow = screen.getByText('refund awaiting stripe').closest('tr');
+    const pendingRefundCells = within(pendingRefundRow as HTMLElement)
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent);
+    expect(pendingRefundCells).toEqual([
+      '07/12/2026',
+      'card',
+      'refund awaiting stripe',
+      '-',
+      'Refund pending',
+      '-$5.00',
+    ]);
   });
 
   it('shows the empty state when the claim has no patient payments', async () => {

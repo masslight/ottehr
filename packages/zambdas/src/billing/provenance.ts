@@ -42,6 +42,7 @@ import {
   CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
   CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
 } from 'utils/lib/helpers/rcm/constants';
+import { paymentStatusLabel } from 'utils/lib/helpers/rcm/payment-status';
 import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM, MEDICARE_SECONDARY_REASON_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
 import {
@@ -421,7 +422,7 @@ function projectPaymentNotice(notice: PaymentNotice): FieldProjection[] {
     {
       field: 'status',
       label: 'Status',
-      value: payment.status,
+      value: paymentStatusLabel(payment),
     },
     {
       // filters out refund reservations

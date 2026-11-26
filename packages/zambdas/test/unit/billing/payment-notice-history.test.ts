@@ -76,8 +76,8 @@ describe('payment notice changes with a claim history recorder', () => {
       {
         field: 'status',
         label: 'Status',
-        previousValue: 'active',
-        newValue: 'cancelled',
+        previousValue: 'Paid',
+        newValue: 'Cancelled',
       },
       {
         field: 'voidReason',
