@@ -118,13 +118,13 @@ vi.stubGlobal('fetch', (async (input: RequestInfo | URL) => {
 
 afterAll(() => vi.unstubAllGlobals());
 
-// The referral search is a plain paged search (getAllFhirSearchPages); the related resources go through the
-// async-bulk path (fetchScopedResources).
+// The referral search is a plain paged search (getAllFhirSearchPages); the related resources go through
+// fetchScopedResources, as sync pages or an async-bulk job.
 const fakeOystehr = {
   fhir: {
     search: vi.fn(async ({ resourceType }: { resourceType: string }, options?: { mode?: string }) => {
       if (options?.mode === 'async-bulk') return { jobId: resourceType, contentLocation: '', mode: 'bulk' };
-      const resources = resourceType === 'ServiceRequest' ? searchedReferrals : [];
+      const resources = resourceType === 'ServiceRequest' ? searchedReferrals : scopedByType[resourceType] ?? [];
       return {
         total: resources.length,
         entry: resources.map((resource) => ({ resource, search: { mode: 'match' } })),
