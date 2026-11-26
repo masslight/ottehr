@@ -2,6 +2,7 @@ import { Button } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { closeSnackbar, enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { REFERRALS_QUERY_KEY } from 'src/features/referrals/referrals.queries';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import {
   DOCUMENT_PACKET_MAX_BYTES,
@@ -10,7 +11,8 @@ import {
   GetDocumentPacketPreviewOutput,
   GetDocumentPacketStatusOutput,
 } from 'utils/lib/types/api/document-packet.types';
-import { faxHistoryQueryKey, PACKET_STATUS_POLL_TIMEOUT_MS, packetStatusTimeoutMessage } from '../model/polling';
+import { DocumentPacketPreviewInput } from '../api/documentPacketApi';
+import { faxHistoryQueryKeys, PACKET_STATUS_POLL_TIMEOUT_MS, packetStatusTimeoutMessage } from '../model/polling';
 import { toSendDocumentPacketInput } from '../model/recipients';
 import { SendDocumentsFormValues } from '../model/types';
 import { useDocumentPacketPreview } from './useDocumentPacketPreview';
@@ -22,6 +24,8 @@ export interface UseSendDocumentsResult {
   isOpen: boolean;
   open: () => void;
   close: () => void;
+  /** What the dialog is sending; the form adapts its wording and PCP handling to it. */
+  sourceType?: DocumentPacketSource['type'];
 
   isLoadingPreview: boolean;
   previewError: boolean;
@@ -35,9 +39,14 @@ export interface UseSendDocumentsResult {
   send: (values: SendDocumentsFormValues) => Promise<void>;
 }
 
+const previewInputFor = (source: DocumentPacketSource | undefined): DocumentPacketPreviewInput | undefined => {
+  if (source?.type === 'visit') return { appointmentId: source.appointmentId };
+  if (source?.type === 'referral') return { referralId: source.referralId };
+  return undefined;
+};
+
 export const useSendDocuments = (source: DocumentPacketSource | undefined): UseSendDocumentsResult => {
-  // Only a single-visit packet has a document checklist to preview; the other sources send a fixed set.
-  const previewAppointmentId = source?.type === 'visit' ? source.appointmentId : undefined;
+  const previewInput = previewInputFor(source);
   const [isOpen, setIsOpen] = useState(false);
   // Every queued send is tracked independently, so sending a second packet for the same visit never abandons
   // the first. Jobs keep polling in the background after the dialog closes.
@@ -48,10 +57,10 @@ export const useSendDocuments = (source: DocumentPacketSource | undefined): UseS
   const taskSources = useRef<Map<string, DocumentPacketSource>>(new Map());
 
   const queryClient = useQueryClient();
-  const preview = useDocumentPacketPreview(previewAppointmentId, isOpen);
+  const preview = useDocumentPacketPreview(isOpen ? previewInput : undefined, isOpen);
   // Only for the preview-less sources: a visit preview already carries the sender's number, so asking
   // for it separately would be a second request for a value this dialog is about to receive anyway.
-  const sender = useFaxSenderFaxNumber(isOpen && !previewAppointmentId);
+  const sender = useFaxSenderFaxNumber(isOpen && !previewInput);
   const sendMutation = useSendDocumentPacket();
   const statuses = useDocumentPacketStatuses(activeTaskIds);
 
@@ -67,7 +76,10 @@ export const useSendDocuments = (source: DocumentPacketSource | undefined): UseS
       setActiveTaskIds((prev) => prev.filter((id) => id !== taskId));
       const taskSource = taskSources.current.get(taskId);
       taskSources.current.delete(taskId);
-      if (taskSource) void queryClient.invalidateQueries({ queryKey: faxHistoryQueryKey(taskSource) });
+      if (taskSource) {
+        faxHistoryQueryKeys(taskSource).forEach((queryKey) => void queryClient.invalidateQueries({ queryKey }));
+      }
+      if (taskSource?.type === 'referral') void queryClient.invalidateQueries({ queryKey: [REFERRALS_QUERY_KEY] });
     },
     [queryClient]
   );
@@ -118,8 +130,9 @@ export const useSendDocuments = (source: DocumentPacketSource | undefined): UseS
     isOpen,
     open,
     close,
-    isLoadingPreview: Boolean(previewAppointmentId) && preview.isLoading,
-    previewError: Boolean(previewAppointmentId) && preview.isError,
+    sourceType: source?.type,
+    isLoadingPreview: Boolean(previewInput) && preview.isLoading,
+    previewError: Boolean(previewInput) && preview.isError,
     preview: preview.data,
     senderFaxNumber: preview.data?.senderFaxNumber ?? sender.data ?? undefined,
     isSending: sendMutation.isPending,

@@ -7,12 +7,17 @@ import { DME_ORDER_TAG_CODE, DME_ORDER_TAG_SYSTEM } from 'utils/lib/types/api/dm
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { getDmePractitionerIds, isDmeOrderDeleted } from '../../../shared/dme';
 import {
+  findCurrentOrderFormDocRef,
+  getReusableOrderFormUrl,
+  makeOrderFormVersion,
+  OrderFormSource,
+} from '../../../shared/order-form-version';
+import {
   createDmeOrderFormPDF,
   DME_ORDER_FORM_DOC_REF_DOCTYPE,
   DME_ORDER_FORM_SOURCE_VERSION_SYSTEM,
   DmeOrderFormInput,
 } from '../../../shared/pdf/dme-order-form-pdf';
-import { makeOrderFormVersion, OrderFormSource } from '../../radiology/shared/order-form-resources';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const DME_ORDER_FORM_TEMPLATE_VERSION = 2;
@@ -87,23 +92,6 @@ const standaloneSubscriber = (coverage?: Coverage, subscriber?: RelatedPerson): 
 export const makeDmeOrderFormVersion = (sources: OrderFormSource[]): string | undefined =>
   makeOrderFormVersion(DME_ORDER_FORM_TEMPLATE_VERSION, sources);
 
-/** Newest first, in case two concurrent prints both left a current form. */
-const findCurrentDmeOrderFormDocRef = async (
-  deviceRequestId: string,
-  oystehr: Oystehr
-): Promise<DocumentReference | undefined> =>
-  (
-    await oystehr.fhir.search<DocumentReference>({
-      resourceType: 'DocumentReference',
-      params: [
-        { name: 'related', value: `DeviceRequest/${deviceRequestId}` },
-        { name: 'type', value: `${DME_ORDER_FORM_DOC_REF_DOCTYPE.system}|${DME_ORDER_FORM_DOC_REF_DOCTYPE.code}` },
-        { name: 'status', value: 'current' },
-        { name: '_sort', value: '-date' },
-      ],
-    })
-  ).unbundle()[0];
-
 export interface DmeOrderFormDocument {
   documentReference: DocumentReference;
   mediaUrl: string;
@@ -119,17 +107,14 @@ export const getOrCreateDmeOrderForm = async (
   oystehr: Oystehr
 ): Promise<DmeOrderFormDocument> => {
   const [existingDocRef, { input, refs, sources }] = await Promise.all([
-    findCurrentDmeOrderFormDocRef(deviceRequestId, oystehr),
+    findCurrentOrderFormDocRef(oystehr, `DeviceRequest/${deviceRequestId}`, DME_ORDER_FORM_DOC_REF_DOCTYPE),
     gatherDmeOrderFormInput(deviceRequestId, oystehr),
   ]);
 
   const sourceVersion = makeDmeOrderFormVersion(sources);
-  const existingMediaUrl = existingDocRef?.content?.[0]?.attachment?.url;
-  const storedSourceVersion = existingDocRef?.identifier?.find(
-    (identifier) => identifier.system === DME_ORDER_FORM_SOURCE_VERSION_SYSTEM
-  )?.value;
+  const existingMediaUrl = getReusableOrderFormUrl(existingDocRef, DME_ORDER_FORM_SOURCE_VERSION_SYSTEM, sourceVersion);
 
-  if (existingDocRef && existingMediaUrl && sourceVersion && storedSourceVersion === sourceVersion) {
+  if (existingDocRef && existingMediaUrl) {
     return { documentReference: existingDocRef, mediaUrl: existingMediaUrl };
   }
 

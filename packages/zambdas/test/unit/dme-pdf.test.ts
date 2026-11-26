@@ -5,11 +5,8 @@ import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { DmeOrderFields, DmeOrderFieldsSchema } from 'utils/lib/types/api/dme.types';
 import { describe, expect, it, vi } from 'vitest';
 import { makeDmeOrderFormVersion } from '../../src/ehr/dme/get-dme-order-pdf/helpers';
-import {
-  makeRadiologyOrderFormSourceVersion,
-  OrderFormSource,
-} from '../../src/ehr/radiology/shared/order-form-resources';
 import { makeDmeDeviceRequest, makeDmeDispensedExtension, parseDmeOrder } from '../../src/shared/dme';
+import { makeOrderFormSourceVersion, OrderFormSource } from '../../src/shared/order-form-version';
 import { getEncounterDmeOrders } from '../../src/shared/pdf/assemble-progress-note-input';
 import {
   composeDmeOrderFormData,
@@ -437,7 +434,7 @@ describe('DME order form version', () => {
   it('differs from what forms of the earlier layout were stamped with, so they are drawn again', () => {
     const version = makeDmeOrderFormVersion(sources);
     expect(version).toBeDefined();
-    expect(version).not.toBe(makeRadiologyOrderFormSourceVersion(sources));
+    expect(version).not.toBe(makeOrderFormSourceVersion(sources));
   });
 
   it('is undefined while a source is unversioned', () => {

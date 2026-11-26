@@ -256,7 +256,7 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
  * Only documents a fax can actually carry get the action — offering it for a medical-record archive
  * or another unsupported format would fail later with "nothing faxable".
  */
-const isDocumentSendable = (docInfo: PatientDocumentInfo): boolean => {
+export const isDocumentSendable = (docInfo: PatientDocumentInfo): boolean => {
   if (docInfo.typeCodes?.some((code) => code === FAX_PACKET_CODE || code === MEDICAL_RECORD_EXPORT_CODE)) return false;
   // Judged on the stored attachment, exactly as the server judges it when the fax is built — a
   // display title is not a MIME type, and offering an action the server will drop is worse than
@@ -295,7 +295,7 @@ const VisitCell: FC<{ visit?: PatientVisitOption }> = ({ visit }) => {
  * Resolves a document's visit from either linkage: EHR uploads carry an encounter, intake paperwork
  * only an appointment. Encounter is tried first — it is the more specific of the two.
  */
-const resolveDocumentVisit = (
+export const resolveDocumentVisit = (
   doc: PatientDocumentInfo,
   visitsByEncounterId: Map<string, PatientVisitOption>,
   visitsByAppointmentId: Map<string, PatientVisitOption>
@@ -311,9 +311,10 @@ const openInNewTab = (documentId: string, download: DocumentTableActions['onDocu
 const configureTableColumns = (
   actions: DocumentTableActions,
   visitsByEncounterId: Map<string, PatientVisitOption>,
-  visitsByAppointmentId: Map<string, PatientVisitOption>
+  visitsByAppointmentId: Map<string, PatientVisitOption>,
+  pickerMode: boolean
 ): GridColDef<PatientDocumentInfo>[] => {
-  return [
+  const columns: GridColDef<PatientDocumentInfo>[] = [
     {
       sortable: false,
       field: 'docName',
@@ -322,7 +323,12 @@ const configureTableColumns = (
       display: 'flex',
       renderCell: ({ row: { id, docName } }) =>
         actions.isActionAllowed(id, DocumentTableActionType.ActionDownload) ? (
-          <Link component="button" underline="hover" onClick={() => openInNewTab(id, actions.onDocumentDownload)}>
+          <Link
+            component="button"
+            type="button"
+            underline="hover"
+            onClick={() => openInNewTab(id, actions.onDocumentDownload)}
+          >
             {docName}
           </Link>
         ) : (
@@ -373,6 +379,7 @@ const configureTableColumns = (
       renderCell: ({ row }) => <DocActionsCell docInfo={row} actions={actions} />,
     },
   ];
+  return pickerMode ? columns.filter((column) => column.field !== 'actions') : columns;
 };
 
 export type PatientDocumentsExplorerTableProps = {
@@ -383,6 +390,11 @@ export type PatientDocumentsExplorerTableProps = {
   patientId: string;
   selectedDocumentIds: GridRowSelectionModel;
   onSelectedDocumentIdsChange: (selectedDocumentIds: GridRowSelectionModel) => void;
+  /**
+   * Choosing documents rather than managing them: no Action column, the name opens the document, and a
+   * selection survives the filters hiding its rows.
+   */
+  pickerMode?: boolean;
 };
 
 export const PatientDocumentsExplorerTable: FC<PatientDocumentsExplorerTableProps> = (props) => {
@@ -393,6 +405,7 @@ export const PatientDocumentsExplorerTable: FC<PatientDocumentsExplorerTableProp
     patientId,
     selectedDocumentIds,
     onSelectedDocumentIdsChange,
+    pickerMode = false,
   } = props;
 
   const { visitsByEncounterId, visitsByAppointmentId } = usePatientVisitOptions(patientId);
@@ -400,8 +413,8 @@ export const PatientDocumentsExplorerTable: FC<PatientDocumentsExplorerTableProp
   const filteredDocs = documents ?? [];
 
   const tableColumns = useMemo(() => {
-    return configureTableColumns(documentTableActions, visitsByEncounterId, visitsByAppointmentId);
-  }, [documentTableActions, visitsByEncounterId, visitsByAppointmentId]);
+    return configureTableColumns(documentTableActions, visitsByEncounterId, visitsByAppointmentId, pickerMode);
+  }, [documentTableActions, visitsByEncounterId, visitsByAppointmentId, pickerMode]);
 
   return (
     <DataGridPro
@@ -424,6 +437,7 @@ export const PatientDocumentsExplorerTable: FC<PatientDocumentsExplorerTableProp
       pageSizeOptions={[10]}
       checkboxSelection
       rowSelectionModel={selectedDocumentIds}
+      keepNonExistentRowsSelected={pickerMode}
       onRowSelectionModelChange={onSelectedDocumentIdsChange}
       disableRowSelectionOnClick
       sx={{

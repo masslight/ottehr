@@ -1,5 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { Organization } from 'fhir/r4b';
+import { Organization, ServiceRequest } from 'fhir/r4b';
+import { REFERRAL_ORDER_TYPE_TAG, REFERRAL_ORDER_TYPE_TAG_TOKEN, withReferralDetails } from 'utils/lib/fhir/referral';
+import { ReferralStatus } from 'utils/lib/types/api/referrals/referrals.types';
 import {
   ADDRESS_BOOK_TAG_CODE,
   ADDRESS_BOOK_TAG_SYSTEM,
@@ -8,6 +10,7 @@ import {
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, test, vi } from 'vitest';
 import {
+  assertContactNotReferralRecipient,
   buildAddressBookOrganization,
   getAddressBookOrganizationOrThrow,
   isAddressBookOrganization,
@@ -166,6 +169,71 @@ describe('address-book helpers', () => {
           'org-6'
         )
       ).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
+    });
+  });
+
+  describe('assertContactNotReferralRecipient', () => {
+    const referral = (id: string, status: ReferralStatus): ServiceRequest =>
+      withReferralDetails(
+        {
+          resourceType: 'ServiceRequest',
+          id,
+          status: 'active',
+          intent: 'order',
+          meta: { tag: [{ ...REFERRAL_ORDER_TYPE_TAG }] },
+          subject: { reference: 'Patient/patient-1' },
+          performer: [{ reference: 'Organization/contact-1' }],
+        },
+        { status }
+      );
+    const oystehrWithReferrals = (
+      referrals: ServiceRequest[]
+    ): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
+      const search = vi.fn().mockResolvedValue({
+        entry: referrals.map((resource) => ({ resource, search: { mode: 'match' } })),
+        total: referrals.length,
+        unbundle: () => referrals,
+      });
+      return { oystehr: { fhir: { search } } as unknown as Oystehr, search };
+    };
+
+    test('refuses, counting every referral that is not cancelled, so open and closed referrals keep their recipient', async () => {
+      const { oystehr, search } = oystehrWithReferrals([
+        referral('sr-1', 'sent'),
+        referral('sr-2', 'closed'),
+        referral('sr-3', 'cancelled'),
+      ]);
+
+      await expect(assertContactNotReferralRecipient(oystehr, 'contact-1')).rejects.toEqual({
+        code: APIErrorCode.INVALID_INPUT,
+        message: "This contact is the recipient of 2 referrals and can't be deleted.",
+      });
+      expect(search.mock.calls[0][0].params).toEqual(
+        expect.arrayContaining([
+          { name: 'performer', value: 'Organization/contact-1' },
+          { name: '_tag', value: REFERRAL_ORDER_TYPE_TAG_TOKEN },
+        ])
+      );
+    });
+
+    test('names a single referral in the singular', async () => {
+      const { oystehr } = oystehrWithReferrals([referral('sr-1', 'not-sent')]);
+
+      await expect(assertContactNotReferralRecipient(oystehr, 'contact-1')).rejects.toMatchObject({
+        message: "This contact is the recipient of 1 referral and can't be deleted.",
+      });
+    });
+
+    test('allows deleting a contact whose referrals were all cancelled', async () => {
+      const { oystehr } = oystehrWithReferrals([referral('sr-1', 'cancelled')]);
+
+      await expect(assertContactNotReferralRecipient(oystehr, 'contact-1')).resolves.toBeUndefined();
+    });
+
+    test('allows deleting a contact no referral names', async () => {
+      const { oystehr } = oystehrWithReferrals([]);
+
+      await expect(assertContactNotReferralRecipient(oystehr, 'contact-1')).resolves.toBeUndefined();
     });
   });
 });

@@ -125,6 +125,7 @@ export const DocumentPacketSourceSchema = z.discriminatedUnion('type', [
     dateRange: MedicalRecordDateRangeSchema,
   }),
   z.object({ type: z.literal('document'), patientId: z.string().uuid(), documentReferenceId: z.string().uuid() }),
+  z.object({ type: z.literal('referral'), referralId: z.string().uuid() }),
 ]);
 export type DocumentPacketSource = z.infer<typeof DocumentPacketSourceSchema>;
 
@@ -196,13 +197,30 @@ export const GetDocumentPacketPreviewInputSchema = z.object({
    */
   appointmentId: z.string().uuid().optional(),
   medicalRecord: z.object({ patientId: z.string().uuid(), dateRange: MedicalRecordDateRangeSchema }).optional(),
+  /** A referral's "Send fax": the form plus the referral's chosen visit documents, recipient prefilled. */
+  referralId: z.string().uuid().optional(),
 });
 
 export type GetDocumentPacketPreviewInput = z.infer<typeof GetDocumentPacketPreviewInputSchema>;
 
+export const REFERRAL_FORM_PACKET_DOCUMENT_KIND = 'referral-form';
+export const REFERRAL_EARLIER_DOCUMENT_PACKET_DOCUMENT_KIND = 'earlier-visit-document';
+export type DocumentPacketDocumentKind =
+  | PacketDocumentKind
+  | typeof REFERRAL_FORM_PACKET_DOCUMENT_KIND
+  | typeof REFERRAL_EARLIER_DOCUMENT_PACKET_DOCUMENT_KIND;
+
+export const DOCUMENT_PACKET_DOCUMENT_LABELS: Record<DocumentPacketDocumentKind, string> = {
+  ...PACKET_DOCUMENT_LABELS,
+  [REFERRAL_FORM_PACKET_DOCUMENT_KIND]: 'Referral form',
+  [REFERRAL_EARLIER_DOCUMENT_PACKET_DOCUMENT_KIND]: 'Earlier visit document',
+};
+
 export interface PacketDocumentAvailability {
-  kind: PacketDocumentKind;
+  kind: DocumentPacketDocumentKind;
   available: boolean;
+  /** Names one document rather than a kind (a referral's earlier-visit documents); shown instead of the kind's label. */
+  title?: string;
   /** How many source documents back this row, e.g. 3 lab results. */
   count?: number;
   /** Shown as a tooltip on the disabled checkbox. */
@@ -214,6 +232,8 @@ export interface GetDocumentPacketPreviewOutput {
   documents: PacketDocumentAvailability[];
   /** Prefill for the first recipient, taken from the patient's PCP when one is on file. */
   pcp?: DocumentPacketRecipient;
+  /** Prefill for the first recipient of a referral packet: the referral's address-book contact. */
+  recipient?: DocumentPacketRecipient;
   /** Drives the default state of the "Save as patient's PCP" checkbox. */
   hasSavedPcp: boolean;
   /** The number the packet is transmitted from, i.e. the sending organization's fax telecom. Shown to the

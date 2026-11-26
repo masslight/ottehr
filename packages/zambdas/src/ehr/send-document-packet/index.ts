@@ -8,9 +8,11 @@ import {
   DocumentPacketTaskPayload,
   SendDocumentPacketOutput,
 } from 'utils/lib/types/api/document-packet.types';
+import { REFERRAL_ROLES } from 'utils/lib/types/api/referrals/referrals.types';
 import { TaskIndicator } from 'utils/lib/types/common';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
-import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, getUser, getUserToken, requireUserWithRole } from '../../shared/auth';
+import { resolveReferralFaxContext } from '../../shared/document-packet/resolve-packet-source';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { wrapHandler } from '../../shared/sentry';
@@ -31,7 +33,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { source, recipients, secrets } = validatedInput;
   console.log(`send-document-packet queue: source=${source.type} recipients=${recipients.length}`);
 
-  const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
+  const user =
+    source.type === 'referral'
+      ? await requireUserWithRole(getUserToken(input), secrets, REFERRAL_ROLES)
+      : await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
   const senderPractitionerId = getIdFromReference(user.profile, 'Practitioner');
   if (!senderPractitionerId) throw new Error('User practitioner reference is invalid');
 
@@ -70,6 +75,10 @@ const resolveTaskSubject = async (
   oystehr: Oystehr,
   source: DocumentPacketSource
 ): Promise<{ patientId: string; appointmentId?: string }> => {
+  if (source.type === 'referral') {
+    const { patientId, appointmentId } = await resolveReferralFaxContext(oystehr, source.referralId);
+    return { patientId, appointmentId };
+  }
   if (source.type !== 'visit') {
     return { patientId: source.patientId, appointmentId: undefined };
   }

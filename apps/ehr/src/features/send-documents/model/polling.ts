@@ -31,10 +31,15 @@ export const PACKET_STATUS_POLL_TIMEOUT_MS =
 export const nextPacketStatusPollInterval = (completedPolls: number): number | false =>
   PACKET_STATUS_POLL_INTERVALS_MS[completedPolls - 1] ?? false;
 
-export const faxHistoryQueryKey = (source: DocumentPacketSource): readonly unknown[] =>
-  source.type === 'visit'
-    ? ['get-visit-fax-history', source.appointmentId]
-    : actionLogsQueryKey('fax', source.patientId);
+/**
+ * Query-key prefixes of the fax histories a send can change. A referral names no patient or visit, so its
+ * send refreshes every patient's fax log and every visit's fax history.
+ */
+export const faxHistoryQueryKeys = (source: DocumentPacketSource): readonly (readonly unknown[])[] => {
+  if (source.type === 'visit') return [['get-visit-fax-history', source.appointmentId]];
+  if (source.type === 'referral') return [['get-action-logs', 'fax'], ['get-visit-fax-history']];
+  return [actionLogsQueryKey('fax', source.patientId)];
+};
 
 export const packetStatusTimeoutMessage = (source: DocumentPacketSource): string =>
   source.type === 'visit'

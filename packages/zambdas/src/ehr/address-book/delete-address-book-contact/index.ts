@@ -7,7 +7,7 @@ import { topLevelCatch } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
-import { getAddressBookOrganizationOrThrow } from '../helpers';
+import { assertContactNotReferralRecipient, getAddressBookOrganizationOrThrow } from '../helpers';
 
 let m2mToken: string;
 export const index = wrapHandler(
@@ -20,6 +20,7 @@ export const index = wrapHandler(
       const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
       await getAddressBookOrganizationOrThrow(oystehr, contactId);
+      await assertContactNotReferralRecipient(oystehr, contactId);
 
       await oystehr.fhir.delete({ resourceType: 'Organization', id: contactId });
 

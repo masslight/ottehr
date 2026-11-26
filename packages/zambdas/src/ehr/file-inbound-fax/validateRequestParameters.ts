@@ -1,5 +1,6 @@
 import { Secrets } from 'utils/lib/secrets';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse } from '../../shared/validation';
 
@@ -18,6 +19,7 @@ export interface FileInboundFaxInput {
   encounterId?: string;
   // When present, a task to review the filed fax is created and assigned to this person.
   reviewTaskAssignee?: { id: string; name: string };
+  referralId?: string;
 }
 
 const isNonEmptyString = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
@@ -37,6 +39,9 @@ export function validateRequestParameters(input: ZambdaInput): FileInboundFaxInp
   if (!body.documentName) missing.push('documentName');
   if (missing.length > 0) {
     throw MISSING_REQUIRED_PARAMETERS(missing);
+  }
+  if (body.referralId !== undefined && (typeof body.referralId !== 'string' || !isValidUUID(body.referralId))) {
+    throw INVALID_INPUT_ERROR('referralId must be a UUID');
   }
 
   if (body.encounterId != null && !isNonEmptyString(body.encounterId)) {
@@ -61,5 +66,6 @@ export function validateRequestParameters(input: ZambdaInput): FileInboundFaxInp
     internalName: typeof body.internalName === 'string' && body.internalName ? body.internalName : undefined,
     encounterId: body.encounterId ?? undefined,
     reviewTaskAssignee: assignee ? { id: assignee.id, name: assignee.name } : undefined,
+    referralId: body.referralId,
   };
 }

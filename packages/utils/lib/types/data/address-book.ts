@@ -32,14 +32,16 @@ export type AddressBookKnownTag = (typeof ADDRESS_BOOK_KNOWN_TAGS)[number];
 
 const optionalString = z.string().trim().optional();
 // Tags go verbatim into a FHIR `_tag` search token, so keep the token separators out of them.
+const TAG_CHARACTERS = String.raw`\p{L}\p{N} .'_-`;
+const NON_TAG_CHARACTERS = new RegExp(`[^${TAG_CHARACTERS}]+`, 'gu');
 // Lowercased so "PCP" and "pcp" are one tag, both when stored and when a picker filters on it.
 const tagString = z
   .string()
   .trim()
   .toLowerCase()
   .min(1)
-  .regex(/^[\p{L}\p{N} .'_-]+$/u, ADDRESS_BOOK_TAG_MESSAGE);
-const optionalPhone = z
+  .regex(new RegExp(`^[${TAG_CHARACTERS}]+$`, 'u'), ADDRESS_BOOK_TAG_MESSAGE);
+export const optionalPhone = z
   .string()
   .trim()
   .refine((value) => !value || isPhoneNumberValid(value), ADDRESS_BOOK_PHONE_MESSAGE)
@@ -60,6 +62,9 @@ const optionalEmail = z
  * which allows only single spaces between words.
  */
 export const normalizeAddressBookTag = (tag: string): string => tag.trim().toLowerCase().replace(/\s+/g, ' ');
+
+export const toAddressBookTag = (name: string): string =>
+  normalizeAddressBookTag(name.replace(NON_TAG_CHARACTERS, ' '));
 
 const AddressBookContactFieldsSchema = z.object({
   firstName: optionalString,

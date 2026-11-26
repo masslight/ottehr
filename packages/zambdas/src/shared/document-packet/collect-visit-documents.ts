@@ -4,6 +4,7 @@ import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
 import { docRefIsOttehrGeneratedResultAndCurrent } from 'utils/lib/helpers/labs/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import {
+  DocumentPacketDocumentKind,
   PACKET_DOCUMENT_LABELS,
   PACKET_DOCUMENT_ORDER,
   PACKET_DOCUMENT_UNAVAILABLE_REASONS,
@@ -27,7 +28,7 @@ import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
  */
 export interface DocumentPacketPart {
   /** Absent for patient-level documents, which are not one of the visit document kinds. */
-  kind?: PacketDocumentKind;
+  kind?: DocumentPacketDocumentKind;
   /** Human label, used for logging and for the Task.input snapshot of what was faxed. */
   title: string;
   documentReferenceId?: string;

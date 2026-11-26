@@ -1,4 +1,4 @@
-import { Communication, DocumentReference, Task } from 'fhir/r4b';
+import { Communication, DocumentReference, ServiceRequest, Task } from 'fhir/r4b';
 import {
   OUTBOUND_DELIVERY_INPUT_CODES,
   OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM,
@@ -10,6 +10,8 @@ import {
   getOutboundDeliveryRecipientSnapshot,
   makeOutboundDeliveryAttempt,
 } from 'utils/lib/fhir/outbound-delivery';
+import { getReferralDetails, REFERRAL_ORDER_TYPE_TAG, withReferralDetails } from 'utils/lib/fhir/referral';
+import { ReferralStatus } from 'utils/lib/types/api/referrals/referrals.types';
 import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -248,6 +250,155 @@ describe('retry-action-log eligibility', () => {
     expect(retryTask.partOf).toEqual([{ reference: 'Task/attempt-1' }]);
     expect(retryTask.requester?.reference).toBe('Practitioner/practitioner-1');
     expect(getOutboundDeliveryInput(retryTask, OUTBOUND_DELIVERY_INPUT_CODES.senderId)?.valueString).toBe('user-1');
+    expect(retryTask.basedOn).toBeUndefined();
+    expect(oystehr.fhir.get).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'ServiceRequest' }));
+  });
+
+  const retryReferralFax = async (args: {
+    faxedVersion: string;
+    referralVersion: string;
+  }): Promise<{ create: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn>; transaction: any }> => {
+    const original: Task = {
+      ...makeOutboundDeliveryAttempt({
+        channel: 'fax',
+        patientId: 'patient-1',
+        recipientAddress: '+12125551234',
+        documentReferenceId: 'doc-1',
+        basedOnReference: 'ServiceRequest/referral-1',
+        basedOnVersionId: args.faxedVersion,
+      }),
+      id: 'attempt-1',
+      status: 'failed',
+    };
+    const referral = withReferralDetails(
+      {
+        resourceType: 'ServiceRequest',
+        id: 'referral-1',
+        status: 'draft',
+        intent: 'order',
+        meta: { tag: [{ ...REFERRAL_ORDER_TYPE_TAG }], versionId: args.referralVersion },
+        subject: { reference: 'Patient/patient-1' },
+      },
+      { status: 'not-sent' }
+    );
+    const send = vi.fn().mockResolvedValue({ communicationResource: { resourceType: 'Communication', id: 'comm-1' } });
+    const { oystehr, create } = makeSuccessfulRetryHarness(original, { fax: { send } });
+    const harnessGet = oystehr.fhir.get;
+    const transaction = vi.fn().mockResolvedValue({ entry: [] });
+    oystehr.fhir = {
+      ...oystehr.fhir,
+      get: vi.fn(async (params: { resourceType: string }) =>
+        params.resourceType === 'ServiceRequest' ? referral : harnessGet(params)
+      ),
+      transaction,
+    };
+    stubPresignedUrl();
+
+    await performEffect(
+      { attemptId: 'attempt-1', secrets: createMockSecrets() },
+      oystehr,
+      { id: 'user-1', profile: 'Practitioner/practitioner-1' } as any,
+      'token'
+    );
+    return { create, send, transaction };
+  };
+
+  it('keeps a retried referral fax on its referral and moves a referral that never went out to Sent', async () => {
+    const { create, transaction } = await retryReferralFax({ faxedVersion: '2', referralVersion: '2' });
+
+    const retryTask = create.mock.calls[0][0] as Task;
+    expect(retryTask.basedOn).toEqual([{ reference: 'ServiceRequest/referral-1' }]);
+    expect(getOutboundDeliveryInput(retryTask, OUTBOUND_DELIVERY_INPUT_CODES.basedOnVersion)?.valueString).toBe('2');
+    const [put] = transaction.mock.calls[0][0].requests;
+    expect(put).toMatchObject({ method: 'PUT', url: '/ServiceRequest/referral-1', ifMatch: 'W/"2"' });
+    expect(getReferralDetails(put.resource)).toMatchObject({ status: 'sent', sentAt: expect.any(String) });
+  });
+
+  it('resends the packet but leaves Not sent a referral edited since that packet was built', async () => {
+    const { send, transaction } = await retryReferralFax({ faxedVersion: '1', referralVersion: '2' });
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  describe('a fax sent for a referral', () => {
+    const referralFax: Task = {
+      ...makeOutboundDeliveryAttempt({
+        channel: 'fax',
+        patientId: 'patient-1',
+        recipientAddress: '+12125551234',
+        documentReferenceId: 'doc-1',
+        basedOnReference: 'ServiceRequest/referral-1',
+      }),
+      id: 'attempt-1',
+      status: 'failed',
+    };
+    const serviceRequest = (status: ReferralStatus, tagged = true): ServiceRequest =>
+      withReferralDetails(
+        {
+          resourceType: 'ServiceRequest',
+          id: 'referral-1',
+          status: 'revoked',
+          intent: 'order',
+          meta: { ...(tagged ? { tag: [{ ...REFERRAL_ORDER_TYPE_TAG }] } : {}), versionId: '2' },
+          subject: { reference: 'Patient/patient-1' },
+        },
+        { status }
+      );
+    const harnessFor = (
+      basedOn: ServiceRequest
+    ): { oystehr: any; create: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn>; transaction: any } => {
+      const send = vi
+        .fn()
+        .mockResolvedValue({ communicationResource: { resourceType: 'Communication', id: 'comm-1' } });
+      const { oystehr, create } = makeSuccessfulRetryHarness(referralFax, { fax: { send } });
+      const harnessGet = oystehr.fhir.get;
+      const transaction = vi.fn().mockResolvedValue({ entry: [] });
+      oystehr.fhir = {
+        ...oystehr.fhir,
+        get: vi.fn(async (params: { resourceType: string }) =>
+          params.resourceType === 'ServiceRequest' ? basedOn : harnessGet(params)
+        ),
+        transaction,
+      };
+      return { oystehr, create, send, transaction };
+    };
+    const retry = (oystehr: any): Promise<unknown> =>
+      performEffect(
+        { attemptId: 'attempt-1', secrets: createMockSecrets() },
+        oystehr,
+        { id: 'user-1', profile: 'Practitioner/practitioner-1' } as any,
+        'token'
+      );
+
+    it.each([
+      ['cancelled', 'Cancelled'],
+      ['closed', 'Closed'],
+      ['response-received', 'Response received'],
+    ] as const)(
+      'is not resent once the referral is %s, as the Cancel dialog promises nothing more goes out',
+      async (status, label) => {
+        const { oystehr, create, send, transaction } = harnessFor(serviceRequest(status));
+        stubPresignedUrl();
+
+        await expect(retry(oystehr)).rejects.toEqual(
+          expect.objectContaining({ message: `A referral that is ${label} cannot be faxed` })
+        );
+        expect(create).not.toHaveBeenCalled();
+        expect(send).not.toHaveBeenCalled();
+        expect(transaction).not.toHaveBeenCalled();
+      }
+    );
+
+    it('is resent when basedOn names a ServiceRequest that is not a referral, which is left untouched', async () => {
+      const { oystehr, send, transaction } = harnessFor(serviceRequest('not-sent', false));
+      stubPresignedUrl();
+
+      await retry(oystehr);
+
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(transaction).not.toHaveBeenCalled();
+    });
   });
 
   it('retries a patient-level fax and preserves its packet and recipient metadata', async () => {

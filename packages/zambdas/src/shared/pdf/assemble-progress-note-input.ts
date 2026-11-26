@@ -16,6 +16,7 @@ import { buildVisitNote } from '../chart-sections/visit-note';
 import { DME_ORDER_SEARCH_TAG, isDmeOrderDeleted, parseDmeOrder } from '../dme';
 import { fetchErxPharmacies } from '../erx';
 import { getEncounterFormResponses } from '../practice-forms';
+import { loadEncounterReferrals } from '../referrals/load-encounter-referrals';
 import { getEncounterSignatures } from './get-encounter-signatures';
 import { getUpcomingFollowUps } from './get-upcoming-follow-ups';
 import { ProgressNoteInput } from './types';
@@ -71,6 +72,7 @@ export async function assembleProgressNoteInput(
     dmeOrders,
     formResponses,
     immunizationOrdersData,
+    referrals,
   ] = await Promise.all([
     (async () => {
       const visitNote = await buildVisitNote({ oystehr, m2mToken: token }, encounterId, {
@@ -93,6 +95,7 @@ export async function assembleProgressNoteInput(
     getEncounterDmeOrders(oystehr, encounterId),
     getEncounterFormResponses(oystehr, encounterId, visitResources.questionnaireResponse, secrets),
     getImmunizationOrders(oystehr, { encounterIds: [encounterId] }),
+    loadEncounterReferrals(oystehr, encounterId),
   ]);
 
   const immunizationOrders = immunizationOrdersData.orders;
@@ -107,6 +110,7 @@ export async function assembleProgressNoteInput(
     upcomingFollowUps,
     erxPharmacies,
     dmeOrders,
+    referrals,
     signatures,
     signed: options?.signed,
     formResponses,
