@@ -8,6 +8,7 @@ import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { isTaskNoteUnreadBy, TASK_NOTE_READ_BY_TAG_SYSTEM, TASK_NOTE_TAG } from '../../../shared/notes';
 import { getMyPractitionerId } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
 
@@ -24,7 +25,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const userToken = getUserToken(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-  const [callerId, notes] = await Promise.all([
+  const [callerIdResult, notesResult] = await Promise.allSettled([
     getMyPractitionerId(userToken, secrets),
     getAllFhirSearchPages<Communication>(
       {
@@ -39,6 +40,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       oystehr
     ),
   ]);
+  const callerId = settledValueOrThrow(callerIdResult);
+  const notes = settledValueOrThrow(notesResult);
 
   const requests = notes
     .filter((note) => isTaskNoteUnreadBy(note, callerId))
