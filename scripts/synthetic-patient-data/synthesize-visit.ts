@@ -112,6 +112,7 @@ import type {
   CoverageEligibilityResponse,
   EpisodeOfCare,
   Location,
+  Medication,
   MedicationStatement,
   Organization,
   Patient,
@@ -2150,11 +2151,11 @@ async function resolveMedicationId(ctx: SynthesisContext, name: string): Promise
   // human-readable name (e.g., "Tdap (Tetanus, Diphtheria, Pertussis)").
   // Try exact match first, then substring match against the full catalog.
   try {
-    const result = await ctx.oystehr.fhir.search<{ id?: string }>({
+    const result = await ctx.oystehr.fhir.search<Medication>({
       resourceType: 'Medication',
       params: [{ name: 'identifier', value: name }],
     });
-    const m = (result.unbundle() as Array<{ id?: string }>)[0];
+    const m = result.unbundle()[0];
     if (m?.id) return m.id;
   } catch {
     /* fall through */
@@ -2162,11 +2163,7 @@ async function resolveMedicationId(ctx: SynthesisContext, name: string): Promise
   // Substring fallback — list all, find any whose identifier value or code.text contains the name.
   try {
     const all = (
-      await ctx.oystehr.fhir.search<{
-        id?: string;
-        identifier?: Array<{ value?: string }>;
-        code?: { text?: string; coding?: Array<{ display?: string }> };
-      }>({
+      await ctx.oystehr.fhir.search<Medication>({
         resourceType: 'Medication',
         params: [{ name: '_count', value: '500' }],
       })

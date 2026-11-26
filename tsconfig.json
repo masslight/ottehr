@@ -1,0 +1,10 @@
+{
+  // Editor/TS-server entry point for the root-level script trees (scripts/, tools/).
+  // The compiler options and include list live in tsconfig.base.json, which package
+  // tsconfigs extend and .eslintrc.cjs uses as its type-aware project; the TS server
+  // only auto-discovers a file named tsconfig.json, so this thin wrapper makes the
+  // editor analyze those scripts with the same project instead of an inferred one
+  // (which lacks Node globals and mis-resolves SDK types). Packages and apps are
+  // unaffected — their own closer tsconfig.json files take precedence.
+  "extends": "./tsconfig.base.json"
+}
