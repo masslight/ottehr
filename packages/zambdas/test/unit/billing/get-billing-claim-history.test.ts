@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
-import { Organization, Practitioner, Provenance, Resource } from 'fhir/r4b';
+import { Organization, PaymentNotice, Practitioner, Provenance, Resource } from 'fhir/r4b';
 import {
   CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
   CLAIM_PROVENANCE_ACTIVITY,
@@ -87,6 +87,145 @@ describe('get-billing-claim-history performEffect', () => {
       changes: [{ field: 'memberId', label: 'Member ID', previousValue: 'A', newValue: 'B' }],
     });
     expect(entries[0].actor.display).toContain('Doe');
+  });
+
+  it('shows payment statuses as labels, telling a refund apart by its notice amount', async () => {
+    const paymentEntry = ({
+      id,
+      noticeId,
+      changes,
+    }: {
+      id: string;
+      noticeId: string;
+      changes: Partial<ClaimFieldChange>[];
+    }): Provenance => ({
+      ...provenanceBase(id, '2026-06-01T10:00:00Z'),
+      target: [
+        {
+          reference: `PaymentNotice/${noticeId}`,
+        },
+        {
+          reference: 'Claim/c1',
+        },
+      ],
+      extension: [diffExtension(changes)],
+    });
+    const created = (status: string): Partial<ClaimFieldChange>[] => [
+      {
+        field: 'status',
+        label: 'Status',
+        previousValue: null,
+        newValue: status,
+      },
+    ];
+    const voided: Partial<ClaimFieldChange>[] = [
+      {
+        field: 'status',
+        label: 'Status',
+        previousValue: 'active',
+        newValue: 'cancelled',
+      },
+    ];
+    const notice = (id: string, amount: number): PaymentNotice =>
+      ({
+        resourceType: 'PaymentNotice',
+        id,
+        status: 'active',
+        amount: {
+          value: amount,
+          currency: 'USD',
+        },
+      }) as PaymentNotice;
+    const oystehr = makeOystehr({
+      Provenance: () =>
+        pagedBundle(
+          [
+            paymentEntry({
+              id: 'paid',
+              noticeId: 'pn-payment',
+              changes: created('active'),
+            }),
+            paymentEntry({
+              id: 'payment-voided',
+              noticeId: 'pn-payment',
+              changes: voided,
+            }),
+            paymentEntry({
+              id: 'refunded',
+              noticeId: 'pn-refund',
+              changes: created('active'),
+            }),
+            paymentEntry({
+              id: 'refund-voided',
+              noticeId: 'pn-refund',
+              changes: voided,
+            }),
+            paymentEntry({
+              id: 'unknown',
+              noticeId: 'pn-payment',
+              changes: created('on-hold'),
+            }),
+          ],
+          [practitionerU1]
+        ),
+      PaymentNotice: () => pagedBundle([notice('pn-payment', 50), notice('pn-refund', -20)]),
+    });
+
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
+
+    const statusChange = (id: string): Pick<ClaimFieldChange, 'previousValue' | 'newValue'> | undefined => {
+      const change = entries.find((entry) => entry.id === id)?.changes.find(({ field }) => field === 'status');
+      return (
+        change && {
+          previousValue: change.previousValue,
+          newValue: change.newValue,
+        }
+      );
+    };
+    expect(statusChange('paid')).toEqual({
+      previousValue: null,
+      newValue: 'Paid',
+    });
+    expect(statusChange('payment-voided')).toEqual({
+      previousValue: 'Paid',
+      newValue: 'Cancelled',
+    });
+    expect(statusChange('refunded')).toEqual({
+      previousValue: null,
+      newValue: 'Refunded',
+    });
+    expect(statusChange('refund-voided')).toEqual({
+      previousValue: 'Refunded',
+      newValue: 'Cancelled',
+    });
+    expect(statusChange('unknown')).toEqual({
+      previousValue: null,
+      newValue: 'on-hold',
+    });
+  });
+
+  it('leaves a status change on anything but a payment as stored', async () => {
+    const provenance: Provenance = {
+      ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
+      extension: [
+        diffExtension([
+          {
+            field: 'status',
+            label: 'Status',
+            previousValue: 'draft',
+            newValue: 'active',
+          },
+        ]),
+      ],
+    };
+    const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], [practitionerU1]) });
+
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
+
+    expect(entries[0].changes[0]).toMatchObject({
+      previousValue: 'draft',
+      newValue: 'active',
+    });
   });
 
   it('maps a note provenance into an entry carrying the message and no changes', async () => {
