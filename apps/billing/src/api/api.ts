@@ -83,6 +83,7 @@ import {
   SearchChargeItemDefinitionsInputSchema,
   SearchErasInputSchema,
   SearchServiceFacilitiesInputSchema,
+  SplitBillingClaimInputSchema,
   TagBillingClaimInputSchema,
   UnmatchClaimResponseInputSchema,
   UpdateBillingClaimTaskInputSchema,
@@ -407,6 +408,11 @@ export const createBillingClaim = (
   oystehr: Oystehr,
   parameters: z.input<typeof CreateBillingClaimInputSchema>
 ): Promise<CreatedClaimResponse> => executeBillingZambda(oystehr, 'create-billing-claim', parameters);
+
+export const splitBillingClaim = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SplitBillingClaimInputSchema>
+): Promise<CreatedClaimResponse> => executeBillingZambda(oystehr, 'split-billing-claim', parameters);
 
 export const searchBillingClaims = (
   oystehr: Oystehr,

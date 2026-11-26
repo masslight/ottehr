@@ -542,6 +542,39 @@ export function copySourceId(resource?: DomainResource): string | undefined {
   return ref.includes('/') ? ref.slice(ref.lastIndexOf('/') + 1) : ref;
 }
 
+// Links a claim's patient working copy to its master patient through their Person, so lookups that
+// follow the Person (e.g. the claim's other claims) find every copy.
+export async function linkPatientCopyViaPerson(
+  oystehr: Oystehr,
+  originalPatientId: string,
+  copyPatientId: string
+): Promise<void> {
+  const result = await oystehr.fhir.search<Person>({
+    resourceType: 'Person',
+    params: [{ name: 'link', value: `Patient/${originalPatientId}` }],
+  });
+  const existing = result.unbundle()[0];
+
+  if (existing?.id) {
+    const alreadyLinked = existing.link?.some((l) => l.target?.reference === `Patient/${copyPatientId}`);
+    if (!alreadyLinked) {
+      await oystehr.fhir.patch({
+        resourceType: 'Person',
+        id: existing.id,
+        operations: [{ op: 'add', path: '/link/-', value: { target: { reference: `Patient/${copyPatientId}` } } }],
+      });
+    }
+  } else {
+    await oystehr.fhir.create<Person>({
+      resourceType: 'Person',
+      link: [
+        { target: { reference: `Patient/${originalPatientId}` } },
+        { target: { reference: `Patient/${copyPatientId}` } },
+      ],
+    });
+  }
+}
+
 export function clinicalFriendlyIdOfCopy(patient: Patient): string | undefined {
   return patient.extension?.find((e) => e.url === SOURCE_FRIENDLY_PATIENT_ID_EXTENSION)?.valueString;
 }

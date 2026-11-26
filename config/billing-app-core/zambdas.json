@@ -85,6 +85,13 @@
       "src": "src/billing/create-billing-claim/index",
       "zip": ".dist/zips/create-billing-claim.zip"
     },
+    "SPLIT-BILLING-CLAIM": {
+      "name": "split-billing-claim",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/split-billing-claim/index",
+      "zip": ".dist/zips/split-billing-claim.zip"
+    },
     "CREATE-BILLING-PROVIDER": {
       "name": "create-billing-provider",
       "type": "http_auth",

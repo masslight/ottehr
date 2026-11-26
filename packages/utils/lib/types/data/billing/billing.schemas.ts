@@ -401,6 +401,13 @@ export const CreateBillingClaimInputSchema = z.object({
   statuses: claimStatusesSchema.optional(),
 });
 
+// The claim's service lines (Claim.item sequences) to move onto a new claim; at least one line must
+// stay on the original.
+export const SplitBillingClaimInputSchema = z.object({
+  claimId: z.string().uuid(),
+  itemSequences: z.array(z.number().int().positive()).min(1),
+});
+
 const billingProviderRole = z.enum(['billing', 'rendering']);
 
 const billingAddressSchema = z
@@ -1363,6 +1370,7 @@ export type SearchBillingLocationsInput = z.output<typeof SearchBillingLocations
 export type SearchBillingServicesInput = z.output<typeof SearchBillingServicesInputSchema>;
 export type SearchBillingPayersInput = z.output<typeof SearchBillingPayersInputSchema>;
 export type CreateBillingClaimInput = z.output<typeof CreateBillingClaimInputSchema>;
+export type SplitBillingClaimInput = z.output<typeof SplitBillingClaimInputSchema>;
 export type CreateBillingProviderInput = z.output<typeof CreateBillingProviderInputSchema>;
 export type DeleteBillingProviderInput = z.output<typeof DeleteBillingProviderInputSchema>;
 export type CreateBillingPatientInput = z.output<typeof CreateBillingPatientInputSchema>;

@@ -332,7 +332,12 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
   if (ctx.mode === 'execute' && ctx.oystehr) {
     const result = await ctx.oystehr.fhir.search<Location>({
       resourceType: 'Location',
-      params: [{ name: 'name', value: locationNameToUse }],
+      params: [
+        { name: 'name', value: locationNameToUse },
+        // Billing claims copy their service facility into billing-tagged Locations that share the
+        // clinical Location's name but have no Schedule; keep them out of the clinical lookup.
+        { name: '_tag:not', value: 'https://fhir.ottehr.com/billing/resource-type|billing-resource' },
+      ],
     });
     const location = result.unbundle()[0];
     if (!location?.id)
@@ -418,8 +423,14 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
       const given = parts.length > 1 ? parts.slice(0, -1).join(' ') : undefined;
       const params: Array<{ name: string; value: string }> = [{ name: 'family', value: family }];
       if (given) params.push({ name: 'given', value: given });
+      // Billing claims copy their providers into billing-tagged Practitioners that share the
+      // clinical Practitioner's name; keep them out of the attending lookup.
+      params.push({ name: '_tag:not', value: 'https://fhir.ottehr.com/billing/resource-type|billing-resource' });
       const result = await ctx.oystehr.fhir.search<Practitioner>({ resourceType: 'Practitioner', params });
-      const practitioner = result.unbundle()[0];
+      const matches = result.unbundle();
+      // Prefer the name match that is actually a role-assigned employee (duplicate-named
+      // Practitioner records are common on long-lived dev projects).
+      const practitioner = matches.find((p) => p.id && roleAssignedIds.has(p.id)) ?? matches[0];
       if (!practitioner?.id) {
         throw new Error(
           `Practitioner not found: "${practitionerNameToUse}" (searched given="${given}" family="${family}"). ` +

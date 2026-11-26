@@ -344,6 +344,7 @@
             "Zambda:Function:save-billing-service-facility",
             "Zambda:Function:update-billing-provider",
             "Zambda:Function:create-billing-claim",
+            "Zambda:Function:split-billing-claim",
             "Zambda:Function:search-billing-claims",
             "Zambda:Function:get-billing-report",
             "Zambda:Function:get-patient-coverages",

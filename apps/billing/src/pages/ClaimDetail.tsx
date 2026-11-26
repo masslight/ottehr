@@ -1,6 +1,7 @@
 import {
   Add as AddIcon,
   ArrowBack as ArrowBackIcon,
+  CallSplitOutlined as CallSplitIcon,
   DeleteOutline as DeleteOutlineIcon,
   Edit as EditIcon,
   ReceiptLongOutlined as ReceiptLongIcon,
@@ -95,6 +96,7 @@ import {
   runBillingRulesEngine,
   saveBillingServiceFacility,
   searchBillingTags,
+  splitBillingClaim,
   tagBillingClaim,
   updateBillingCoverage,
   updateBillingPatient,
@@ -118,6 +120,7 @@ import { RemitHighlightProvider } from '../components/claim/RemitHighlight';
 import { InsurancePaymentsSection, RemitsSection } from '../components/claim/RemitSections';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { RemitTotals, ServiceLinesTable } from '../components/claim/ServiceLinesLedger';
+import { SplitClaimDialog } from '../components/claim/SplitClaimDialog';
 import { ClaimInvoicesSection } from '../components/ClaimInvoicesSection';
 import {
   ClaimSubmissionFields,
@@ -197,6 +200,7 @@ export default function ClaimDetail(): ReactElement {
   const [exportOpen, setExportOpen] = useState(false);
   const [cms1500Open, setCms1500Open] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [splitOpen, setSplitOpen] = useState(false);
   const [buildingReport, setBuildingReport] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
   const [editingHeader, setEditingHeader] = useState(false);
@@ -552,6 +556,17 @@ export default function ClaimDetail(): ReactElement {
             onProofOfTimelyFiling={() => void onCreateTimelyFilingReport()}
             buildingProof={buildingReport}
           />
+          {isSplittable(claim) && (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<CallSplitIcon />}
+              onClick={() => setSplitOpen(true)}
+              sx={NO_WRAP}
+            >
+              Split Claim
+            </Button>
+          )}
           {runEngine && (
             <Button
               variant="contained"
@@ -584,6 +599,26 @@ export default function ClaimDetail(): ReactElement {
         />
       )}
       <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claim={claim} />
+      <SplitClaimDialog
+        open={splitOpen}
+        claim={claim}
+        onClose={() => setSplitOpen(false)}
+        onSplit={async (itemSequences) => {
+          if (!oystehrZambda) return;
+          const { claimId } = await splitBillingClaim(oystehrZambda, { claimId: claim.id, itemSequences });
+          setSplitOpen(false);
+          enqueueSnackbar('Claim split. The selected service lines are on a new claim.', {
+            variant: 'success',
+            action: () => (
+              <Button color="inherit" size="small" onClick={() => navigate(`/claims/${claimId}`)}>
+                Open new claim
+              </Button>
+            ),
+          });
+          await fetchDetail();
+          setHistoryVersion((version) => version + 1);
+        }}
+      />
 
       <ClaimNotesDrawer
         key={claim.id}
@@ -818,6 +853,12 @@ export default function ClaimDetail(): ReactElement {
       )}
     </Box>
   );
+}
+
+// A claim can be split when it has lines to divide and no remits (remits match lines by sequence,
+// which splitting renumbers — the backend enforces the same rule).
+function isSplittable(claim: ClaimDetailResponse): boolean {
+  return claim.serviceLines.length > 1 && claim.remits.length === 0;
 }
 
 function getSubmitClaimLabel(

@@ -8,7 +8,6 @@ import {
   Location,
   Organization,
   Patient,
-  Person,
   Practitioner,
   ProvenanceAgent,
   RelatedPerson,
@@ -51,6 +50,7 @@ import {
   ensureClaimInsurance,
   findRef,
   kickOffRulesEngine,
+  linkPatientCopyViaPerson,
   payerDisplay,
   prepareWorkingCopy,
   resolvePayersByRef,
@@ -352,35 +352,4 @@ function buildClaim(copies: OriginalResources, params: CreateClaimParams, payerN
   claim.billablePeriod = deriveClaimBillablePeriod(claim.item);
 
   return claim;
-}
-
-async function linkPatientCopyViaPerson(
-  oystehr: Oystehr,
-  originalPatientId: string,
-  copyPatientId: string
-): Promise<void> {
-  const result = await oystehr.fhir.search<Person>({
-    resourceType: 'Person',
-    params: [{ name: 'link', value: `Patient/${originalPatientId}` }],
-  });
-  const existing = result.unbundle()[0];
-
-  if (existing?.id) {
-    const alreadyLinked = existing.link?.some((l) => l.target?.reference === `Patient/${copyPatientId}`);
-    if (!alreadyLinked) {
-      await oystehr.fhir.patch({
-        resourceType: 'Person',
-        id: existing.id,
-        operations: [{ op: 'add', path: '/link/-', value: { target: { reference: `Patient/${copyPatientId}` } } }],
-      });
-    }
-  } else {
-    await oystehr.fhir.create<Person>({
-      resourceType: 'Person',
-      link: [
-        { target: { reference: `Patient/${originalPatientId}` } },
-        { target: { reference: `Patient/${copyPatientId}` } },
-      ],
-    });
-  }
 }
