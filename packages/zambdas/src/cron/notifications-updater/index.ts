@@ -58,6 +58,7 @@ import {
   ProviderNotificationPreferencesV2,
   REFERRAL_OVERDUE_NOTIFIED_TAG_CODE,
   REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM,
+  taskCategoryHasDefaultRow,
   UI_TASK_CATEGORY_LABELS,
   UiTaskCategoryId,
 } from 'utils/lib/types/api/provider-notifications';
@@ -1206,10 +1207,10 @@ export function resolveAssignmentDelivery(
   input: AssignmentDeliveryInput
 ): { notify: false } | { notify: true; method: ProviderNotificationMethod | undefined } {
   const { task, recipient, hasExplicitPrefs, prefs, legacySettings, categoryNotifiedThisRun, taskLocationId } = input;
+  const uiCategory = getUiTaskCategoryForCode(task.groupIdentifier?.value);
 
   if (task.owner && hasExplicitPrefs) {
     // Migrated staff route category task notifications through their V2 preferences.
-    const uiCategory = getUiTaskCategoryForCode(task.groupIdentifier?.value);
     if (uiCategory) {
       const row = prefs?.taskCategories[uiCategory];
       if (!row) return { notify: false };
@@ -1225,7 +1226,12 @@ export function resolveAssignmentDelivery(
     return { notify: true, method: legacySettings.method };
   }
 
-  // Non-migrated staff keep legacy behavior.
+  // Non-migrated staff keep legacy behavior, except in a category with its own assignee-only default.
+  if (task.owner && uiCategory && taskCategoryHasDefaultRow(uiCategory)) {
+    const row = prefs?.taskCategories[uiCategory];
+    if (!row || !rowMatchesFilters(row, taskLocationId, true)) return { notify: false };
+    return { notify: true, method: row.method };
+  }
   if (!legacySettings?.taskNotificationsEnabled) return { notify: false };
   return { notify: true, method: legacySettings.method };
 }

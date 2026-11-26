@@ -67,7 +67,12 @@ describe('normalizeNotificationPreferencesV2', () => {
 
   it('starts Referrals on for the tasks assigned to the staffer, while every other unset category stays off', () => {
     const normalized = normalizeNotificationPreferencesV2({});
-    expect(normalized.taskCategories.referrals).toMatchObject({ enabled: true, assignedTo: 'me', allLocations: true });
+    expect(normalized.taskCategories.referrals).toMatchObject({
+      enabled: true,
+      assignedTo: 'me',
+      allLocations: true,
+      method: ProviderNotificationMethod.computer,
+    });
     const otherCategories = UI_TASK_CATEGORY_IDS.filter((id) => id !== 'referrals');
     expect(otherCategories.every((id) => !normalized.taskCategories[id].enabled)).toBe(true);
   });
@@ -214,7 +219,11 @@ describe('getProviderNotificationPreferencesV2', () => {
       ],
     };
     const result = getProviderNotificationPreferencesV2(practitioner);
-    expect(result?.taskCategories.referrals).toMatchObject({ enabled: true, assignedTo: 'me' });
+    expect(result?.taskCategories.referrals).toMatchObject({
+      enabled: true,
+      assignedTo: 'me',
+      method: ProviderNotificationMethod.computer,
+    });
     expect(result?.taskCategories.radiology.enabled).toBe(false);
   });
 
