@@ -29,13 +29,37 @@ describe('paymentStatusLabel', () => {
     ).toBe('Entered in error');
   });
 
-  it('labels a recorded refund as refunded', () => {
+  it('labels a settled refund as refunded', () => {
+    expect(
+      paymentStatusLabel({
+        status: 'active',
+        amount: -20,
+        outcome: 'complete',
+      })
+    ).toBe('Refunded');
     expect(
       paymentStatusLabel({
         status: 'active',
         amount: -20,
       })
     ).toBe('Refunded');
+  });
+
+  it('labels a refund that has not settled, or failed to, as pending', () => {
+    expect(
+      paymentStatusLabel({
+        status: 'active',
+        amount: -20,
+        outcome: 'queued',
+      })
+    ).toBe('Refund pending');
+    expect(
+      paymentStatusLabel({
+        status: 'active',
+        amount: -20,
+        outcome: 'error',
+      })
+    ).toBe('Refund pending');
   });
 
   it('shows a status it has no label for as is', () => {

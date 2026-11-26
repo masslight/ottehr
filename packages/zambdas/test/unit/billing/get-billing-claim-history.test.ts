@@ -94,7 +94,7 @@ describe('get-billing-claim-history performEffect', () => {
     expect(entries[0].actor.display).toContain('Doe');
   });
 
-  it('shows payment statuses as labels, telling a refund apart by its notice amount', async () => {
+  it('shows payment statuses as labels, telling refunds and their settlement apart by the notice', async () => {
     const paymentEntry = ({
       id,
       noticeId,
@@ -131,7 +131,7 @@ describe('get-billing-claim-history performEffect', () => {
         newValue: 'cancelled',
       },
     ];
-    const notice = (id: string, amount: number): PaymentNotice =>
+    const notice = (id: string, amount: number, outcome: string): PaymentNotice =>
       ({
         resourceType: 'PaymentNotice',
         id,
@@ -140,6 +140,13 @@ describe('get-billing-claim-history performEffect', () => {
           value: amount,
           currency: 'USD',
         },
+        contained: [
+          {
+            resourceType: 'PaymentReconciliation',
+            id: 'contained-reconciliation',
+            outcome,
+          },
+        ],
       }) as PaymentNotice;
     const oystehr = makeOystehr({
       Provenance: () =>
@@ -166,6 +173,16 @@ describe('get-billing-claim-history performEffect', () => {
               changes: voided,
             }),
             paymentEntry({
+              id: 'refund-pending',
+              noticeId: 'pn-refund-pending',
+              changes: created('active'),
+            }),
+            paymentEntry({
+              id: 'refund-failed',
+              noticeId: 'pn-refund-failed',
+              changes: voided,
+            }),
+            paymentEntry({
               id: 'unknown',
               noticeId: 'pn-payment',
               changes: created('on-hold'),
@@ -173,7 +190,13 @@ describe('get-billing-claim-history performEffect', () => {
           ],
           [practitionerU1]
         ),
-      PaymentNotice: () => pagedBundle([notice('pn-payment', 50), notice('pn-refund', -20)]),
+      PaymentNotice: () =>
+        pagedBundle([
+          notice('pn-payment', 50, 'complete'),
+          notice('pn-refund', -20, 'complete'),
+          notice('pn-refund-pending', -20, 'queued'),
+          notice('pn-refund-failed', -20, 'error'),
+        ]),
     });
 
     const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
@@ -201,6 +224,14 @@ describe('get-billing-claim-history performEffect', () => {
     });
     expect(statusChange('refund-voided')).toEqual({
       previousValue: 'Refunded',
+      newValue: 'Cancelled',
+    });
+    expect(statusChange('refund-pending')).toEqual({
+      previousValue: null,
+      newValue: 'Refund pending',
+    });
+    expect(statusChange('refund-failed')).toEqual({
+      previousValue: 'Refund pending',
       newValue: 'Cancelled',
     });
     expect(statusChange('unknown')).toEqual({

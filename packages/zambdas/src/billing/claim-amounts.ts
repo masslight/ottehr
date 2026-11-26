@@ -422,6 +422,7 @@ export function toClaimPatientPayment(notice: PaymentNotice): ClaimPatientPaymen
     description: reconciliation?.disposition ?? '',
     checkNumber: reconciliation?.paymentIdentifier?.value,
     status: notice.status,
+    outcome: reconciliation?.outcome,
   };
 }
 

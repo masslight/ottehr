@@ -8,6 +8,7 @@ import { isPayerUrl } from 'utils/lib/helpers/helpers';
 import { paymentStatusLabel } from 'utils/lib/helpers/rcm/payment-status';
 import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
 import { GetClaimHistoryInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
+import { ClaimPatientPayment } from 'utils/lib/types/data/billing/billing.types';
 import {
   CLAIM_HISTORY_RESOURCE_LABELS,
   CLAIM_PROVENANCE_ACTIVITY_CODES,
@@ -29,6 +30,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { parseStoredAcknowledgment } from '../claim-acknowledgments';
+import { toClaimPatientPayment } from '../claim-amounts';
 import {
   copySourceId,
   createBillingClient,
@@ -85,9 +87,9 @@ export async function performEffect(oystehr: Oystehr, params: GetClaimHistoryPar
       agentsByRef.set(`${r.resourceType}/${r.id}`, r);
   });
 
-  const paymentAmountsById = await fetchPaymentAmountsById(oystehr, provenances, environment);
+  const paymentsById = await fetchPaymentsById(oystehr, provenances, environment);
   const entries: ClaimHistoryEntry[] = provenances
-    .map((provenance) => toHistoryEntry(provenance, agentsByRef, paymentAmountsById, environment))
+    .map((provenance) => toHistoryEntry(provenance, agentsByRef, paymentsById, environment))
     // Newest first. Sort here rather than relying on a server-side _sort on `recorded`.
     .sort((a, b) => (a.recorded < b.recorded ? 1 : a.recorded > b.recorded ? -1 : 0));
 
@@ -172,11 +174,11 @@ function attachEntityRefs(provenance: Provenance, changes: ClaimFieldChange[], e
   }
 }
 
-async function fetchPaymentAmountsById(
+async function fetchPaymentsById(
   oystehr: Oystehr,
   provenances: Provenance[],
   environment: string
-): Promise<Map<string, number>> {
+): Promise<Map<string, ClaimPatientPayment>> {
   const paymentNoticeIds = [
     ...new Set(
       provenances
@@ -197,20 +199,20 @@ async function fetchPaymentAmountsById(
     },
     oystehr
   );
-  const amountsById = new Map(notices.flatMap((notice) => (notice.id ? [[notice.id, notice.amount?.value ?? 0]] : [])));
-  const missingIds = paymentNoticeIds.filter((id) => !amountsById.has(id));
+  const paymentsById = new Map(notices.map((notice) => [notice.id ?? '', toClaimPatientPayment(notice)]));
+  const missingIds = paymentNoticeIds.filter((id) => !paymentsById.has(id));
   if (missingIds.length > 0) {
     sendWarning('Claim history references PaymentNotices that were not found', environment, {
       paymentNoticeIds: missingIds,
     });
   }
-  return amountsById;
+  return paymentsById;
 }
 
 function toHistoryEntry(
   provenance: Provenance,
   agentsByRef: Map<string, Practitioner | Device>,
-  paymentAmountsById: Map<string, number>,
+  paymentsById: Map<string, ClaimPatientPayment>,
   environment: string
 ): ClaimHistoryEntry {
   const activityCode = provenance.activity?.coding?.[0]?.code;
@@ -241,7 +243,7 @@ function toHistoryEntry(
   const message = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_NOTE_EXTENSION_URL)?.valueString;
   const acknowledgment = parseAcknowledgment(provenance, environment);
   const changes = parseChanges(provenance, environment);
-  const paymentAmount = paymentAmountsById.get(getIdFromReference(targetRef, 'PaymentNotice') ?? '');
+  const payment = paymentsById.get(getIdFromReference(targetRef, 'PaymentNotice') ?? '');
   return {
     id: provenance.id ?? '',
     recorded: provenance.recorded ?? '',
@@ -250,18 +252,18 @@ function toHistoryEntry(
       display: actorDisplay(agentsByRef.get(agentRef ?? ''), agentRef ?? ''),
       type: agentTypeCode === 'system' ? 'system' : 'user',
     },
-    changes: paymentAmount === undefined ? changes : labelPaymentStatuses(changes, paymentAmount),
+    changes: payment ? labelPaymentStatuses(changes, payment) : changes,
     ...(message ? { message } : {}),
     ...(acknowledgment ? { acknowledgment } : {}),
   };
 }
 
-function labelPaymentStatuses(changes: ClaimFieldChange[], amount: number): ClaimFieldChange[] {
+function labelPaymentStatuses(changes: ClaimFieldChange[], payment: ClaimPatientPayment): ClaimFieldChange[] {
   const label = (status: string | null): string | null =>
     status
       ? paymentStatusLabel({
+          ...payment,
           status,
-          amount,
         })
       : status;
   return changes.map((change) =>

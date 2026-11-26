@@ -471,6 +471,7 @@ export interface ClaimPatientPayment {
   description: string;
   checkNumber?: string;
   status: string;
+  outcome?: string;
 }
 
 export interface ClaimNioPayment {
