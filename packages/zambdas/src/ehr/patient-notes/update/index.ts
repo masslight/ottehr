@@ -17,6 +17,7 @@ import {
 } from '../../../shared/notes';
 import { getMyPractitionerId } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -42,7 +43,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const [existing, { callerId, callerPractitioner }] = await Promise.all([
+  const [existingResult, callerResult] = await Promise.allSettled([
     (async () => {
       try {
         return await oystehr.fhir.get<Communication>({ resourceType: 'Communication', id: note.resourceId });
@@ -59,8 +60,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return { callerId, callerPractitioner };
     })(),
   ]);
-
+  const existing = settledValueOrThrow(existingResult);
   assertNoteEditable(existing, note);
+  const { callerId, callerPractitioner } = settledValueOrThrow(callerResult);
   const editor: Extension = {
     url: NOTE_EDITOR_EXTENSION_URL,
     valueReference: { reference: `Practitioner/${callerId}`, display: getPractitionerName(callerPractitioner) },

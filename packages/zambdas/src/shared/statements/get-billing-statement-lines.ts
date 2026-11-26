@@ -186,27 +186,29 @@ export function computeBillingStatementAmounts(params: {
 export async function getBillingStatementLines(input: BillingStatementLinesInput): Promise<StatementLineDetails> {
   const { encounterId, billingOystehr, eraReadOystehr, clinicalOystehr } = input;
 
-  const [claimResult, paymentsResult] = await Promise.allSettled([
-    findBillingClaimForEncounter(billingOystehr, encounterId),
+  const [claimReadsResult, paymentsResult] = await Promise.allSettled([
+    findBillingClaimForEncounter(billingOystehr, encounterId).then(async (claim) => {
+      if (!claim?.id) throw STATEMENT_BILLING_CLAIM_NOT_FOUND_ERROR(encounterId);
+      const [claimResponsesByClaimId, writeOffs, nioPaidByClaimId] = await Promise.all([
+        fetchClaimResponsesByClaimIds(eraReadOystehr, [claim.id]),
+        fetchWriteOffsByClaimIds(billingOystehr, [claim.id]),
+        fetchNioPaidByClaimId(billingOystehr, [claim.id]),
+      ]);
+      return { claim, claimId: claim.id, claimResponsesByClaimId, writeOffs, nioPaidByClaimId };
+    }),
     fetchPatientPaymentsByEncounterIds(billingOystehr, [encounterId]),
   ]);
-  const claim = settledValueOrThrow(claimResult);
-  if (!claim?.id) throw STATEMENT_BILLING_CLAIM_NOT_FOUND_ERROR(encounterId);
+  const { claim, claimId, claimResponsesByClaimId, writeOffs, nioPaidByClaimId } =
+    settledValueOrThrow(claimReadsResult);
   const paymentsByEncounterId = settledValueOrThrow(paymentsResult);
-
-  const [claimResponsesByClaimId, writeOffs, nioPaidByClaimId] = await Promise.all([
-    fetchClaimResponsesByClaimIds(eraReadOystehr, [claim.id]),
-    fetchWriteOffsByClaimIds(billingOystehr, [claim.id]),
-    fetchNioPaidByClaimId(billingOystehr, [claim.id]),
-  ]);
-  const writeOffsTotal = sumWriteOffs(writeOffs.get(claim.id ?? '') ?? []);
+  const writeOffsTotal = sumWriteOffs(writeOffs.get(claimId) ?? []);
 
   const amounts = computeBillingStatementAmounts({
     claim,
-    claimResponses: claimResponsesByClaimId.get(claim.id) ?? [],
+    claimResponses: claimResponsesByClaimId.get(claimId) ?? [],
     patientPaid: sumPatientPayments(paymentsByEncounterId.get(encounterId) ?? []),
     writeOffsTotal,
-    nioPaid: nioPaidByClaimId.get(claim.id) ?? 0,
+    nioPaid: nioPaidByClaimId.get(claimId) ?? 0,
   });
 
   const serviceLines = await Promise.all(

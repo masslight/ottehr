@@ -8,6 +8,7 @@ import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -26,7 +27,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, fhirAPI, projectAPI);
 
-  const [appointment, appointmentEncounters] = await Promise.all([
+  const [appointmentResult, appointmentEncountersResult] = await Promise.allSettled([
     getAppointmentResourceById(appointmentID, oystehr),
     oystehr.fhir
       .search<Encounter>({
@@ -35,6 +36,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       })
       .then((bundle) => bundle.unbundle()),
   ]);
+  const appointment = settledValueOrThrow(appointmentResult);
   if (!appointment) {
     return { statusCode: 404, body: JSON.stringify({ message: `Appointment ${appointmentID} not found` }) };
   }
@@ -46,7 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
   const patientID = patientReference.replace('Patient/', '');
 
-  const encounter = appointmentEncounters.find((enc) => enc.id);
+  const encounter = settledValueOrThrow(appointmentEncountersResult).find((enc) => enc.id);
   if (!encounter?.id) {
     return {
       statusCode: 404,
