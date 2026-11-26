@@ -1,9 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Location, Patient, Practitioner, Reference, Resource, Schedule, Task } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient, Practitioner, Reference, Resource, Schedule, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TASK_INPUT_SYSTEM, TASK_LOCATION_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
@@ -16,11 +17,13 @@ import { getTaskInputValue, MANUAL_TASK, PATIENT_REQUEST_TASK } from 'utils/lib/
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { getPractitionerRoles } from '../auth';
 import { createOwnerReference, createTask } from '../tasks';
-import { getFhirResources, mapEncountersToAppointmentIds } from '../visits';
+import { mapEncountersToAppointmentIds } from '../visits';
 import { PatientRequestCode } from './bot';
 import { makeThreadTag, threadTagSearchParam } from './thread';
 
 const MAX_QUOTED_TITLE_LENGTH = 100;
+const VISIT_LOOKBACK_YEARS = 3;
+const VISIT_PAGE_SIZE = 200;
 const EXCLUDED_VISIT_STATUSES: Appointment['status'][] = ['entered-in-error'];
 
 export interface Visit {
@@ -35,10 +38,7 @@ export interface Visit {
 export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<Visit[]> {
   if (!patients.length) return [];
 
-  const resources = await getFhirResources(
-    oystehr,
-    patients.map((patient) => `Patient/${patient.id}`)
-  );
+  const resources = await searchVisitResources(oystehr, patients);
 
   const encounters = mapEncountersToAppointmentIds(resources);
 
@@ -70,6 +70,45 @@ export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<
         },
       ];
     });
+}
+
+async function searchVisitResources(oystehr: Oystehr, patients: Patient[]): Promise<Resource[]> {
+  const visits = await getAllFhirSearchPages<Appointment | Encounter>(
+    {
+      resourceType: 'Appointment',
+      params: [
+        { name: '_tag', value: [OTTEHR_MODULE.TM, OTTEHR_MODULE.IP].join(',') },
+        { name: 'patient', value: patients.map((patient) => `Patient/${patient.id}`).join(',') },
+        { name: 'date', value: `ge${DateTime.now().minus({ years: VISIT_LOOKBACK_YEARS }).toISODate()}` },
+        { name: '_revinclude', value: 'Encounter:appointment' },
+      ],
+    },
+    oystehr,
+    VISIT_PAGE_SIZE
+  );
+
+  const locationIds = new Set(
+    visits.flatMap((resource) =>
+      resource.resourceType === 'Encounter'
+        ? (resource.location ?? []).flatMap((item) => item.location?.reference?.replace('Location/', '') ?? [])
+        : []
+    )
+  );
+
+  if (!locationIds.size) return visits;
+
+  const locations = await getAllFhirSearchPages<Location | Schedule>(
+    {
+      resourceType: 'Location',
+      params: [
+        { name: '_id', value: [...locationIds].join(',') },
+        { name: '_revinclude', value: 'Schedule:actor' },
+      ],
+    },
+    oystehr
+  );
+
+  return [...visits, ...locations];
 }
 
 function getLocationTimezone(locationId: string | undefined, resources: Resource[]): string {
@@ -131,7 +170,10 @@ export async function getVisitProviderOwner(
 
     if (roles && !canBeAssignedAsProvider({ roles })) return undefined;
 
-    return createOwnerReference(providerId, getFullestAvailableName(practitioner) ?? '');
+    const name = getFullestAvailableName(practitioner);
+    const owner = createOwnerReference(providerId, name ?? '');
+
+    return name ? owner : { ...owner, display: undefined };
   } catch (error) {
     console.warn(`Could not resolve provider ${providerId} of visit ${visit.appointmentId}; leaving unassigned`, error);
     return undefined;

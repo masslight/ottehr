@@ -1,6 +1,11 @@
 import Oystehr from '@oystehr/sdk';
-import { Patient, Practitioner, Reference, Task } from 'fhir/r4b';
-import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL, TASK_LOCATION_SYSTEM } from 'utils/lib/fhir/constants';
+import { Appointment, Encounter, Location, Patient, Practitioner, Reference, Resource, Schedule, Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import {
+  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+  TASK_LOCATION_SYSTEM,
+  TIMEZONE_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
 import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
 import { SupportChatTopic } from 'utils/lib/types/api/support-chat.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
@@ -13,6 +18,7 @@ import {
   buildRequestTitle,
   canAutoAssign,
   getVisitProviderOwner,
+  getVisits,
   moveRequestTask,
   Visit,
 } from '../../src/shared/support-chat/request-task';
@@ -281,6 +287,14 @@ describe('patient request assignment', () => {
       expect(result?.extension?.[0]).toMatchObject({ url: TASK_ASSIGNED_DATE_TIME_EXTENSION_URL });
     });
 
+    it('omits the display for a provider without a name', async () => {
+      const { oystehr } = makeOystehr([RoleType.Provider], async () => ({ ...practitioner, name: undefined }));
+      const result = await getVisitProviderOwner(oystehr, visit);
+
+      expect(result?.reference).toBe('Practitioner/practitioner-1');
+      expect(result?.display).toBeUndefined();
+    });
+
     it('resolves a provider whose roles cannot be resolved', async () => {
       const { oystehr } = makeOystehr(undefined);
       expect(await getVisitProviderOwner(oystehr, visit)).toMatchObject({ reference: 'Practitioner/practitioner-1' });
@@ -403,5 +417,99 @@ describe('patient request assignment', () => {
       });
       expect(moved.meta?.tag).toContainEqual(notifiedTag);
     });
+  });
+});
+
+describe('getVisits', () => {
+  const patient: Patient = { resourceType: 'Patient', id: 'patient-1', name: [{ given: ['Sarah'], family: 'Black' }] };
+  const appointment: Appointment = {
+    resourceType: 'Appointment',
+    id: 'appointment-1',
+    status: 'fulfilled',
+    start: '2026-07-12T02:00:00.000Z',
+    participant: [{ actor: { reference: 'Patient/patient-1' }, status: 'accepted' }],
+  };
+  const encounter: Encounter = {
+    resourceType: 'Encounter',
+    id: 'encounter-1',
+    status: 'finished',
+    class: { code: 'ACUTE' },
+    appointment: [{ reference: 'Appointment/appointment-1' }],
+    location: [{ location: { reference: 'Location/location-1' } }],
+  };
+  const location: Location = { resourceType: 'Location', id: 'location-1', name: 'Clinic' };
+  const schedule: Schedule = {
+    resourceType: 'Schedule',
+    id: 'schedule-1',
+    actor: [{ reference: 'Location/location-1' }],
+    extension: [{ url: TIMEZONE_EXTENSION_URL, valueString: 'America/Los_Angeles' }],
+  };
+
+  type SearchInput = { resourceType: string; params: { name: string; value: string }[] };
+
+  const makeOystehr = (visitResources: Resource[]): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
+    const search = vi.fn(async ({ resourceType }: SearchInput) => {
+      const resources = resourceType === 'Appointment' ? visitResources : [location, schedule];
+      const matches = resources.filter((resource) => resource.resourceType === resourceType);
+      return {
+        total: matches.length,
+        entry: resources.map((resource) => ({
+          resource,
+          search: { mode: resource.resourceType === resourceType ? 'match' : 'include' },
+        })),
+        unbundle: () => resources,
+      };
+    });
+    return { oystehr: { fhir: { search } } as unknown as Oystehr, search };
+  };
+
+  const paramsOf = (search: ReturnType<typeof vi.fn>, call: number): Record<string, string> =>
+    Object.fromEntries((search.mock.calls[call][0] as SearchInput).params.map((param) => [param.name, param.value]));
+
+  it('loads only the last three years of visits with their encounters', async () => {
+    const { oystehr, search } = makeOystehr([appointment, encounter]);
+    await getVisits(oystehr, [patient]);
+
+    const params = paramsOf(search, 0);
+    const since = DateTime.fromISO(params.date.replace('ge', ''));
+
+    expect(params.date.startsWith('ge')).toBe(true);
+    expect(Math.round(DateTime.now().diff(since, 'years').years)).toBe(3);
+    expect(params.patient).toBe('Patient/patient-1');
+    expect(params._revinclude).toBe('Encounter:appointment');
+    expect(params._include).toBeUndefined();
+    expect(params._count).toBe('200');
+  });
+
+  it("labels a visit with the date in its location's timezone", async () => {
+    const { oystehr, search } = makeOystehr([appointment, encounter]);
+    const visits = await getVisits(oystehr, [patient]);
+
+    expect(paramsOf(search, 1)).toMatchObject({ _id: 'location-1', _revinclude: 'Schedule:actor' });
+    expect(visits).toEqual([
+      {
+        appointmentId: 'appointment-1',
+        encounterId: 'encounter-1',
+        patient,
+        location: { id: 'location-1', name: 'Clinic' },
+        providerId: undefined,
+        label: 'Sarah Black 07/11/2026',
+      },
+    ]);
+  });
+
+  it('skips the location lookup when no visit has a location', async () => {
+    const { oystehr, search } = makeOystehr([appointment, { ...encounter, location: undefined } as Encounter]);
+    const visits = await getVisits(oystehr, [patient]);
+
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(visits[0].location).toBeUndefined();
+  });
+
+  it('does not search without patients', async () => {
+    const { oystehr, search } = makeOystehr([]);
+
+    expect(await getVisits(oystehr, [])).toEqual([]);
+    expect(search).not.toHaveBeenCalled();
   });
 });
