@@ -379,7 +379,7 @@ describe('InvoiceDetail', () => {
     expect(second).toEqual(first);
   });
 
-  it('records with the same key after reopening on a payment whose outcome was lost', async () => {
+  it('reopens the record payment dialog on a payment whose outcome was lost, and resends it', async () => {
     const user = userEvent.setup();
     mocks.getInvoice.mockResolvedValue(unpaidInvoice);
     mocks.record.mockRejectedValueOnce(new Error('Network error')).mockResolvedValueOnce({
@@ -390,16 +390,21 @@ describe('InvoiceDetail', () => {
     const recordPayment = screen.getByRole('button', { name: 'Record payment' });
 
     await user.click(recordPayment);
+    const amount = within(screen.getByRole('dialog')).getByRole('textbox', { name: 'Amount *' });
+    await user.clear(amount);
+    await user.type(amount, '100');
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Record payment' }));
     await within(screen.getByRole('dialog')).findByText('Network error');
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await user.click(recordPayment);
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Record payment' }));
 
+    const reopened = within(screen.getByRole('dialog'));
+    expect(reopened.getByRole('textbox', { name: 'Amount *' })).toHaveValue('100.00');
+    await user.click(reopened.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(mocks.record).toHaveBeenCalledTimes(2));
     const [[, first], [, second]] = mocks.record.mock.calls;
-    expect(second.idempotencyKey).toBe(first.idempotencyKey);
+    expect(second).toEqual(first);
   });
 
   it('reopens the record payment dialog with the balance after an edited amount was cancelled', async () => {

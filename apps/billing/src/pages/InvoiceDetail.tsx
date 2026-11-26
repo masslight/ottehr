@@ -26,7 +26,7 @@ import { ClaimStatusValueChip } from '../components/ClaimStatusValueChip';
 import { CardChargeAttempt, CollectInvoiceCardPaymentDialog } from '../components/CollectInvoiceCardPaymentDialog';
 import { InvoiceStatusChip } from '../components/InvoiceStatusChip';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
-import { RecordInvoicePaymentDialog } from '../components/RecordInvoicePaymentDialog';
+import { ManualPaymentAttempt, RecordInvoicePaymentDialog } from '../components/RecordInvoicePaymentDialog';
 import { Row } from '../components/Row';
 import { VoidInvoiceDialog } from '../components/VoidInvoiceDialog';
 import { invoicePaymentMethodLabel } from '../constants/invoice';
@@ -175,7 +175,7 @@ export default function InvoiceDetail(): ReactElement {
   const [collectingCardPayment, setCollectingCardPayment] = useState(false);
   const [voiding, setVoiding] = useState(false);
   // outlive each opening, so reopening after an unknown outcome can't pay twice
-  const [recordPaymentKey, setRecordPaymentKey] = useState(() => crypto.randomUUID());
+  const [unresolvedManualPayment, setUnresolvedManualPayment] = useState<ManualPaymentAttempt | null>(null);
   const [unresolvedCardAttempt, setUnresolvedCardAttempt] = useState<CardChargeAttempt | null>(null);
 
   const invoice = useQuery({
@@ -333,12 +333,10 @@ export default function InvoiceDetail(): ReactElement {
             <RecordInvoicePaymentDialog
               open
               onClose={() => setRecordingPayment(false)}
-              onRecorded={() => {
-                setRecordPaymentKey(crypto.randomUUID());
-                return invoice.refetch();
-              }}
+              onRecorded={() => invoice.refetch()}
               invoice={invoice.data}
-              idempotencyKey={recordPaymentKey}
+              unresolvedAttempt={unresolvedManualPayment}
+              onUnresolvedAttemptChange={setUnresolvedManualPayment}
             />
           )}
           {collectingCardPayment && (

@@ -1,8 +1,9 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { DateTime } from 'luxon';
-import { ReactElement } from 'react';
+import { ReactElement, useState } from 'react';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { RecordInvoicePaymentDialog } from '../../src/components/RecordInvoicePaymentDialog';
+import { ManualPaymentAttempt, RecordInvoicePaymentDialog } from '../../src/components/RecordInvoicePaymentDialog';
 
 const mocks = vi.hoisted(() => ({
   record: vi.fn(),
@@ -10,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   upload: vi.fn(),
   onClose: vi.fn(),
   onRecorded: vi.fn(),
+  onUnresolvedAttemptChange: vi.fn(),
   client: {},
 }));
 vi.mock('../../src/api/api', () => ({
@@ -28,19 +30,42 @@ vi.mock('../../src/components/DateInput', async () => ({
   DateInput: (await import('./inputStub')).InputStub,
 }));
 
-const renderDialog = (): void => {
-  render(
+// Holds the attempt like the invoice page does.
+function DialogKeepingAttempt({
+  balance,
+  initialAttempt = null,
+}: {
+  balance: number;
+  initialAttempt?: ManualPaymentAttempt | null;
+}): ReactElement {
+  const [attempt, setAttempt] = useState(initialAttempt);
+  return (
     <RecordInvoicePaymentDialog
       open
       onClose={mocks.onClose}
       onRecorded={mocks.onRecorded}
       invoice={{
         id: 'invoice-1',
-        balance: 320,
+        balance,
       }}
-      idempotencyKey="payment-key-1"
+      unresolvedAttempt={attempt}
+      onUnresolvedAttemptChange={(next) => {
+        mocks.onUnresolvedAttemptChange(next);
+        setAttempt(next);
+      }}
     />
   );
+}
+
+const renderDialog = (
+  balance = 320,
+  initialAttempt: ManualPaymentAttempt | null = null
+): ((nextBalance: number) => void) => {
+  const dialog = (invoiceBalance: number): ReactElement => (
+    <DialogKeepingAttempt balance={invoiceBalance} initialAttempt={initialAttempt} />
+  );
+  const { rerender } = render(dialog(balance));
+  return (nextBalance) => rerender(dialog(nextBalance));
 };
 
 const fillPayment = (): void => {
@@ -60,9 +85,35 @@ const fillPayment = (): void => {
   });
 };
 
+const attachFile = async (): Promise<void> => {
+  const input = screen.getByLabelText('Upload attachment');
+  fireEvent.change(input, {
+    target: {
+      files: [
+        new File(['%PDF'], 'wire.pdf', {
+          type: 'application/pdf',
+        }),
+      ],
+    },
+  });
+  await screen.findByText('wire.pdf', {
+    selector: '.MuiListItemText-primary',
+  });
+};
+
+const dialogButton = (name: string): HTMLElement =>
+  within(screen.getByRole('dialog')).getByRole('button', {
+    name,
+  });
+
 const submit = (): void => {
-  const recordPayment = within(screen.getByRole('dialog')).getByRole('button', { name: 'Record payment' });
+  const recordPayment = dialogButton('Record payment');
   fireEvent.click(recordPayment);
+};
+
+const tryAgain = (): void => {
+  const retry = dialogButton('Try again');
+  fireEvent.click(retry);
 };
 
 describe('RecordInvoicePaymentDialog', () => {
@@ -156,18 +207,7 @@ describe('RecordInvoicePaymentDialog', () => {
   it('uploads the attachment before recording the payment with it', async () => {
     renderDialog();
     fillPayment();
-    const file = new File(['%PDF'], 'wire.pdf', {
-      type: 'application/pdf',
-    });
-    const input = screen.getByLabelText('Upload attachment');
-    fireEvent.change(input, {
-      target: {
-        files: [file],
-      },
-    });
-    await screen.findByText('wire.pdf', {
-      selector: '.MuiListItemText-primary',
-    });
+    await attachFile();
 
     submit();
 
@@ -176,7 +216,13 @@ describe('RecordInvoicePaymentDialog', () => {
       invoiceId: 'invoice-1',
       fileName: 'wire.pdf',
     });
-    expect(mocks.upload).toHaveBeenCalledWith(file, 'https://z3.example/upload', 'application/pdf');
+    expect(mocks.upload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'wire.pdf',
+      }),
+      'https://z3.example/upload',
+      'application/pdf'
+    );
     expect(mocks.record).toHaveBeenCalledWith(
       mocks.client,
       expect.objectContaining({
@@ -189,78 +235,90 @@ describe('RecordInvoicePaymentDialog', () => {
     );
   });
 
-  it('resends a failed payment under the same key and file, and keeps the dialog open with the error', async () => {
+  it('opens on an unresolved payment locked, and resends it unchanged', async () => {
+    const attempt: ManualPaymentAttempt = {
+      payment: {
+        invoiceId: 'invoice-1',
+        amountInCents: 10000,
+        paymentMethod: 'wire',
+        paymentDate: '2026-11-18',
+        reference: 'WIRE-88',
+        idempotencyKey: 'key-1',
+      },
+      file: null,
+    };
+    renderDialog(320, attempt);
+
+    const amount = screen.getByRole('textbox', { name: 'Amount *' });
+    const reference = screen.getByRole('textbox', { name: 'Reference #' });
+    expect(amount).toHaveValue('100.00');
+    expect(amount).toBeDisabled();
+    expect(reference).toHaveValue('WIRE-88');
+    expect(reference).toBeDisabled();
+    tryAgain();
+
+    await waitFor(() => expect(mocks.onRecorded).toHaveBeenCalled());
+    expect(mocks.record).toHaveBeenCalledWith(mocks.client, attempt.payment);
+    expect(mocks.onUnresolvedAttemptChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('locks the details after a failure that may have recorded, and resends them under the same key', async () => {
     mocks.record.mockRejectedValueOnce(new Error('Network error'));
     renderDialog();
     fillPayment();
-    const input = screen.getByLabelText('Upload attachment');
-    fireEvent.change(input, {
-      target: {
-        files: [
-          new File(['%PDF'], 'wire.pdf', {
-            type: 'application/pdf',
-          }),
-        ],
-      },
-    });
-    await screen.findByText('wire.pdf', {
-      selector: '.MuiListItemText-primary',
-    });
+    await attachFile();
 
     submit();
 
     expect(await screen.findByText('Network error')).toBeInTheDocument();
     expect(mocks.onClose).not.toHaveBeenCalled();
-    submit();
+    const reference = screen.getByRole('textbox', { name: 'Reference #' });
+    expect(reference).toBeDisabled();
+    tryAgain();
     await waitFor(() => expect(mocks.onRecorded).toHaveBeenCalled());
     const [[, first], [, second]] = mocks.record.mock.calls;
-    expect(second.idempotencyKey).toBe(first.idempotencyKey);
-    expect(second.attachment).toEqual(first.attachment);
+    expect(second).toEqual(first);
     expect(mocks.upload).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps its key when the details are edited after a failure', async () => {
-    mocks.record.mockRejectedValueOnce(new Error('Network error'));
+  it('unlocks the details when a resent payment turns out refused, and records under a new key', async () => {
+    mocks.record.mockRejectedValueOnce(new Error('Network error')).mockRejectedValueOnce({
+      output: {
+        code: APIErrorCode.INVALID_INPUT,
+        message: 'The payment is too large',
+      },
+    });
     renderDialog();
     fillPayment();
 
     submit();
     await screen.findByText('Network error');
-    const reference = screen.getByRole('textbox', { name: 'Reference #' });
-    fireEvent.change(reference, {
+    tryAgain();
+    await screen.findByText('The payment is too large');
+
+    const amount = screen.getByRole('textbox', { name: 'Amount *' });
+    expect(amount).toBeEnabled();
+    fireEvent.change(amount, {
       target: {
-        value: 'WIRE-89',
+        value: '100',
       },
     });
     submit();
-
     await waitFor(() => expect(mocks.onRecorded).toHaveBeenCalled());
-    const [[, first], [, second]] = mocks.record.mock.calls;
-    expect(second.reference).toBe('WIRE-89');
-    expect(second.idempotencyKey).toBe(first.idempotencyKey);
+    const [[, first], , [, third]] = mocks.record.mock.calls;
+    expect(third.amountInCents).toBe(10000);
+    expect(third.idempotencyKey).not.toBe(first.idempotencyKey);
   });
 
   it('resends the amount it first sent after a refetch shows the invoice paid', async () => {
     mocks.record.mockRejectedValueOnce(new Error('Network error'));
-    const dialog = (balance: number): ReactElement => (
-      <RecordInvoicePaymentDialog
-        open
-        onClose={mocks.onClose}
-        onRecorded={mocks.onRecorded}
-        invoice={{
-          id: 'invoice-1',
-          balance,
-        }}
-        idempotencyKey="payment-key-1"
-      />
-    );
-    const { rerender } = render(dialog(320));
+    const setBalance = renderDialog();
     fillPayment();
 
     submit();
     await screen.findByText('Network error');
-    rerender(dialog(0));
-    submit();
+    setBalance(0);
+    tryAgain();
 
     await waitFor(() => expect(mocks.onRecorded).toHaveBeenCalled());
     const [[, first], [, second]] = mocks.record.mock.calls;

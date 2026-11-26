@@ -61,6 +61,7 @@ interface DateInputProps extends SharedWrapperProps {
   onChange: (value: string) => void;
   // IANA zone whose day "Today" and the calendar use; the browser's when unset.
   timezone?: string;
+  disabled?: boolean;
 }
 
 interface DateTimeInputProps extends SharedWrapperProps {
@@ -169,6 +170,7 @@ const DateInputWrapper = (props: DateInputProps | DateRangeInputProps): ReactEle
             },
           }}
           closeOnSelect
+          disabled={props.disabled}
           value={singleDateValue}
         />
       ) : (
