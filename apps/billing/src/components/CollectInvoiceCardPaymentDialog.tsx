@@ -17,9 +17,9 @@ import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { AddCreditCardForm } from 'ui-components/lib/components/AddCreditCardForm';
 import { loadStripe } from 'ui-components/lib/utils/stripe';
-import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { getApiError, getApiErrorCode } from 'utils/lib/helpers/oystehrApi';
 import { BillingInvoiceDetail } from 'utils/lib/types/data/billing/billing.types';
-import { APIError, APIErrorCode } from 'utils/lib/types/errors';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import {
   chargeBillingNioInvoiceCard,
   listBillingNioInvoicePaymentMethods,
@@ -35,8 +35,7 @@ const REFUSED_CHARGE_CODES: unknown[] = [
   APIErrorCode.INVALID_INPUT,
 ];
 
-const isRefusedCharge = (error: unknown): boolean =>
-  REFUSED_CHARGE_CODES.includes((error as Partial<APIError> | undefined)?.code);
+const isRefusedCharge = (error: unknown): boolean => REFUSED_CHARGE_CODES.includes(getApiErrorCode(error));
 
 interface CardPaymentForm {
   amount: string;

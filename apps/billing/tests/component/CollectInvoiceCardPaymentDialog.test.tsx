@@ -299,6 +299,26 @@ describe('CollectInvoiceCardPaymentDialog', () => {
     expect(second.idempotencyKey).not.toBe(first.idempotencyKey);
   });
 
+  it('unlocks the amount and card after a decline nested under output', async () => {
+    const user = userEvent.setup();
+    mocks.charge.mockRejectedValueOnce({
+      output: {
+        code: APIErrorCode.STRIPE_PAYMENT_ERROR_SPECIFIC,
+        message: 'Your card was declined.',
+      },
+    });
+    renderDialog();
+    await screen.findByText(/4242/);
+
+    await user.click(chargeButton());
+    await screen.findByText('Your card was declined.');
+
+    const amount = screen.getByRole('textbox', { name: 'Amount *' });
+    expect(amount).toBeEnabled();
+    expect(mocks.onUnresolvedAttemptChange).toHaveBeenLastCalledWith(null);
+    expect(chargeButton()).toBeInTheDocument();
+  });
+
   it('resends a failed charge to the same card under the same key, and keeps the dialog open with the error', async () => {
     const user = userEvent.setup();
     mocks.charge.mockRejectedValueOnce(new Error('Network error'));
