@@ -1,5 +1,11 @@
 import { AdHocRow } from 'utils/lib/types/adhoc/datasets/llm-schema';
 
+export function layersToLoad(loaded: ReadonlySet<string>, wanted: readonly string[]): string[] {
+  const missing = wanted.filter((id) => !loaded.has(id));
+  const sources = new Set(missing.filter((id) => id.includes('.')).map((id) => id.slice(0, id.indexOf('.'))));
+  return wanted.filter((id) => missing.includes(id) || sources.has(id.slice(0, id.indexOf('.'))));
+}
+
 export function mergeRows(prev: AdHocRow[], next: AdHocRow[], key: string): AdHocRow[] | null {
   if (prev.length !== next.length) return null;
 

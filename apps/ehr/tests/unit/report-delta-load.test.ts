@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gzipSync } from 'zlib';
 import { readReportDataBytes } from '../../src/features/report-builder/query/dataset-query';
-import { mergeRows } from '../../src/features/report-builder/query/merge-rows';
+import { layersToLoad, mergeRows } from '../../src/features/report-builder/query/merge-rows';
 
 describe('ad-hoc delta load: mergeRows', () => {
   const prev = [
@@ -38,5 +38,27 @@ describe('ad-hoc report data file', () => {
 
   it('reads a plain JSON file from an older Task as is', async () => {
     expect(await readReportDataBytes(new TextEncoder().encode(json))).toBe(json);
+  });
+});
+
+describe('ad-hoc delta load: layersToLoad', () => {
+  it('loads only the new own layer', () => {
+    expect(layersToLoad(new Set(['codes']), ['codes', 'vitals'])).toEqual(['vitals']);
+  });
+
+  it('reloads the loaded layers of a linked source together with its new layer', () => {
+    expect(
+      layersToLoad(new Set(['codes', 'billing-claims.base']), ['codes', 'billing-claims.base', 'billing-claims.codes'])
+    ).toEqual(['billing-claims.base', 'billing-claims.codes']);
+  });
+
+  it('does not reload another source', () => {
+    expect(
+      layersToLoad(new Set(['patients.allergies', 'billing-claims.base']), [
+        'patients.allergies',
+        'billing-claims.base',
+        'billing.charges',
+      ])
+    ).toEqual(['billing.charges']);
   });
 });

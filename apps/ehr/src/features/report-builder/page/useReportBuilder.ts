@@ -27,7 +27,7 @@ import { showAdHocDebugLog } from '../debug';
 import { SANDBOX_TIMEOUT_MESSAGE } from '../hooks/useSandbox';
 import { toLocalYmd } from '../query/dataset-query';
 import { runAdHocReportGeneration } from '../query/generation-query';
-import { mergeRows } from '../query/merge-rows';
+import { layersToLoad, mergeRows } from '../query/merge-rows';
 
 // How many times to transparently regenerate after a runtime error before surfacing it to the user.
 // 1 initial generation + up to 2 repairs.
@@ -241,7 +241,7 @@ export function useReportBuilder(): UseReportBuilder {
           !refresh && loaded && loaded.datasetId === datasetId && loaded.rangeKey === rangeKey ? loaded : null;
         const range = session?.range ?? getDateRangeIso(dateRange);
         const wanted = Object.keys(opts).filter((id) => opts[id]);
-        const missing = session ? wanted.filter((id) => !session.layers.has(id)) : wanted;
+        const missing = session ? layersToLoad(session.layers, wanted) : wanted;
 
         const dropCachedRows = (): void =>
           queryClient.removeQueries({ predicate: (query) => String(query.queryKey[0]).startsWith('adhoc-') });
