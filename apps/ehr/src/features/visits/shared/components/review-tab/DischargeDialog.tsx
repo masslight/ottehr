@@ -9,8 +9,10 @@ import {
   FormControlLabel,
   FormGroup,
   iconButtonClasses,
+  Link,
   Stack,
   svgIconClasses,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
@@ -18,11 +20,18 @@ import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { makePatientInstructionsPdf, makeProgressNotePdf } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { faxBlockedReason, NO_RECIPIENT_LABEL } from 'src/features/referrals/referralForm.helpers';
+import { getReferralPdf } from 'src/features/referrals/referrals.api';
+import { useReferralsQuery } from 'src/features/referrals/referrals.queries';
+import { ReferralUrgencyChip } from 'src/features/referrals/ReferralStatusChip';
+import { usePrintReferralForm } from 'src/features/referrals/usePrintReferralForm';
+import { ReferralFaxDialog, useReferralFax } from 'src/features/referrals/useReferralFax';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import { formatList } from 'src/shared/utils/formatList';
 import { SCHOOL_NOTE_CODE, WORK_NOTE_CODE } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { isReferralOpen } from 'utils/lib/types/api/referrals/referrals.types';
 import { useProgressNoteSigning } from '../../hooks/useProgressNoteSigning';
 import { useVisitNote } from '../../hooks/useVisitNote';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
@@ -131,6 +140,24 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   const [selections, setSelections] = useState<DischargeSelections>(DEFAULT_SELECTIONS);
   const [isDischarging, setIsDischarging] = useState(false);
 
+  const { data: referralsData } = useReferralsQuery({ encounterId });
+  const unsentReferrals = (referralsData?.referrals ?? []).filter((referral) => referral.status === 'not-sent');
+  const givenReferrals = useMemo(
+    () =>
+      (referralsData?.referrals ?? []).filter(
+        (referral) =>
+          referral.status === 'given-to-patient' || (!!referral.givenToPatientAt && isReferralOpen(referral.status))
+      ),
+    [referralsData?.referrals]
+  );
+  const [skippedReferralIds, setSkippedReferralIds] = useState<string[]>([]);
+  const referralsToPrint = useMemo(
+    () => givenReferrals.filter((referral) => !skippedReferralIds.includes(referral.id)),
+    [givenReferrals, skippedReferralIds]
+  );
+  const { controller: referralFax, sendFax: sendReferralFax } = useReferralFax();
+  const printReferralForm = usePrintReferralForm();
+
   // Keeps a retry after a partial failure from repeating the steps that already succeeded.
   const completedSteps = useRef({
     dischargeSummary: false,
@@ -138,6 +165,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
     schoolNote: false,
     patientInstructions: false,
     progressNote: false,
+    referralForms: new Set<string>(),
     discharged: false,
   });
 
@@ -165,7 +193,12 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   const signProgressNote = selections.signProgressNote && canSign;
   const requireSupervisorApproval = signProgressNote && selections.requireSupervisorApproval;
   const isPrinting =
-    printDischargeSummary || printWorkNote || printSchoolNote || printPatientInstructions || printProgressNote;
+    printDischargeSummary ||
+    printWorkNote ||
+    printSchoolNote ||
+    printPatientInstructions ||
+    printProgressNote ||
+    referralsToPrint.length > 0;
 
   const pendingWorkNote = printWorkNote && !workNoteUrl && !workNoteUnavailable;
   const pendingSchoolNote = printSchoolNote && !schoolNoteUrl && !schoolNoteUnavailable;
@@ -226,9 +259,13 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
         : undefined;
     const progressNoteTab =
       printProgressNote && appointmentId && !completedSteps.current.progressNote ? reserveTab('') : undefined;
+    const referralTabs = referralsToPrint
+      .filter((referral) => !completedSteps.current.referralForms.has(referral.id))
+      .map((referral) => ({ referralId: referral.id, tab: reserveTab('') }));
 
     const blocked =
       excusesToOpen.some(({ tab }) => !tab) ||
+      referralTabs.some(({ tab }) => !tab) ||
       dischargeSummaryTab === null ||
       instructionsTab === null ||
       progressNoteTab === null;
@@ -279,6 +316,15 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
         );
       }
 
+      for (const { referralId, tab } of referralTabs) {
+        if (!tab) continue;
+        printPromises.push(
+          openGeneratedPdf(tab, () => getReferralPdf(oystehrZambda, { referralId })).then(() => {
+            completedSteps.current.referralForms.add(referralId);
+          })
+        );
+      }
+
       const printResults = await Promise.allSettled(printPromises);
       const failedPrint = printResults.find((result) => result.status === 'rejected');
       if (failedPrint) {
@@ -315,6 +361,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
     schoolNoteUrl,
     printPatientInstructions,
     printProgressNote,
+    referralsToPrint,
     pendingDocuments,
     signProgressNote,
     requireSupervisorApproval,
@@ -390,8 +437,67 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
                 onChange={(checked) => select({ progressNote: checked })}
                 dataTestId={dataTestIds.dischargeDialog.printProgressNoteCheckbox}
               />
+              {givenReferrals.map((referral) => (
+                <SelectionCheckbox
+                  key={referral.id}
+                  label={`Referral form: ${referral.specialty}`}
+                  checked={!skippedReferralIds.includes(referral.id)}
+                  disabled={false}
+                  onChange={(checked) =>
+                    setSkippedReferralIds((current) =>
+                      checked ? current.filter((id) => id !== referral.id) : [...current, referral.id]
+                    )
+                  }
+                  dataTestId={dataTestIds.dischargeDialog.printReferralCheckbox(referral.id)}
+                />
+              ))}
             </FormGroup>
           </Box>
+
+          {unsentReferrals.length > 0 && (
+            <Box data-testid={dataTestIds.referrals.dischargeSection}>
+              <Typography variant="h6" color="primary.dark">
+                Unsent referrals
+              </Typography>
+              <Stack spacing={1} sx={{ pl: 0.5 }}>
+                {unsentReferrals.map((referral) => (
+                  <Stack key={referral.id} direction="row" alignItems="center" spacing={1}>
+                    <Typography component="span" sx={{ flexGrow: 1 }}>
+                      <Typography component="span" sx={{ fontWeight: 500 }}>
+                        {referral.specialty}
+                      </Typography>
+                      , {referral.recipient?.name ?? NO_RECIPIENT_LABEL}
+                    </Typography>
+                    <ReferralUrgencyChip urgency={referral.urgency} />
+                    {!referral.recipient?.fax && (
+                      <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                        No fax on file:{' '}
+                        <Link component="button" type="button" onClick={() => void printReferralForm(referral.id)}>
+                          print the form
+                        </Link>
+                      </Typography>
+                    )}
+                    <Tooltip title={faxBlockedReason(!!referral.recipient, referral.recipient?.fax)}>
+                      <span>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          disabled={isLoading || !referral.recipient?.fax}
+                          onClick={() => sendReferralFax(referral.id)}
+                          sx={{ borderRadius: 100, textTransform: 'none', whiteSpace: 'nowrap' }}
+                          data-testid={dataTestIds.referrals.dischargeSendFax(referral.id)}
+                        >
+                          Send fax
+                        </Button>
+                      </span>
+                    </Tooltip>
+                  </Stack>
+                ))}
+              </Stack>
+            </Box>
+          )}
+          {/* Outside the section: a delivered fax empties the list, and the result dialog must outlive it. */}
+          <ReferralFaxDialog controller={referralFax} />
 
           <Box>
             <Typography variant="h6" color="primary.dark">

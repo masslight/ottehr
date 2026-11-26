@@ -71,6 +71,11 @@ export const isFhirNotFoundError = (error: unknown): boolean => {
   );
 };
 
+export const isFhirVersionConflictError = (error: unknown): boolean => {
+  const candidate = error as { code?: unknown; statusCode?: unknown } | null;
+  return candidate?.code === 412 || candidate?.statusCode === 412;
+};
+
 // FHIR statuses whose OperationOutcome describes a problem with the submitted resources, which the
 // user can fix. Anything else (auth, not found, server failures) stays an internal error.
 const FHIR_VALIDATION_STATUS_CODES = [400, 422];

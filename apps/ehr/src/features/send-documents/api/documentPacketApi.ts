@@ -16,10 +16,12 @@ export interface DocumentPacketApiClient {
   getDocumentPacketStatus: (input: GetDocumentPacketStatusInput) => Promise<GetDocumentPacketStatusOutput>;
 }
 
+export type DocumentPacketPreviewInput = Pick<GetDocumentPacketPreviewInput, 'appointmentId' | 'referralId'>;
+
 export const fetchDocumentPacketPreview = async (
   apiClient: DocumentPacketApiClient,
-  appointmentId: string
-): Promise<GetDocumentPacketPreviewOutput> => apiClient.getDocumentPacketPreview({ appointmentId });
+  input: DocumentPacketPreviewInput
+): Promise<GetDocumentPacketPreviewOutput> => apiClient.getDocumentPacketPreview(input);
 
 /**
  * The number outbound faxes are sent from. It is the one part of the preview that does not depend on a

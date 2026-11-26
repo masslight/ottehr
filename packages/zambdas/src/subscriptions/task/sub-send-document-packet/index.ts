@@ -12,7 +12,11 @@ import {
 } from 'utils/lib/types/api/document-packet.types';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { DocumentPacketTooLargeError } from '../../../shared/document-packet/build-document-packet';
-import { deliverDocumentPacket, savePcpIfRequested } from '../../../shared/document-packet/deliver-document-packet';
+import {
+  deliverDocumentPacket,
+  markReferralSentIfDelivered,
+  savePcpIfRequested,
+} from '../../../shared/document-packet/deliver-document-packet';
 import { resolveDocumentPacketPlan } from '../../../shared/document-packet/resolve-packet-source';
 import { wrapTaskHandler } from '../helpers';
 
@@ -97,6 +101,9 @@ export const index = wrapTaskHandler(
       });
 
       await savePcpIfRequested(payload.recipients, plan.patient, oystehr);
+      if (source.type === 'referral') {
+        await markReferralSentIfDelivered(source.referralId, plan.basedOnVersionId, results, oystehr);
+      }
 
       // Per-recipient outcomes for the status poll. Written before wrapTaskHandler marks the task completed;
       // patchTaskStatus only touches /status + /statusReason, so this output survives.

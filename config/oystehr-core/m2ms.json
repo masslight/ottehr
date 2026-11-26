@@ -143,6 +143,17 @@
         },
         {
           "resource": [
+            "Z3:#{var/PROJECT_ID}-referrals/*"
+          ],
+          "action": [
+            "Z3:PutObject",
+            "Z3:GetObject",
+            "Z3:DeleteObject"
+          ],
+          "effect": "Allow"
+        },
+        {
+          "resource": [
             "Z3:#{var/PROJECT_ID}-TelemedRecordings/*"
           ],
           "action": [

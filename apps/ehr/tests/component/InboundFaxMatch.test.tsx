@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { enqueueSnackbar } from 'notistack';
 import { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import type { ReferralDTO } from 'utils/lib/types/api/referrals/referrals.types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InboundFaxMatch } from '../../src/features/inbound-fax/pages/InboundFaxMatch';
@@ -120,6 +121,13 @@ vi.mock('../../src/hooks/useGetPatientDocs', () => ({
   },
   useGetPatientDocsFolders: (args: { patientId: string }) => mockUseGetPatientDocsFolders(args),
   parsePatientDocsFolders: (...args: unknown[]) => mockParsePatientDocsFolders(...args),
+}));
+
+const mockUseReferralsQuery = vi.fn();
+
+vi.mock('../../src/features/referrals/referrals.queries', () => ({
+  REFERRALS_QUERY_KEY: 'referrals',
+  useReferralsQuery: (input: { patientId: string } | undefined) => mockUseReferralsQuery(input),
 }));
 
 const mockUseGetPatientVisitHistory = vi.fn();
@@ -280,6 +288,7 @@ describe('InboundFaxMatch page', () => {
       isLoading: false,
       data: patientId ? MOCK_VISITS : undefined,
     }));
+    mockUseReferralsQuery.mockReturnValue({ isLoading: false, data: undefined });
   });
 
   it('renders the page title', async () => {
@@ -720,6 +729,108 @@ describe('InboundFaxMatch page', () => {
         expect(mockFileInboundFax).toHaveBeenCalled();
       });
       expect(mockFileInboundFax.mock.calls[0][1]).not.toHaveProperty('encounterId');
+    });
+
+    const openReferral = (overrides: Partial<ReferralDTO>): ReferralDTO =>
+      ({
+        id: 'referral-1',
+        patientId: 'patient-123',
+        specialty: 'Orthopedics',
+        recipient: { name: 'Riverside Orthopedic Associates' },
+        referringProvider: { name: 'J. Rivera, MD' },
+        status: 'sent',
+        createdAt: '2026-03-02T15:00:00Z',
+        ...overrides,
+      }) as ReferralDTO;
+
+    it("offers the patient's open referrals and files the fax as the chosen one's response", async () => {
+      mockFileInboundFax.mockResolvedValue({ documentRefId: 'doc-1', folderId: 'folder-1' });
+      mockUseReferralsQuery.mockReturnValue({
+        isLoading: false,
+        data: {
+          referrals: [
+            openReferral({}),
+            openReferral({ id: 'referral-2', specialty: 'Cardiology', recipient: undefined }),
+            openReferral({ id: 'referral-closed', specialty: 'Dermatology', status: 'closed' }),
+          ],
+        },
+      });
+      const user = userEvent.setup();
+      renderPage();
+
+      await selectPatientAndFolder(user);
+      expect(mockUseReferralsQuery).toHaveBeenCalledWith({ patientId: 'patient-123' });
+      await user.click(within(screen.getByTestId('inbound-fax-referral-select')).getByRole('combobox'));
+      expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual([
+        'Orthopedics, Riverside Orthopedic Associates, Sent, created 03/02/2026',
+        'Cardiology, No recipient, Sent, created 03/02/2026',
+      ]);
+      await user.click(screen.getByRole('option', { name: /Orthopedics/ }));
+      expect(
+        screen.getByText(/Sets the referral to Response received and routes a review task to J. Rivera, MD/)
+      ).toBeInTheDocument();
+      await save(user);
+
+      await waitFor(() => {
+        expect(mockFileInboundFax).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ referralId: 'referral-1' })
+        );
+      });
+    });
+
+    it('drops the chosen referral when the patient changes, through the same form reset as the visit', async () => {
+      mockFileInboundFax.mockResolvedValue({ documentRefId: 'doc-1', folderId: 'folder-1' });
+      mockUseReferralsQuery.mockReturnValue({ isLoading: false, data: { referrals: [openReferral({})] } });
+      const user = userEvent.setup();
+      renderPage();
+
+      await selectPatientAndFolder(user);
+      await chooseOption(user, 'inbound-fax-referral-select', /Orthopedics/);
+      const clearButton = screen
+        .getByDisplayValue(/Frodo Baggins/)
+        .closest('.MuiInputBase-root')
+        ?.querySelector('button');
+      await user.click(clearButton!);
+      await selectPatientAndFolder(user);
+      expect(screen.queryByText(/routes a review task to/)).toBeNull();
+      await save(user);
+
+      await waitFor(() => {
+        expect(mockFileInboundFax).toHaveBeenCalled();
+      });
+      expect(mockFileInboundFax.mock.calls[0][1]).not.toHaveProperty('referralId');
+    });
+
+    it('keeps a chosen referral that was closed meanwhile on screen, holding filing until it is cleared', async () => {
+      mockUseReferralsQuery.mockReturnValue({ isLoading: false, data: { referrals: [openReferral({})] } });
+      const user = userEvent.setup();
+      renderPage();
+
+      await selectPatientAndFolder(user);
+      await chooseOption(user, 'inbound-fax-referral-select', /Orthopedics/);
+      // Someone else closes it: filing is refused, and the refetched list has no open referral left.
+      mockUseReferralsQuery.mockReturnValue({
+        isLoading: false,
+        data: { referrals: [openReferral({ status: 'closed' })] },
+      });
+      mockFileInboundFax.mockRejectedValueOnce(
+        new Error('Referral referral-1 is not an open referral of this patient')
+      );
+      await save(user);
+
+      expect(await screen.findByText('This referral is no longer open. Clear it to file the fax.')).toBeInTheDocument();
+      expect(screen.getByDisplayValue(/^Orthopedics, Riverside Orthopedic Associates, Closed/)).toBeInTheDocument();
+      expect(screen.getByText('Save').closest('button')?.disabled).toBe(true);
+
+      mockFileInboundFax.mockResolvedValue({ documentRefId: 'doc-1', folderId: 'folder-1' });
+      await user.click(within(screen.getByTestId('inbound-fax-referral-select')).getByTitle('Clear'));
+      await save(user);
+
+      await waitFor(() => {
+        expect(mockFileInboundFax).toHaveBeenCalledTimes(2);
+      });
+      expect(mockFileInboundFax.mock.calls[1][1]).not.toHaveProperty('referralId');
     });
 
     it('requires an assignee before filing with a review task, then sends it along', async () => {

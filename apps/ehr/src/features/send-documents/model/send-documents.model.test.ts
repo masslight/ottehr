@@ -1,3 +1,4 @@
+import { QueryClient } from '@tanstack/react-query';
 import {
   DOCUMENT_PACKET_MAX_RECIPIENTS,
   PACKET_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON,
@@ -8,7 +9,7 @@ import { actionLogsQueryKey } from '../../action-logs/actionLogs.constants';
 import { availableDocumentLabels, documentLabelGroups, hasNothingToSend } from './documents';
 import { buildDefaultFormValues } from './form';
 import {
-  faxHistoryQueryKey,
+  faxHistoryQueryKeys,
   nextPacketStatusPollInterval,
   PACKET_STATUS_POLL_INTERVALS_MS,
   PACKET_STATUS_POLL_TIMEOUT_MS,
@@ -91,6 +92,16 @@ describe('documents', () => {
     });
   });
 
+  it('labels a referral form ahead of the visit documents it travels with', () => {
+    expect(
+      documentLabelGroups([
+        { kind: 'referral-form', available: true },
+        { kind: 'progress-note', available: true },
+        { kind: 'lab-results', available: false },
+      ])
+    ).toEqual({ included: ['Referral form', 'Visit/Progress Note'], excluded: ['Lab Results'] });
+  });
+
   it('detects a visit with nothing to send', () => {
     const nothing = {
       'progress-note': false,
@@ -118,6 +129,19 @@ describe('recipients', () => {
     expect(initialRecipients(pcp, false)[0]).toMatchObject({ ...pcp, saveAsPcp: true });
     expect(initialRecipients(pcp, true)[0].saveAsPcp).toBe(false);
     expect(initialRecipients(undefined, false)[0]).toMatchObject({ name: '', faxNumber: '', saveAsPcp: true });
+  });
+
+  it("prefills a referral's contact ahead of the PCP, without offering to save it as the PCP", () => {
+    const recipient = { name: 'Jane Doe', organization: 'Springfield Cardiology', faxNumber: '2125554321' };
+    const pcp = { name: 'Tomas Jhonson', faxNumber: '2027139680' };
+    expect(buildDefaultFormValues({ documents: [], recipient, hasSavedPcp: true }).recipients[0]).toMatchObject({
+      ...recipient,
+      saveAsPcp: false,
+    });
+    expect(buildDefaultFormValues({ documents: [], recipient, pcp, hasSavedPcp: true }).recipients[0].name).toBe(
+      'Jane Doe'
+    );
+    expect(buildDefaultFormValues({ documents: [], pcp, hasSavedPcp: true }).recipients[0].name).toBe('Tomas Jhonson');
   });
 
   it('treats "save as PCP" as a radio: the record holds exactly one PCP', () => {
@@ -274,9 +298,33 @@ describe('polling', () => {
 
   it('points timeout guidance and refreshes at the history for the source', () => {
     expect(packetStatusTimeoutMessage(visitSource)).toContain("visit's fax history");
-    expect(faxHistoryQueryKey(visitSource)).toEqual(['get-visit-fax-history', 'appointment-1']);
+    expect(faxHistoryQueryKeys(visitSource)).toEqual([['get-visit-fax-history', 'appointment-1']]);
 
     expect(packetStatusTimeoutMessage(medicalRecordSource)).toContain("patient's fax history");
-    expect(faxHistoryQueryKey(medicalRecordSource)).toEqual(actionLogsQueryKey('fax', 'patient-1'));
+    expect(faxHistoryQueryKeys(medicalRecordSource)).toEqual([actionLogsQueryKey('fax', 'patient-1')]);
+  });
+
+  it("refreshes every patient's Fax Logs tab and every visit's fax history after a referral fax, which names neither", async () => {
+    const queryClient = new QueryClient();
+    const patientFaxLogs = [...actionLogsQueryKey('fax', 'patient-1'), '', '', undefined, 0];
+    const allFaxLogs = [...actionLogsQueryKey('fax'), '', '', undefined, 0];
+    const visitFaxHistory = ['get-visit-fax-history', 'appointment-1'];
+    const patientEmailLogs = [...actionLogsQueryKey('email', 'patient-1'), '', '', undefined, 0];
+    [patientFaxLogs, allFaxLogs, visitFaxHistory, patientEmailLogs].forEach((queryKey) =>
+      queryClient.setQueryData(queryKey, [])
+    );
+
+    await Promise.all(
+      faxHistoryQueryKeys({ type: 'referral', referralId: 'referral-1' }).map((queryKey) =>
+        queryClient.invalidateQueries({ queryKey })
+      )
+    );
+
+    const isInvalidated = (queryKey: unknown[]): boolean | undefined =>
+      queryClient.getQueryState(queryKey)?.isInvalidated;
+    expect(isInvalidated(patientFaxLogs)).toBe(true);
+    expect(isInvalidated(allFaxLogs)).toBe(true);
+    expect(isInvalidated(visitFaxHistory)).toBe(true);
+    expect(isInvalidated(patientEmailLogs)).toBe(false);
   });
 });

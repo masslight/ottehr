@@ -61,6 +61,7 @@ export const SendDocumentsDialog: FC<SendDocumentsDialogProps> = ({ controller, 
       {showForm && (
         <SendDocumentsForm
           preview={preview}
+          sourceType={controller.sourceType}
           senderFaxNumber={controller.senderFaxNumber}
           visits={visits}
           isSending={controller.isSending}

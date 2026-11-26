@@ -29,13 +29,14 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDialog';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
 import { PatientChatButton } from 'src/features/chat/PatientChatButton';
 import { MedicalRecordDateRangeDialog } from 'src/features/medical-record-export/components/MedicalRecordDateRangeDialog';
 import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
+import { PatientReferralsTab } from 'src/features/referrals/PatientReferralsTab';
 import { fetchMedicalRecordDocumentCount } from 'src/features/send-documents/api/documentPacketApi';
 import { useSendDocuments } from 'src/features/send-documents/hooks/useSendDocuments';
 import { PacketVisitOption } from 'src/features/send-documents/model/types';
@@ -86,12 +87,31 @@ export default function PatientPage(): JSX.Element {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const defaultTab = location.state?.defaultTab;
+  const [searchParams, setSearchParams] = useSearchParams();
   const isLegacyPatientFollowupsEnabled = FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED;
   const sendMedicalRecordLabel = FEATURE_FLAGS.SENDGRID_ENABLED ? 'Send by Fax or Email' : 'Send as Fax';
-  const [tab, setTab] = useState(
-    !isLegacyPatientFollowupsEnabled && defaultTab === 'followups' ? 'encounters' : defaultTab || 'encounters'
-  );
+  const visibleTabs = [
+    'encounters',
+    ...(isLegacyPatientFollowupsEnabled ? ['followups'] : []),
+    ...(FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['labs'] : []),
+    ...(FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['in-house-labs'] : []),
+    ...(FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['radiology'] : []),
+    'referrals',
+  ];
+  const isVisibleTab = (value: unknown): value is string => typeof value === 'string' && visibleTabs.includes(value);
+  const tabFromUrl = searchParams.get('tab');
+  const tabFromState = location.state?.defaultTab;
+  const tab = isVisibleTab(tabFromUrl) ? tabFromUrl : isVisibleTab(tabFromState) ? tabFromState : 'encounters';
+  const setTab = (newTab: string): void => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', newTab);
+        return next;
+      },
+      { replace: true }
+    );
+  };
   const [showAccountSettingsDialog, setShowAccountSettingsDialog] = useState(false);
   const [mergePatientIds, setMergePatientIds] = useState<[string, string] | null>(null);
   const [medicalRecordMenuAnchor, setMedicalRecordMenuAnchor] = useState<HTMLElement | null>(null);
@@ -601,6 +621,14 @@ export default function PatientPage(): JSX.Element {
                         }
                       />
                     )}
+                    <Tab
+                      value="referrals"
+                      label={
+                        <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                          Referrals
+                        </Typography>
+                      }
+                    />
                   </TabList>
                 </Box>
 
@@ -631,6 +659,9 @@ export default function PatientPage(): JSX.Element {
                     <PatientRadiologyTab patientId={id || ''} />
                   </TabPanel>
                 )}
+                <TabPanel value="referrals" sx={{ p: 0 }}>
+                  <PatientReferralsTab patientId={id || ''} />
+                </TabPanel>
               </TabContext>
               {showAccountSettingsDialog ? (
                 <AccountSettingsDialog

@@ -3,6 +3,7 @@ import { LAB_ORDER_TASK } from '../data/labs/labs.constants';
 import { ERX_TASK, FAX_TASK, MANUAL_TASK, PATIENT_REQUEST_TASK, RADIOLOGY_TASK } from '../data/tasks/types';
 import { DME_TASK } from './dme.types';
 import { ProviderNotificationMethod } from './practitioner.types';
+import { REFERRAL_TASK } from './referrals/referrals.types';
 
 /**
  * Per-notification-type registration for staff: each type carries a delivery method, location
@@ -38,6 +39,7 @@ export const UI_TASK_CATEGORY_IDS = [
   'coding',
   'billing',
   'inboundFax',
+  'referrals',
   'other',
 ] as const;
 export type UiTaskCategoryId = (typeof UI_TASK_CATEGORY_IDS)[number];
@@ -57,6 +59,7 @@ export const UI_TASK_CATEGORY_LABELS: Record<UiTaskCategoryId, string> = {
   coding: 'Coding',
   billing: 'Billing',
   inboundFax: 'Inbound Fax',
+  referrals: 'Referrals',
   other: 'Other',
 };
 
@@ -95,6 +98,8 @@ export const TASK_CODE_TO_UI_CATEGORY: Record<string, UiTaskCategoryId> = {
   // Inbound Fax row can match them — see `UNLOCATED_TASK_CATEGORIES`, which is what keeps any other kind
   // of Inbound Fax row from existing.
   [FAX_TASK.category]: 'inboundFax',
+  // Referral tasks are created from the referral (a patient-level record) with no location tag either.
+  [REFERRAL_TASK.category]: 'referrals',
   [MANUAL_TASK.category.other]: 'other',
 };
 
@@ -109,12 +114,23 @@ export const getUiTaskCategoryForCode = (code: string | undefined): UiTaskCatego
  * stored selection) and the settings table renders their Locations cell read-only, so the dead state is
  * unreachable from either end.
  *
- * Only inbound fax qualifies: faxes arrive at the project's fax number, which maps to no Location. Note that
- * a category is NOT a candidate just because one of its producers omits the location — `erx` folds the
- * location-less DoseSpot subscription tasks and the always-located manual eRX tasks into one row, so pinning
- * it would throw away a filter that does work for half its tasks.
+ * Inbound fax qualifies: faxes arrive at the project's fax number, which maps to no Location. Referrals are
+ * pinned too, although not every referral task is unlocated: the "awaiting response" task of a referral made
+ * on a visit carries that visit's location, but the same task for a referral made from the patient record
+ * and every "review response" task (created when a response is filed) have none, so a location filter
+ * would mute those. Note that a category is NOT a candidate just because one of its producers omits the
+ * location — `erx` folds the location-less DoseSpot subscription tasks and the always-located manual eRX
+ * tasks into one row, so pinning it would throw away a filter that does work for half its tasks.
  */
-export const UNLOCATED_TASK_CATEGORIES: readonly UiTaskCategoryId[] = ['inboundFax'];
+export const UNLOCATED_TASK_CATEGORIES: readonly UiTaskCategoryId[] = ['inboundFax', 'referrals'];
+
+/**
+ * Idempotency marker for the "referral overdue" notification (notifications-updater). Its own tag system, like
+ * the markers in `practitioner.types.ts`, so `getPatchOperationForNewMetaTag` never clobbers another marker.
+ */
+export const REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM =
+  'https://fhir.ottehr.com/r4/provider-notifications-referral-overdue-tag';
+export const REFERRAL_OVERDUE_NOTIFIED_TAG_CODE = 'overdue-notified';
 
 /** Whether a category's tasks never carry a location, making its row's location filter meaningless. */
 export const taskCategoryHasNoLocation = (id: UiTaskCategoryId): boolean => UNLOCATED_TASK_CATEGORIES.includes(id);
@@ -140,13 +156,17 @@ export const defaultNotificationRowPref = (
   assignedTo: 'anyone',
 });
 
+const UNSET_TASK_CATEGORY_ROWS: Partial<Record<UiTaskCategoryId, Partial<NotificationRowPref>>> = {
+  referrals: { enabled: true, assignedTo: 'me' },
+};
+
 export const buildDefaultTaskCategoryPrefs = (
   enabled: boolean,
   method: ProviderNotificationMethod
 ): Record<UiTaskCategoryId, NotificationRowPref> => {
   const rows = {} as Record<UiTaskCategoryId, NotificationRowPref>;
   for (const id of UI_TASK_CATEGORY_IDS) {
-    rows[id] = defaultNotificationRowPref(enabled, method);
+    rows[id] = { ...defaultNotificationRowPref(enabled, method), ...UNSET_TASK_CATEGORY_ROWS[id] };
   }
   return rows;
 };
@@ -172,7 +192,7 @@ export const normalizeNotificationPreferencesV2 = (
   };
   const taskCategories = {} as Record<UiTaskCategoryId, NotificationRowPref>;
   for (const id of UI_TASK_CATEGORY_IDS) {
-    const row = normalizeRow(prefs?.taskCategories?.[id]);
+    const row = normalizeRow(prefs?.taskCategories?.[id] ?? UNSET_TASK_CATEGORY_ROWS[id]);
     // A stored location selection on a category whose tasks carry no location matched nothing at all, which
     // read as "notifications for this category are broken". Repaired here, at the read boundary both the
     // settings page and the notifications cron go through, so anyone already muted this way is fixed on
@@ -220,7 +240,9 @@ export const notificationRowMatchesLocation = (row: NotificationRowPref, locatio
  */
 export type ProviderNotificationTarget =
   | { type: 'visit'; appointmentId: string }
-  | { type: 'inboundFax'; faxCommunicationId: string };
+  | { type: 'inboundFax'; faxCommunicationId: string }
+  /** A referral task: its visit's Plan tab when it was made on a visit, else the patient's Referrals tab. */
+  | { type: 'referral'; patientId: string; appointmentId?: string };
 
 /** One notification as the bell needs it — the whole of what the read endpoint discloses. */
 export interface ProviderNotificationDto {

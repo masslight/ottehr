@@ -16,6 +16,7 @@ import {
 import { DateTime, Duration } from 'luxon';
 import {
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+  TASK_CATEGORY_IDENTIFIER,
   VIDEO_CHAT_WAITING_ROOM_NOTIFICATION_TASK_CODE,
 } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
@@ -55,9 +56,12 @@ import {
   notificationRowMatchesLocation,
   NotificationRowPref,
   ProviderNotificationPreferencesV2,
+  REFERRAL_OVERDUE_NOTIFIED_TAG_CODE,
+  REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM,
   UI_TASK_CATEGORY_LABELS,
   UiTaskCategoryId,
 } from 'utils/lib/types/api/provider-notifications';
+import { REFERRAL_TASK } from 'utils/lib/types/api/referrals/referrals.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { OttehrTaskSystem } from 'utils/lib/types/common';
 import { USER_TIMEZONE_EXTENSION_URL } from 'utils/lib/types/constants';
@@ -66,6 +70,7 @@ import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getNoteTaskId, isTaskNote, isTaskNoteUnreadBy, TASK_NOTE_TAG } from '../../shared/notes';
+import { hasOverdueNotifiedTag, OPEN_TASK_STATUSES } from '../../shared/referrals/referral-task';
 import { wrapHandler } from '../../shared/sentry';
 import { getTaskLocation } from '../../shared/tasks';
 import { ZambdaInput } from '../../shared/types/common';
@@ -150,23 +155,28 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
   // Generous 1h lookback; the per-resource idempotency tags — not the window — gate "already notified?".
   const notificationWindowStart = DateTime.utc().minus({ hours: 1 });
 
-  const [readyOrUnsignedVisitPackages, { activeStaffMap, activeProvidersMap }, recentTaskResources] = await Promise.all(
-    [
-      getResourcePackagesAppointmentsMap(
-        oystehr,
-        READY_OR_UNSIGNED_ENCOUNTER_STATUSES,
-        // getting ready and unsigned appointments for the last 49 hours just to send appropriate notifications
-        // on unsigned appointments that are in the unsigned state for too long
-        DateTime.utc().minus(Duration.fromISO('PT49H')),
-        // 'booked' for telemed appointment notifications, 'arrived' for waiting room notifications
-        ['booked', 'arrived']
-      ),
-      getActiveStaffAndProviders(oystehr),
-      getRecentTaskResources(oystehr, notificationWindowStart),
-    ]
-  );
+  const [
+    readyOrUnsignedVisitPackages,
+    { activeStaffMap, activeProvidersMap },
+    recentTaskResources,
+    openReferralTaskResources,
+  ] = await Promise.all([
+    getResourcePackagesAppointmentsMap(
+      oystehr,
+      READY_OR_UNSIGNED_ENCOUNTER_STATUSES,
+      // getting ready and unsigned appointments for the last 49 hours just to send appropriate notifications
+      // on unsigned appointments that are in the unsigned state for too long
+      DateTime.utc().minus(Duration.fromISO('PT49H')),
+      // 'booked' for telemed appointment notifications, 'arrived' for waiting room notifications
+      ['booked', 'arrived']
+    ),
+    getActiveStaffAndProviders(oystehr),
+    getRecentTaskResources(oystehr, notificationWindowStart),
+    getOpenReferralTaskResources(oystehr),
+  ]);
   const recentlyCreatedTasks = recentTaskResources.filter((res): res is Task => res.resourceType === 'Task');
   const recentlyAssignedTasksMap = buildRecentlyAssignedTasksMap(recentTaskResources, notificationWindowStart);
+  const overdueReferralTasks = findOverdueReferralTasks(openReferralTaskResources, DateTime.utc());
   // One line of counts. These were resource dumps, then five count lines; this cron runs often enough
   // that even the assigned-task id list is worth dropping (the ids are recoverable from FHIR).
   const runCounts = [
@@ -175,6 +185,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     `active staff: ${Object.keys(activeStaffMap).length}`,
     `recently created tasks: ${recentlyCreatedTasks.length}`,
     `recently assigned tasks: ${Object.keys(recentlyAssignedTasksMap).length}`,
+    `overdue referral tasks: ${overdueReferralTasks.length}`,
   ];
   console.log(`--- ${runCounts.join(', ')}`);
 
@@ -390,31 +401,14 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         if (!rowMatchesFilters(row, taskLocationId, false)) continue;
 
         const status = communicationStatusForMethod(row.method);
-        const message = buildCategoryNotificationMessage(uiCategory, task);
-        const request: BatchInputPostRequest<Communication> = {
-          method: 'POST',
-          url: '/Communication',
-          resource: {
-            resourceType: 'Communication',
-            category: [
-              {
-                coding: [
-                  {
-                    system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-                    code: AppointmentProviderNotificationTypes.task_category_created,
-                  },
-                  taskCategoryCoding(uiCategory),
-                ],
-              },
-            ],
-            sent: DateTime.utc().toISO()!,
-            status: status,
-            basedOn: [{ reference: `Task/${task.id}` }],
-            about: buildTaskNotificationAbout(task),
-            recipient: [{ reference: `Practitioner/${practitioner.id}` }],
-            payload: [{ contentString: message }],
-          },
-        };
+        const request = buildTaskNotificationRequest({
+          task,
+          type: AppointmentProviderNotificationTypes.task_category_created,
+          uiCategory,
+          recipient: practitioner,
+          status,
+          message: buildCategoryNotificationMessage(uiCategory, task),
+        });
         enqueueNotification(practitioner, request, status, row.method);
         categoryNotifiedThisRun.add(categoryNotifiedKey(task.id!, practitioner.id!));
       }
@@ -472,35 +466,54 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         // notification is about without fetching its Task.
         const uiCategory = getUiTaskCategoryForCode(task.groupIdentifier?.value);
 
-        const request: BatchInputPostRequest<Communication> = {
-          method: 'POST',
-          url: '/Communication',
-          resource: {
-            resourceType: 'Communication',
-            category: [
-              {
-                coding: [
-                  {
-                    system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-                    code: AppointmentProviderNotificationTypes.task_assigned,
-                  },
-                  ...(uiCategory ? [taskCategoryCoding(uiCategory)] : []),
-                ],
-              },
-            ],
-            sent: DateTime.utc().toISO()!,
-            status: status,
-            basedOn: [{ reference: `Task/${task.id}` }],
-            about: buildTaskNotificationAbout(task),
-            recipient: [{ reference: `Practitioner/${recipient.id}` }],
-            payload: [{ contentString: title }],
-          },
-        };
+        const request = buildTaskNotificationRequest({
+          task,
+          type: AppointmentProviderNotificationTypes.task_assigned,
+          uiCategory,
+          recipient,
+          status,
+          message: title,
+        });
 
         enqueueNotification(recipient, request, status, method);
       }
     } catch (error) {
       console.error(`Error trying to process task assignment notification for task ${taskId}`, error);
+      captureException(error);
+    }
+  });
+
+  overdueReferralTasks.forEach(({ task, owner }) => {
+    try {
+      queueTaskMetaTag(task, {
+        system: REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM,
+        code: REFERRAL_OVERDUE_NOTIFIED_TAG_CODE,
+      });
+
+      const delivery = resolveAssignmentDelivery({
+        task,
+        recipient: owner,
+        hasExplicitPrefs: hasExplicitProviderNotificationPreferencesV2(owner),
+        prefs: getPrefsCached(owner),
+        legacySettings: getProviderNotificationSettingsForPractitioner(owner),
+        // Overdue is its own event: a creation notification earlier this run must not suppress it.
+        categoryNotifiedThisRun: new Set(),
+        taskLocationId: getTaskLocation(task)?.id,
+      });
+      if (!delivery.notify) return;
+
+      const status = communicationStatusForMethod(delivery.method);
+      const request = buildTaskNotificationRequest({
+        task,
+        type: AppointmentProviderNotificationTypes.task_category_created,
+        uiCategory: 'referrals',
+        recipient: owner,
+        status,
+        message: buildReferralOverdueMessage(task),
+      });
+      enqueueNotification(owner, request, status, delivery.method);
+    } catch (error) {
+      console.error(`Error trying to process referral overdue notification for task ${task.id}`, error);
       captureException(error);
     }
   });
@@ -526,21 +539,15 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           if (!delivery.notify) continue;
           notifiedThisRun.add(key);
           const status = communicationStatusForMethod(delivery.method);
-          const type = {
-            system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-            code: AppointmentProviderNotificationTypes.task_note_added,
-          };
-          const resource: Communication = {
-            resourceType: 'Communication',
-            category: [{ coding: [type, ...(uiCategory ? [taskCategoryCoding(uiCategory)] : [])] }],
-            sent: DateTime.utc().toISO()!,
+          const request = buildTaskNotificationRequest({
+            task,
+            type: AppointmentProviderNotificationTypes.task_note_added,
+            uiCategory,
+            recipient,
             status,
-            basedOn: [{ reference: `Task/${task.id}` }],
-            about: buildTaskNotificationAbout(task),
-            recipient: [{ reference: `Practitioner/${recipient.id}` }],
-            payload: [{ contentString: 'New note on task: ' + (task.description ?? `task ID ${task.id}`) }],
-          };
-          enqueueNotification(recipient, { method: 'POST', url: '/Communication', resource }, status, delivery.method);
+            message: 'New note on task: ' + (task.description ?? `task ID ${task.id}`),
+          });
+          enqueueNotification(recipient, request, status, delivery.method);
         }
       }
       const notifiedTag = { system: TASK_NOTE_NOTIFIED_TAG_SYSTEM, code: TASK_NOTE_NOTIFIED_TAG_CODE };
@@ -830,6 +837,49 @@ export async function getRecentTaskResources(oystehr: Oystehr, fromDate: DateTim
   );
 }
 
+/** Not windowed: a task goes overdue by the clock, not by an edit, so `_lastUpdated` would miss it. */
+export async function getOpenReferralTaskResources(oystehr: Oystehr): Promise<(Task | Practitioner)[]> {
+  return getAllFhirSearchPages<Task | Practitioner>(
+    {
+      resourceType: 'Task',
+      params: [
+        { name: 'group-identifier', value: `${TASK_CATEGORY_IDENTIFIER}|${REFERRAL_TASK.category}` },
+        { name: 'status', value: OPEN_TASK_STATUSES.join(',') },
+        { name: '_tag:not', value: `${REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM}|${REFERRAL_OVERDUE_NOTIFIED_TAG_CODE}` },
+        { name: '_include', value: 'Task:owner' },
+      ],
+    },
+    oystehr
+  );
+}
+
+export function findOverdueReferralTasks(
+  bundle: (Task | Practitioner)[],
+  now: DateTime
+): { task: Task; owner: Practitioner }[] {
+  const practitionerById = new Map<string, Practitioner>();
+  const tasks: Task[] = [];
+  bundle.forEach((res) => {
+    if (res.resourceType === 'Practitioner') practitionerById.set(res.id!, res);
+    else if (res.resourceType === 'Task') tasks.push(res);
+  });
+  return tasks
+    .filter((task) => {
+      if (task.groupIdentifier?.value !== REFERRAL_TASK.category || hasOverdueNotifiedTag(task)) return false;
+      const end = task.restriction?.period?.end ? DateTime.fromISO(task.restriction.period.end) : null;
+      return !!end && end.isValid && end < now;
+    })
+    .flatMap((task) => {
+      const ownerId = getIdFromReference(task.owner?.reference, 'Practitioner');
+      const owner = ownerId ? practitionerById.get(ownerId) : undefined;
+      return owner ? [{ task, owner }] : [];
+    });
+}
+
+export function buildReferralOverdueMessage(task: Task): string {
+  return `Referral overdue: ${task.description ?? `task ID ${task.id}`}`;
+}
+
 export async function getRecentTaskNotes(
   oystehr: Oystehr,
   fromDate: DateTime
@@ -1072,6 +1122,12 @@ export function buildCategoryNotificationMessage(uiCategory: UiTaskCategoryId, t
  * fetching every notification's Task on every poll of a 10-second bell.
  */
 export function buildTaskNotificationAbout(task: Task): Reference[] | undefined {
+  if (task.groupIdentifier?.value === REFERRAL_TASK.category) {
+    const patientReference = task.input?.find(
+      (input) => input.type?.coding?.some((coding) => coding.code === REFERRAL_TASK.input.patient)
+    )?.valueReference?.reference;
+    return patientReference ? [{ reference: patientReference }] : undefined;
+  }
   if (task.groupIdentifier?.value !== FAX_TASK.category) return undefined;
   const faxCommunicationId = getTaskInputValue(task, FAX_TASK.input.communicationId);
   return faxCommunicationId ? [{ reference: `Communication/${faxCommunicationId}` }] : undefined;
@@ -1083,6 +1139,46 @@ export function taskCategoryCoding(uiCategory: UiTaskCategoryId): Coding {
     system: PROVIDER_NOTIFICATION_CATEGORY_SYSTEM,
     code: uiCategory,
     display: UI_TASK_CATEGORY_LABELS[uiCategory],
+  };
+}
+
+export function buildTaskNotificationRequest({
+  task,
+  type,
+  uiCategory,
+  recipient,
+  status,
+  message,
+}: {
+  task: Task;
+  type: AppointmentProviderNotificationTypes;
+  uiCategory: UiTaskCategoryId | undefined;
+  recipient: Practitioner;
+  status: Communication['status'];
+  message: string;
+}): BatchInputPostRequest<Communication> {
+  const encounter = uiCategory === 'referrals' ? task.encounter : undefined;
+  return {
+    method: 'POST',
+    url: '/Communication',
+    resource: {
+      resourceType: 'Communication',
+      category: [
+        {
+          coding: [
+            { system: PROVIDER_NOTIFICATION_TYPE_SYSTEM, code: type },
+            ...(uiCategory ? [taskCategoryCoding(uiCategory)] : []),
+          ],
+        },
+      ],
+      sent: DateTime.utc().toISO()!,
+      status,
+      basedOn: [{ reference: `Task/${task.id}` }],
+      ...(encounter ? { encounter } : {}),
+      about: buildTaskNotificationAbout(task),
+      recipient: [{ reference: `Practitioner/${recipient.id}` }],
+      payload: [{ contentString: message }],
+    },
   };
 }
 

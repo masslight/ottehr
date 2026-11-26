@@ -13,6 +13,7 @@ import {
   PATIENT_FOLDERS_CODE,
 } from 'utils/lib/fhir/list';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { isReferralLabResult } from 'utils/lib/fhir/referral';
 import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
@@ -97,6 +98,8 @@ export type PatientDocumentInfo = {
   encounterId?: string;
   // Appointment the document was filed against, when it is linked that way instead of by encounter.
   appointmentId?: string;
+  /** A lab result report (not an order form, label or ABN); the referral document picker offers only these from Labs. */
+  isLabResult?: boolean;
 };
 
 /**
@@ -347,23 +350,20 @@ const useListableDocumentIds = (patientId: string, visit: DocumentVisitRef | und
 };
 
 /**
- * Rewrites folder counters to only count documents the table can list. Folders are kept even at
- * zero so a user can still open one and upload into it.
+ * Rewrites folder contents and counters to only the documents `includeDocument` accepts. Folders are
+ * kept even at zero so a user can still open one and upload into it.
  */
-const applyListableCountsToFolders = (
+export const filterFolderDocuments = (
   folders: PatientDocumentsFolder[],
-  listableDocumentIds: Set<string> | undefined
-): PatientDocumentsFolder[] => {
-  if (!listableDocumentIds) return folders;
-
-  return folders.map((folder) => {
+  includeDocument: (documentId: string, folder: PatientDocumentsFolder) => boolean
+): PatientDocumentsFolder[] =>
+  folders.map((folder) => {
     const documentsRefs = (folder.documentsRefs ?? []).filter((docRef) => {
       const id = getIdFromReference(docRef.reference?.reference, 'DocumentReference');
-      return !!id && listableDocumentIds.has(id);
+      return !!id && includeDocument(id, folder);
     });
     return { ...folder, documentsCount: documentsRefs.length, documentsRefs };
   });
-};
 
 export type UseGetPatientDocsOptions = {
   /**
@@ -404,7 +404,10 @@ export const useGetPatientDocs = (
 
   const listableDocumentIds = useListableDocumentIds(patientId, currentFilters?.visit);
   const visibleFolders = useMemo(
-    () => applyListableCountsToFolders(documentsFolders, listableDocumentIds),
+    () =>
+      listableDocumentIds
+        ? filterFolderDocuments(documentsFolders, (documentId) => listableDocumentIds.has(documentId))
+        : documentsFolders,
     [documentsFolders, listableDocumentIds]
   );
 
@@ -1109,6 +1112,7 @@ const createDocumentInfo = (documentReference: DocumentReference): PatientDocume
     attachments: extractDocumentAttachments(documentReference),
     encounterId: getIdFromReference(documentReference.context?.encounter?.[0]?.reference, 'Encounter'),
     appointmentId: extractRelatedAppointmentId(documentReference),
+    isLabResult: isReferralLabResult(documentReference),
   };
 };
 

@@ -1,6 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import { DocumentReference, Patient } from 'fhir/r4b';
+import { DocumentReference, Encounter, Patient, ServiceRequest } from 'fhir/r4b';
 import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
+import { REFERRAL_FORM_DOC_REF_DOCTYPE, REFERRAL_ORDER_TYPE_TAG, withReferralDetails } from 'utils/lib/fhir/referral';
+import { ReferralStatus } from 'utils/lib/types/api/referrals/referrals.types';
 import { FAX_PACKET_CODE, MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -20,7 +22,26 @@ vi.mock('../../src/shared/document-packet/build-document-packet', async (importO
   buildDocumentPacketSection: (...args: unknown[]) => mockBuildDocumentPacketSection(...args),
 }));
 
-import { resolveDocumentPacketPlan } from '../../src/shared/document-packet/resolve-packet-source';
+const mockGetOrCreateReferralForm = vi.fn();
+vi.mock('../../src/shared/referrals/referral-form', () => ({
+  getOrCreateReferralForm: (...args: unknown[]) => mockGetOrCreateReferralForm(...args),
+}));
+
+const mockLoadReferralDocuments = vi.fn();
+vi.mock('../../src/shared/referrals/referral-documents', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
+  loadReferralDocuments: (...args: unknown[]) => mockLoadReferralDocuments(...args),
+}));
+
+const mockAssertZ3UrlInProject = vi.fn();
+vi.mock('../../src/shared/presigned-file-urls/helpers', () => ({
+  assertZ3UrlInProject: (...args: unknown[]) => mockAssertZ3UrlInProject(...args),
+}));
+
+import {
+  assertReferralFaxable,
+  resolveDocumentPacketPlan,
+} from '../../src/shared/document-packet/resolve-packet-source';
 
 const PATIENT_ID = 'patient-1';
 const MAY = { from: '2026-05-01T00:00:00.000Z', to: '2026-05-31T23:59:59.999Z' };
@@ -62,11 +83,12 @@ let searchResults: unknown[] = [];
 let visitSearchResults: unknown[] = [];
 let encounterSearchResults: unknown[] = [];
 let documentsById: Record<string, DocumentReference> = {};
+let resourcesById: Record<string, unknown> = {};
 
 const oystehr = {
   fhir: {
     get: vi.fn(({ resourceType, id }: { resourceType: string; id: string }) =>
-      Promise.resolve(resourceType === 'Patient' ? patient : documentsById[id])
+      Promise.resolve(resourceType === 'Patient' ? patient : resourcesById[id] ?? documentsById[id])
     ),
     search: vi.fn(({ resourceType }: { resourceType: string }) =>
       Promise.resolve({
@@ -92,6 +114,7 @@ describe('resolveDocumentPacketPlan', () => {
     visitSearchResults = [];
     encounterSearchResults = [];
     documentsById = {};
+    resourcesById = {};
     mockGetAppointmentAndRelatedResources.mockImplementation((_oystehr, appointmentId: string) =>
       Promise.resolve(visitResources(appointmentId))
     );
@@ -448,5 +471,226 @@ describe('resolveDocumentPacketPlan', () => {
     const plan = await resolve({ type: 'medical-record', patientId: PATIENT_ID, dateRange: MAY });
 
     expect(plan.sections).toHaveLength(0);
+  });
+});
+
+describe('resolveDocumentPacketPlan for a referral', () => {
+  const REFERRAL_ID = 'referral-1';
+  const ENCOUNTER_ID = 'encounter-appointment-1';
+
+  const referral = (
+    over: Partial<ServiceRequest> = {},
+    details: Parameters<typeof withReferralDetails>[1] = {}
+  ): ServiceRequest =>
+    withReferralDetails(
+      {
+        resourceType: 'ServiceRequest',
+        id: REFERRAL_ID,
+        status: 'draft',
+        intent: 'order',
+        meta: { tag: [{ ...REFERRAL_ORDER_TYPE_TAG }], versionId: '6' },
+        subject: { reference: `Patient/${PATIENT_ID}` },
+        ...over,
+      },
+      { status: 'not-sent', includeDocuments: ['progress-note', 'lab-results'], ...details }
+    );
+
+  const encounter: Encounter = {
+    resourceType: 'Encounter',
+    id: ENCOUNTER_ID,
+    status: 'finished',
+    class: { code: 'ACUTE' },
+    subject: { reference: `Patient/${PATIENT_ID}` },
+    appointment: [{ reference: 'Appointment/appointment-1' }],
+  };
+
+  const form = (id: string): DocumentReference =>
+    docRef(id, `https://z3.example/${id}.pdf`, { type: { coding: [{ ...REFERRAL_FORM_DOC_REF_DOCTYPE }] } });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resourcesById = { [REFERRAL_ID]: referral(), [ENCOUNTER_ID]: encounter };
+    searchResults = [];
+    mockGetAppointmentAndRelatedResources.mockImplementation((_oystehr, appointmentId: string) =>
+      Promise.resolve(visitResources(appointmentId))
+    );
+    mockCollectVisitPacketParts.mockResolvedValue([{ kind: 'progress-note', title: 'Visit/Progress Note' }]);
+    mockBuildDocumentPacketSection.mockImplementation(({ subject, parts }: any) =>
+      Promise.resolve({ subject, parts, bytes: new Uint8Array([1]), pageCount: 2 })
+    );
+    mockLoadReferralDocuments.mockResolvedValue([]);
+    // The form as the referral stands now: reused when unchanged, regenerated otherwise (the helper decides).
+    mockGetOrCreateReferralForm.mockImplementation((serviceRequest: ServiceRequest) => {
+      const documentReference = form(`form-for-${serviceRequest.id}`);
+      return Promise.resolve({ documentReference, z3Url: documentReference.content![0].attachment.url });
+    });
+  });
+
+  it("sends the form first, then the referral's chosen visit documents, filed on the referral's visit", async () => {
+    resourcesById[REFERRAL_ID] = referral({ encounter: { reference: `Encounter/${ENCOUNTER_ID}` } });
+
+    const plan = await resolve({ type: 'referral', referralId: REFERRAL_ID });
+
+    expect(plan.sourceType).toBe('referral');
+    expect(plan.sections).toHaveLength(1);
+    expect(plan.sections[0].parts.map((part) => part.title)).toEqual(['Referral form', 'Visit/Progress Note']);
+    expect(plan.sections[0].parts[0]).toMatchObject({
+      kind: 'referral-form',
+      documentReferenceId: `form-for-${REFERRAL_ID}`,
+      z3Url: `https://z3.example/form-for-${REFERRAL_ID}.pdf`,
+    });
+    // The current form is resolved through the shared helper with the referral just loaded, never a stale search.
+    expect(mockGetOrCreateReferralForm).toHaveBeenCalledWith(
+      expect.objectContaining({ id: REFERRAL_ID }),
+      expect.objectContaining({ oystehr, token: 'token', secrets: null })
+    );
+    expect(plan.sections[0].subject.visitId).toBe('appointment-1');
+    expect(mockCollectVisitPacketParts).toHaveBeenCalledWith(
+      expect.objectContaining({ kinds: ['progress-note', 'lab-results'] })
+    );
+    expect(plan.appointmentId).toBe('appointment-1');
+    expect(plan.encounterId).toBe(ENCOUNTER_ID);
+    expect(plan.basedOnReference).toBe(`ServiceRequest/${REFERRAL_ID}`);
+    expect(plan.basedOnVersionId).toBe('6');
+  });
+
+  it('sends the form alone for a referral made without a visit', async () => {
+    const plan = await resolve({ type: 'referral', referralId: REFERRAL_ID });
+
+    expect(plan.sections[0].parts.map((part) => part.title)).toEqual(['Referral form']);
+    expect(plan.sections[0].subject).toMatchObject({ visitTypeLabel: 'Referral', patientId: PATIENT_ID });
+    expect(plan.appointmentId).toBeUndefined();
+    expect(mockCollectVisitPacketParts).not.toHaveBeenCalled();
+    expect(mockGetAppointmentAndRelatedResources).not.toHaveBeenCalled();
+  });
+
+  it('refuses a referral that is already answered or finished', async () => {
+    resourcesById[REFERRAL_ID] = referral({}, { status: 'closed' });
+
+    await expect(resolve({ type: 'referral', referralId: REFERRAL_ID })).rejects.toEqual(
+      expect.objectContaining({ message: expect.stringContaining('Closed cannot be faxed') })
+    );
+  });
+
+  it('reports a ServiceRequest that is not a referral as not found, the same as an unknown id', async () => {
+    resourcesById[REFERRAL_ID] = { ...referral(), meta: {} };
+
+    await expect(resolve({ type: 'referral', referralId: REFERRAL_ID })).rejects.toEqual(
+      expect.objectContaining({ message: `Referral ${REFERRAL_ID} not found` })
+    );
+    expect(mockGetOrCreateReferralForm).not.toHaveBeenCalled();
+  });
+
+  it('refuses a referral whose visit belongs to another patient', async () => {
+    resourcesById[REFERRAL_ID] = referral({ encounter: { reference: `Encounter/${ENCOUNTER_ID}` } });
+    resourcesById[ENCOUNTER_ID] = { ...encounter, subject: { reference: 'Patient/someone-else' } };
+
+    await expect(resolve({ type: 'referral', referralId: REFERRAL_ID })).rejects.toEqual(
+      expect.objectContaining({ message: expect.stringContaining('another patient') })
+    );
+  });
+
+  it('fails the job when the form cannot be produced, before any section is built', async () => {
+    mockGetOrCreateReferralForm.mockRejectedValue(new Error('Referral form PDF has no media URL'));
+
+    await expect(resolve({ type: 'referral', referralId: REFERRAL_ID })).rejects.toEqual(
+      expect.objectContaining({ message: expect.stringContaining('no media URL') })
+    );
+    expect(mockBuildDocumentPacketSection).not.toHaveBeenCalled();
+  });
+
+  describe('with documents from earlier visits', () => {
+    const earlier = (id: string, visitDate: string | undefined, date: string): any => ({
+      documentReference: docRef(id, `https://z3.example/${id}.pdf`, {
+        date,
+        content: [{ attachment: { url: `https://z3.example/${id}.pdf`, title: id, contentType: 'application/pdf' } }],
+      }),
+      visitDate,
+    });
+    const supportingInfo = [{ reference: 'DocumentReference/newer' }, { reference: 'DocumentReference/older' }];
+
+    beforeEach(() => {
+      mockLoadReferralDocuments.mockResolvedValue([
+        earlier('newer', '2026-10-06T14:00:00.000Z', '2026-10-07T00:00:00.000Z'),
+        // No visit: placed by when it was added.
+        earlier('older', undefined, '2026-02-04T00:00:00.000Z'),
+      ]);
+    });
+
+    it("sends the form, then this visit's documents, then the earlier ones oldest first", async () => {
+      resourcesById[REFERRAL_ID] = referral({ encounter: { reference: `Encounter/${ENCOUNTER_ID}` }, supportingInfo });
+
+      const plan = await resolve({ type: 'referral', referralId: REFERRAL_ID });
+
+      expect(plan.sections[0].parts.map((part) => part.title)).toEqual([
+        'Referral form',
+        'Visit/Progress Note',
+        'older',
+        'newer',
+      ]);
+      // Checked again at send time against the referral's own patient, and only Z3 URLs of this project are fetched.
+      expect(mockLoadReferralDocuments).toHaveBeenCalledWith(oystehr, PATIENT_ID, ['newer', 'older']);
+      expect(mockAssertZ3UrlInProject.mock.calls.map(([url]) => url)).toEqual([
+        'https://z3.example/older.pdf',
+        'https://z3.example/newer.pdf',
+      ]);
+    });
+
+    it('sends them after the form on a referral made without a visit', async () => {
+      resourcesById[REFERRAL_ID] = referral({ supportingInfo });
+
+      const plan = await resolve({ type: 'referral', referralId: REFERRAL_ID });
+
+      expect(plan.sections[0].parts.map((part) => part.title)).toEqual(['Referral form', 'older', 'newer']);
+    });
+
+    it('SECURITY: fails the job rather than presign a URL outside this project', async () => {
+      resourcesById[REFERRAL_ID] = referral({ supportingInfo });
+      mockAssertZ3UrlInProject.mockImplementationOnce(() => {
+        throw new Error('Refusing to presign URL not from this project');
+      });
+
+      await expect(resolve({ type: 'referral', referralId: REFERRAL_ID })).rejects.toThrow('not from this project');
+      expect(mockBuildDocumentPacketSection).not.toHaveBeenCalled();
+    });
+
+    it('fails the job when a chosen document no longer passes the checks', async () => {
+      resourcesById[REFERRAL_ID] = referral({ supportingInfo });
+      mockLoadReferralDocuments.mockRejectedValue(new Error('One or more of the chosen documents cannot be sent'));
+
+      await expect(resolve({ type: 'referral', referralId: REFERRAL_ID })).rejects.toThrow('cannot be sent');
+      expect(mockBuildDocumentPacketSection).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe('assertReferralFaxable', () => {
+  const withStatus = (status: ReferralStatus): ServiceRequest =>
+    withReferralDetails(
+      {
+        resourceType: 'ServiceRequest',
+        status: 'draft',
+        intent: 'order',
+        meta: { tag: [{ ...REFERRAL_ORDER_TYPE_TAG }] },
+        subject: { reference: 'Patient/patient-1' },
+      },
+      { status }
+    );
+
+  it.each(['not-sent', 'sent', 'given-to-patient'] as ReferralStatus[])(
+    'faxes a referral that is %s, as the form still lets staff edit it',
+    (status) => {
+      expect(() => assertReferralFaxable(withStatus(status))).not.toThrow();
+    }
+  );
+
+  it.each([
+    ['response-received', 'Response received'],
+    ['closed', 'Closed'],
+    ['cancelled', 'Cancelled'],
+  ] as [ReferralStatus, string][])('refuses a referral that is %s, naming its status', (status, label) => {
+    expect(() => assertReferralFaxable(withStatus(status))).toThrow(
+      expect.objectContaining({ message: `A referral that is ${label} cannot be faxed` })
+    );
   });
 });

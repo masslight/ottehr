@@ -23,6 +23,12 @@ import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { DME_TASK } from 'utils/lib/types/api/dme.types';
 import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
+import {
+  REFERRAL_OVERDUE_DAYS,
+  REFERRAL_TASK,
+  REFERRAL_URGENCY_LABELS,
+  ReferralUrgency,
+} from 'utils/lib/types/api/referrals/referrals.types';
 import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
@@ -42,6 +48,7 @@ import {
 } from 'utils/lib/types/data/tasks/types';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { inboundFaxMatchPath } from '../../../inbound-fax/routes';
+import { patientReferralsPath, visitPlanPath } from '../../../referrals/referralPaths';
 import {
   getDmeOrderDetailsUrl,
   getImmunizationVaccineDetailsUrl,
@@ -636,6 +643,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
   let subtitle = '';
   let completable = false;
   let details: string | undefined = undefined;
+  let overdue: boolean | undefined = undefined;
 
   // Extract encounterId and check if it's a follow-up encounter
   const encounterId = getTaskEncounterId(task);
@@ -984,6 +992,30 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
       }
     }
   }
+  if (category === REFERRAL_TASK.category) {
+    const patientReference = getInputReference(REFERRAL_TASK.input.patient, task);
+    title = `${task.description ?? ''}${patientReference?.display ? ` for ${patientReference.display}` : ''}`;
+    overdue = isTaskOverdue(task);
+    const urgency = getInputString(REFERRAL_TASK.input.urgency, task) as ReferralUrgency | undefined;
+    const urgencyLabel = urgency ? REFERRAL_URGENCY_LABELS[urgency] : '';
+    const responseInput = getInput(REFERRAL_TASK.input.responseDocumentReferenceId, task);
+    if (responseInput?.valueString || responseInput?.valueReference?.reference) {
+      subtitle = [urgencyLabel, 'Response received'].filter(Boolean).join(': ');
+    } else if (overdue && urgency) {
+      subtitle = `${urgencyLabel}: no response after ${REFERRAL_OVERDUE_DAYS[urgency]} days`;
+    } else {
+      subtitle = urgencyLabel;
+    }
+    // Closing the referral (on the visit or patient record) completes the task, not the reverse.
+    completable = false;
+    const appointmentId = encounter?.appointment?.[0]?.reference?.split('/')?.[1];
+    const patientId = patientReference?.reference?.split('/')?.[1];
+    if (appointmentId) {
+      action = { name: GO_TO_TASK, link: addEncounterIdToLink(visitPlanPath(appointmentId)) };
+    } else if (patientId) {
+      action = { name: GO_TO_TASK, link: patientReferralsPath(patientId) };
+    }
+  }
 
   return {
     id: task.id ?? '',
@@ -1005,6 +1037,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     alert: getAlertCode(task),
     completable: completable,
     reopenable: isReopenableTaskCategory(category),
+    overdue,
     chat:
       FEATURE_FLAGS.SUPPORT_CHAT_ENABLED && category === PATIENT_REQUEST_TASK.category
         ? {
@@ -1014,6 +1047,13 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
           }
         : undefined,
   };
+}
+
+export function isTaskOverdue(task: FhirTask, now: DateTime = DateTime.now()): boolean {
+  const end = task.restriction?.period?.end;
+  if (!end || task.status === 'completed' || task.status === 'cancelled') return false;
+  const endDate = DateTime.fromISO(end);
+  return endDate.isValid && endDate < now;
 }
 
 function getInputString(code: string, task: FhirTask): string | undefined {

@@ -17,7 +17,10 @@ export function validateRequestParameters(
     throw MISSING_REQUEST_BODY;
   }
 
-  const { appointmentId, medicalRecord } = safeValidate(GetDocumentPacketPreviewInputSchema, safeJsonParse(input.body));
+  const { appointmentId, medicalRecord, referralId } = safeValidate(
+    GetDocumentPacketPreviewInputSchema,
+    safeJsonParse(input.body)
+  );
 
-  return { appointmentId, medicalRecord, secrets: input.secrets };
+  return { appointmentId, medicalRecord, referralId, secrets: input.secrets };
 }

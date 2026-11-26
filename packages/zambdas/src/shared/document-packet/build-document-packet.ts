@@ -190,6 +190,8 @@ export const documentPacketLimitGuidance = (sourceType: DocumentPacketSource['ty
       return 'Fax the needed documents individually instead.';
     case 'document':
       return 'Reduce the document below the fax limit before trying again.';
+    case 'referral':
+      return 'Choose fewer documents to include on the referral and try again.';
   }
 };
 
