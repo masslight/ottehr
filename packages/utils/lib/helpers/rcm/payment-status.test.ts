@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { paymentStatusLabel } from '../../src/constants/payment';
+import { paymentStatusLabel } from './payment-status';
 
 describe('paymentStatusLabel', () => {
   it('labels each payment status for billers', () => {
