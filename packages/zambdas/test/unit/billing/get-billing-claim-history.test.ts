@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { captureException } from '@sentry/node-core/light';
+import { captureException, captureMessage } from '@sentry/node-core/light';
 import { Organization, PaymentNotice, Practitioner, Provenance, Resource } from 'fhir/r4b';
 import {
   CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
@@ -19,10 +19,15 @@ import { SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 vi.mock('@sentry/node-core/light', async (importActual) => ({
   ...(await importActual<typeof import('@sentry/node-core/light')>()),
   captureException: vi.fn(),
+  captureMessage: vi.fn(),
 }));
 const captureExceptionMock = vi.mocked(captureException);
+const captureMessageMock = vi.mocked(captureMessage);
 
-beforeEach(() => captureExceptionMock.mockClear());
+beforeEach(() => {
+  captureExceptionMock.mockClear();
+  captureMessageMock.mockClear();
+});
 
 const PAYER_URL = 'https://rcm-api.zapehr.com/v1/payer/123';
 
@@ -201,6 +206,44 @@ describe('get-billing-claim-history performEffect', () => {
     expect(statusChange('unknown')).toEqual({
       previousValue: null,
       newValue: 'on-hold',
+    });
+  });
+
+  it("keeps a payment's stored status and warns when its notice isn't found", async () => {
+    const provenance: Provenance = {
+      ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
+      target: [
+        {
+          reference: 'PaymentNotice/pn-gone',
+        },
+        {
+          reference: 'Claim/c1',
+        },
+      ],
+      extension: [
+        diffExtension([
+          {
+            field: 'status',
+            label: 'Status',
+            previousValue: null,
+            newValue: 'active',
+          },
+        ]),
+      ],
+    };
+    const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], [practitionerU1]) });
+
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: { ENVIRONMENT: 'staging' } });
+
+    expect(entries[0].changes[0]).toMatchObject({
+      newValue: 'active',
+    });
+    expect(captureMessageMock).toHaveBeenCalledWith('Claim history references PaymentNotices that were not found', {
+      level: 'warning',
+      extra: {
+        paymentNoticeIds: ['pn-gone'],
+      },
+      tags: undefined,
     });
   });
 

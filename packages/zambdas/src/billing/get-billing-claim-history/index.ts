@@ -24,7 +24,7 @@ import {
   GetClaimHistoryResponse,
 } from 'utils/lib/types/data/billing/claim-history';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { sendErrors } from '../../shared/errors';
+import { sendErrors, sendWarning } from '../../shared/errors';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
@@ -85,9 +85,9 @@ export async function performEffect(oystehr: Oystehr, params: GetClaimHistoryPar
       agentsByRef.set(`${r.resourceType}/${r.id}`, r);
   });
 
-  const refundIds = await fetchRefundIds(oystehr, provenances);
+  const paymentAmountsById = await fetchPaymentAmountsById(oystehr, provenances, environment);
   const entries: ClaimHistoryEntry[] = provenances
-    .map((provenance) => toHistoryEntry(provenance, agentsByRef, refundIds, environment))
+    .map((provenance) => toHistoryEntry(provenance, agentsByRef, paymentAmountsById, environment))
     // Newest first. Sort here rather than relying on a server-side _sort on `recorded`.
     .sort((a, b) => (a.recorded < b.recorded ? 1 : a.recorded > b.recorded ? -1 : 0));
 
@@ -172,7 +172,11 @@ function attachEntityRefs(provenance: Provenance, changes: ClaimFieldChange[], e
   }
 }
 
-async function fetchRefundIds(oystehr: Oystehr, provenances: Provenance[]): Promise<Set<string>> {
+async function fetchPaymentAmountsById(
+  oystehr: Oystehr,
+  provenances: Provenance[],
+  environment: string
+): Promise<Map<string, number>> {
   const paymentNoticeIds = [
     ...new Set(
       provenances
@@ -180,7 +184,7 @@ async function fetchRefundIds(oystehr: Oystehr, provenances: Provenance[]): Prom
         .filter((id): id is string => !!id)
     ),
   ];
-  if (paymentNoticeIds.length === 0) return new Set();
+  if (paymentNoticeIds.length === 0) return new Map();
   const notices = await getAllFhirSearchPages<PaymentNotice>(
     {
       resourceType: 'PaymentNotice',
@@ -193,13 +197,20 @@ async function fetchRefundIds(oystehr: Oystehr, provenances: Provenance[]): Prom
     },
     oystehr
   );
-  return new Set(notices.flatMap((notice) => (notice.id && (notice.amount?.value ?? 0) < 0 ? [notice.id] : [])));
+  const amountsById = new Map(notices.flatMap((notice) => (notice.id ? [[notice.id, notice.amount?.value ?? 0]] : [])));
+  const missingIds = paymentNoticeIds.filter((id) => !amountsById.has(id));
+  if (missingIds.length > 0) {
+    sendWarning('Claim history references PaymentNotices that were not found', environment, {
+      paymentNoticeIds: missingIds,
+    });
+  }
+  return amountsById;
 }
 
 function toHistoryEntry(
   provenance: Provenance,
   agentsByRef: Map<string, Practitioner | Device>,
-  refundIds: Set<string>,
+  paymentAmountsById: Map<string, number>,
   environment: string
 ): ClaimHistoryEntry {
   const activityCode = provenance.activity?.coding?.[0]?.code;
@@ -230,6 +241,7 @@ function toHistoryEntry(
   const message = provenance.extension?.find((e) => e.url === CLAIM_PROVENANCE_NOTE_EXTENSION_URL)?.valueString;
   const acknowledgment = parseAcknowledgment(provenance, environment);
   const changes = parseChanges(provenance, environment);
+  const paymentAmount = paymentAmountsById.get(getIdFromReference(targetRef, 'PaymentNotice') ?? '');
   return {
     id: provenance.id ?? '',
     recorded: provenance.recorded ?? '',
@@ -238,21 +250,18 @@ function toHistoryEntry(
       display: actorDisplay(agentsByRef.get(agentRef ?? ''), agentRef ?? ''),
       type: agentTypeCode === 'system' ? 'system' : 'user',
     },
-    changes:
-      resourceType === 'PaymentNotice'
-        ? labelPaymentStatuses(changes, refundIds.has(getIdFromReference(targetRef, 'PaymentNotice') ?? ''))
-        : changes,
+    changes: paymentAmount === undefined ? changes : labelPaymentStatuses(changes, paymentAmount),
     ...(message ? { message } : {}),
     ...(acknowledgment ? { acknowledgment } : {}),
   };
 }
 
-function labelPaymentStatuses(changes: ClaimFieldChange[], isRefund: boolean): ClaimFieldChange[] {
+function labelPaymentStatuses(changes: ClaimFieldChange[], amount: number): ClaimFieldChange[] {
   const label = (status: string | null): string | null =>
     status
       ? paymentStatusLabel({
           status,
-          amount: isRefund ? -1 : 1,
+          amount,
         })
       : status;
   return changes.map((change) =>
