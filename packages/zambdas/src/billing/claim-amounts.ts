@@ -402,10 +402,15 @@ export function sumPatientPayments(notices: PaymentNotice[]): number {
 
 // Notices for other invoices are ignored, so callers can pass a claim's whole list.
 export function getInvoiceBalanceInCents(invoice: Invoice, notices: PaymentNotice[]): number {
-  if (!invoice.id) throw new Error('An invoice balance needs a saved invoice');
-  const invoicePayments = notices.filter((notice) => getPaymentNoticeInvoiceId(notice) === invoice.id);
+  const invoiceId = savedInvoiceId(invoice);
+  const invoicePayments = notices.filter((notice) => getPaymentNoticeInvoiceId(notice) === invoiceId);
   return Math.round(((invoice.totalGross?.value ?? 0) - sumPatientPayments(invoicePayments)) * 100);
 }
+
+const savedInvoiceId = (invoice: Invoice): string => {
+  if (!invoice.id) throw new Error('An invoice balance needs a saved invoice');
+  return invoice.id;
+};
 
 export function getInvoiceClaimBalanceInCents({
   invoice,
@@ -416,9 +421,10 @@ export function getInvoiceClaimBalanceInCents({
   claimId: string;
   notices: PaymentNotice[];
 }): number {
+  const invoiceId = savedInvoiceId(invoice);
   const lineCents = getBillingInvoiceClaims(invoice).find((line) => line.claimId === claimId)?.amountCents ?? 0;
   const claimPayments = notices.filter(
-    (notice) => getPaymentNoticeInvoiceId(notice) === invoice.id && paymentNoticeClaimId(notice) === claimId
+    (notice) => getPaymentNoticeInvoiceId(notice) === invoiceId && paymentNoticeClaimId(notice) === claimId
   );
   return Math.max(lineCents - Math.round(sumPatientPayments(claimPayments) * 100), 0);
 }

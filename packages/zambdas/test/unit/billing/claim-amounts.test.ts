@@ -19,6 +19,7 @@ import {
   fetchPatientPaymentsByEncounterIds,
   firstSubmittedDate,
   getInvoiceBalanceInCents,
+  getInvoiceClaimBalanceInCents,
   initialClaimBalances,
   isMatchedToClaim,
   OYSTEHR_ADJUDICATION_SYSTEM,
@@ -1202,6 +1203,48 @@ describe('getInvoiceBalanceInCents', () => {
         },
         []
       )
+    ).toThrow();
+  });
+
+  it("subtracts only one claim's payments on this invoice from that claim's line", () => {
+    const claimPayment = (claimId: string, amount: number, invoiceId = 'invoice-1'): PaymentNotice => ({
+      ...invoicePayment(
+        {
+          id: `${claimId}-${invoiceId}`,
+          encounterId: 'e',
+          amount,
+        },
+        invoiceId
+      ),
+      request: {
+        reference: `Claim/${claimId}`,
+      },
+    });
+    const notices = [
+      claimPayment('claim-1', 30),
+      claimPayment('claim-2', 10),
+      claimPayment('claim-1', 50, 'invoice-2'),
+    ];
+
+    expect(
+      getInvoiceClaimBalanceInCents({
+        invoice,
+        claimId: 'claim-1',
+        notices,
+      })
+    ).toBe(7000);
+  });
+
+  it("rejects an unsaved invoice rather than ignoring its claim's payments", () => {
+    expect(() =>
+      getInvoiceClaimBalanceInCents({
+        invoice: {
+          ...invoice,
+          id: undefined,
+        },
+        claimId: 'claim-1',
+        notices: [],
+      })
     ).toThrow();
   });
 });
