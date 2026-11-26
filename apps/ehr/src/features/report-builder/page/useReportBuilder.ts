@@ -105,7 +105,6 @@ function defaultOptionsFor(datasetId: string): Record<string, boolean> {
 
 interface LoadedData {
   datasetId: string;
-  rangeKey: string;
   range: { start: string; end: string };
   layers: Set<string>;
   rows: AdHocRow[];
@@ -218,11 +217,6 @@ export function useReportBuilder(): UseReportBuilder {
 
   const loadedRef = useRef<LoadedData | null>(null);
 
-  const rangeKeyOf = useCallback(
-    (filter: AdHocDateRangeFilter): string => [filter, customDate, customStartDate, customEndDate].join('|'),
-    [customDate, customStartDate, customEndDate]
-  );
-
   const fetchWithOptions = useCallback(
     async (
       datasetId: string,
@@ -235,11 +229,18 @@ export function useReportBuilder(): UseReportBuilder {
       setLoading(true);
       setError(null);
       try {
-        const rangeKey = rangeKeyOf(dateRange);
+        const range = getDateRangeIso(dateRange);
         const loaded = loadedRef.current;
+
         const session =
-          !refresh && loaded && loaded.datasetId === datasetId && loaded.rangeKey === rangeKey ? loaded : null;
-        const range = session?.range ?? getDateRangeIso(dateRange);
+          !refresh &&
+          loaded &&
+          loaded.datasetId === datasetId &&
+          loaded.range.start === range.start &&
+          loaded.range.end === range.end
+            ? loaded
+            : null;
+
         const wanted = Object.keys(opts).filter((id) => opts[id]);
         const missing = session ? layersToLoad(session.layers, wanted) : wanted;
 
@@ -273,7 +274,7 @@ export function useReportBuilder(): UseReportBuilder {
           if (!merged) showAdHocDebugLog('fetch', 'rows changed since the first load: loaded every layer again');
         }
 
-        loadedRef.current = { datasetId, rangeKey, range, layers, rows: fetched };
+        loadedRef.current = { datasetId, range, layers, rows: fetched };
 
         const builtSchema: LlmDatasetSchema = {
           ...dataset.buildSchema(fetched, opts),
@@ -299,7 +300,7 @@ export function useReportBuilder(): UseReportBuilder {
         setLoading(false);
       }
     },
-    [oystehrZambda, queryClient, dateRange, getDateRangeIso, rangeKeyOf]
+    [oystehrZambda, queryClient, dateRange, getDateRangeIso]
   );
 
   const handleFetch = useCallback((): void => {
@@ -593,12 +594,6 @@ export function useReportBuilder(): UseReportBuilder {
         const fetched = await dataset.fetch({ oystehrZambda, dateRange: range, options: savedOptions, queryClient });
         loadedRef.current = {
           datasetId: saved.datasetId,
-          rangeKey: [
-            filter,
-            saved.criteria.customDate ?? customDate,
-            saved.criteria.customStartDate ?? customStartDate,
-            saved.criteria.customEndDate ?? customEndDate,
-          ].join('|'),
           range,
           layers: new Set(Object.keys(savedOptions).filter((id) => savedOptions[id])),
           rows: fetched,

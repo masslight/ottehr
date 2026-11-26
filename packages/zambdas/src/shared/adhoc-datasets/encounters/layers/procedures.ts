@@ -34,7 +34,10 @@ export const proceduresLayer = defineEncounterLayer<{
       ? makeProceduresDTOFromFhirResources(encounter, [
           ...procedureRequests,
           ...(encounter.id ? proceduresByEncounterId.get(encounter.id) ?? [] : []),
-          ...Array.from(conditionById.values()),
+          ...(encounter.diagnosis ?? []).flatMap((d) => {
+            const condition = conditionById.get(d.condition?.reference?.replace('Condition/', '') ?? '');
+            return condition ? [condition] : [];
+          }),
         ]) ?? []
       : [];
 
