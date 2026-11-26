@@ -1,5 +1,4 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Button,
@@ -19,8 +18,10 @@ import { PhoneInput } from 'src/components/input/PhoneInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useSpecialtyTransferOptions } from 'src/hooks/useSpecialtyTransferOptions';
 import { InputMask } from 'ui-components/lib/components/InputMask';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { AllStates } from 'utils/lib/types/common';
 import {
   ADDRESS_BOOK_KNOWN_TAGS,
@@ -29,6 +30,7 @@ import {
   AddressBookContactInputSchema,
   formatAddressBookPersonName,
   normalizeAddressBookTag,
+  toAddressBookTag,
 } from 'utils/lib/types/data/address-book';
 import {
   useCreateAddressBookContactMutation,
@@ -112,9 +114,15 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
 
   const { control, getValues, setValue, handleSubmit } = methods;
   const { data } = useSearchAddressBookQuery();
+  const { options: specialtyOptions } = useSpecialtyTransferOptions();
 
+  // Referrals filter the directory by the specialty's tag, so the specialty list is offered as tags too.
   const tagSuggestions = Array.from(
-    new Set([...ADDRESS_BOOK_KNOWN_TAGS, ...(data?.contacts ?? []).flatMap((entry) => entry.tags ?? [])])
+    new Set([
+      ...ADDRESS_BOOK_KNOWN_TAGS,
+      ...specialtyOptions.map(toAddressBookTag).filter(Boolean),
+      ...(data?.contacts ?? []).flatMap((entry) => entry.tags ?? []),
+    ])
   );
 
   const createMutation = useCreateAddressBookContactMutation();
@@ -205,7 +213,16 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
                 title="Delete this contact?"
                 description={`${addressBookContactLabel(contact)} will be removed from the address book.`}
                 response={async () => {
-                  await deleteMutation.mutateAsync({ contactId: contact.id });
+                  try {
+                    await deleteMutation.mutateAsync({ contactId: contact.id });
+                  } catch (error) {
+                    captureException(error);
+                    enqueueSnackbar(
+                      getApiError({ error, defaultError: 'Failed to delete the contact. Please try again.' }),
+                      { variant: 'error' }
+                    );
+                    return;
+                  }
                   onDeleted();
                 }}
                 actionButtons={{ proceed: { text: 'Delete', color: 'error', loading: deleteMutation.isPending } }}
@@ -223,14 +240,14 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
               </ConfirmationDialog>
             )}
             <Button onClick={onClose}>Cancel</Button>
-            <LoadingButton
+            <Button
               type="submit"
               variant="contained"
               loading={createMutation.isPending || updateMutation.isPending}
               data-testid={dataTestIds.addressBook.saveContactButton}
             >
               Save
-            </LoadingButton>
+            </Button>
           </DialogActions>
         </form>
       </FormProvider>

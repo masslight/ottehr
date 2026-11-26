@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SavedCardItem } from '../../src/hooks/useVisitCards';
@@ -62,31 +62,88 @@ beforeEach(() => {
 // TESTS
 // ============================================================================
 describe('CardThumbnail', () => {
-  it('renders the front-slot uploader when neither face has an image', () => {
+  it('renders the title and a labeled upload placeholder for each face when neither has an image', () => {
     renderThumbnail();
 
+    expect(screen.getByText(TITLE)).toBeInTheDocument();
+    expect(screen.getByText('Front')).toBeInTheDocument();
+    expect(screen.getByText('Back')).toBeInTheDocument();
     expect(screen.getByText('Upload insurance-card-front')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: `Enlarge ${TITLE}` })).not.toBeInTheDocument();
+    expect(screen.getByText('Upload insurance-card-back')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Enlarge/ })).not.toBeInTheDocument();
   });
 
-  it('renders a clickable thumbnail (front preferred) when at least one face has an image', () => {
+  it('renders a clickable front thumbnail and a back placeholder when only the front exists', () => {
     renderThumbnail({ item: makeItem({ front: { presignedUrl: FRONT_URL } as any, frontId: 'doc-front' }) });
 
-    expect(screen.getByRole('button', { name: `Enlarge ${TITLE}` })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: `Enlarge ${TITLE} front` })).toBeInTheDocument();
     expect(screen.getByAltText(`${TITLE} front`)).toHaveAttribute('src', FRONT_URL);
+    expect(screen.queryByRole('button', { name: `Enlarge ${TITLE} back` })).not.toBeInTheDocument();
+    expect(screen.getByText('Upload insurance-card-back')).toBeInTheDocument();
   });
 
-  it('falls back to the back image when only the back exists', () => {
+  it('shows both thumbnails side by side and opens the preview on the clicked face', async () => {
+    const user = userEvent.setup();
+    renderThumbnail({
+      item: makeItem({
+        front: { presignedUrl: FRONT_URL } as any,
+        frontId: 'doc-front',
+        back: { presignedUrl: BACK_URL } as any,
+        backId: 'doc-back',
+      }),
+      handleDeleteClick: vi.fn(),
+    });
+
+    expect(screen.getByAltText(`${TITLE} front`)).toHaveAttribute('src', FRONT_URL);
+    expect(screen.getByAltText(`${TITLE} back`)).toHaveAttribute('src', BACK_URL);
+
+    await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE} back` }));
+
+    const dialog = screen.getByRole('dialog', { name: `${TITLE} preview` });
+    expect(within(dialog).getByRole('button', { name: `Remove ${TITLE} back` })).toBeInTheDocument();
+  });
+
+  it('switches the open preview to whichever thumbnail is clicked next', async () => {
+    const user = userEvent.setup();
+    renderThumbnail({
+      item: makeItem({
+        front: { presignedUrl: FRONT_URL } as any,
+        frontId: 'doc-front',
+        back: { presignedUrl: BACK_URL } as any,
+        backId: 'doc-back',
+      }),
+      handleDeleteClick: vi.fn(),
+    });
+
+    await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE} front` }));
+    const dialog = screen.getByRole('dialog', { name: `${TITLE} preview` });
+    expect(within(dialog).getByRole('button', { name: `Remove ${TITLE} front` })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE} back` }));
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: `Remove ${TITLE} back` })).toBeInTheDocument()
+    );
+
+    // Also after the in-preview toggle moved the face away from the last clicked thumbnail.
+    await user.click(within(dialog).getByRole('button', { name: `Show front of ${TITLE} preview` }));
+    await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE} back` }));
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: `Remove ${TITLE} back` })).toBeInTheDocument()
+    );
+  });
+
+  it('shows only the back thumbnail (with a front placeholder) when only the back exists', () => {
     renderThumbnail({ item: makeItem({ back: { presignedUrl: BACK_URL } as any, backId: 'doc-back' }) });
 
     expect(screen.getByAltText(`${TITLE} back`)).toHaveAttribute('src', BACK_URL);
+    expect(screen.getByText('Upload insurance-card-front')).toBeInTheDocument();
   });
 
   it('opens the floating preview on click, without a delete button when handleDeleteClick is omitted', async () => {
     const user = userEvent.setup();
     renderThumbnail({ item: makeItem({ front: { presignedUrl: FRONT_URL } as any, frontId: 'doc-front' }) });
 
-    await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE}` }));
+    await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE} front` }));
 
     expect(screen.getByRole('dialog', { name: `${TITLE} preview` })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: `Remove ${TITLE} front` })).not.toBeInTheDocument();
@@ -102,7 +159,7 @@ describe('CardThumbnail', () => {
       handleDeleteClick,
     });
 
-    await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE}` }));
+    await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE} front` }));
     await user.click(screen.getByRole('button', { name: `Remove ${TITLE} front` }));
 
     expect(screen.getByText('Remove card image')).toBeInTheDocument();
@@ -119,7 +176,7 @@ describe('CardThumbnail', () => {
       handleDeleteClick,
     });
 
-    await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE}` }));
+    await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE} front` }));
     await user.click(screen.getByRole('button', { name: `Remove ${TITLE} front` }));
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
@@ -134,11 +191,13 @@ describe('CardThumbnail', () => {
       handleDeleteClick: vi.fn(),
     });
 
-    await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE}` }));
+    await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE} front` }));
     // Unlike the no-delete case, the toggle is now available so the empty back slot stays reachable.
     await user.click(screen.getByRole('button', { name: `Show back of ${TITLE} preview` }));
 
-    await waitFor(() => expect(screen.getByText('Upload insurance-card-back')).toBeInTheDocument());
+    // The inline back placeholder also renders "Upload insurance-card-back", so scope to the preview.
+    const dialog = screen.getByRole('dialog', { name: `${TITLE} preview` });
+    await waitFor(() => expect(within(dialog).getByText('Upload insurance-card-back')).toBeInTheDocument());
   });
 
   it('does not show a remove button for a face that has no image', async () => {
@@ -148,7 +207,7 @@ describe('CardThumbnail', () => {
       handleDeleteClick: vi.fn(),
     });
 
-    await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE}` }));
+    await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE} front` }));
     await user.click(screen.getByRole('button', { name: `Show back of ${TITLE} preview` }));
 
     expect(screen.queryByRole('button', { name: `Remove ${TITLE} back` })).not.toBeInTheDocument();

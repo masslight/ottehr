@@ -16,6 +16,7 @@ import { Stripe } from 'stripe';
 import { InvoiceIssuerSource } from '../types/constants';
 import { INVALID_INPUT_ERROR } from '../types/errors';
 import { ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT } from './constants';
+import { getIdFromReference } from './reference';
 import { ottehrIdentifierSystem } from './systemUrls';
 
 export const INVOICE_CLAIM_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-claim';
@@ -30,7 +31,12 @@ export const INVOICE_PAYMENT_EXTENSION_URL = 'https://fhir.ottehr.com/billing/in
 export const INVOICE_PAYMENT_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-payment-id';
 // On the contained PaymentReconciliation of an invoice payment, for every payment method.
 export const PAYMENT_REFERENCE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('payment-reference');
+// Shared by a payment's per-claim notices and attachment. Patient payment readers skip it.
+export const NIO_INVOICE_PAYMENT_ID_SYSTEM = ottehrIdentifierSystem('nio-invoice-payment-id');
 export const STRIPE_INVOICE_ID_SYSTEM = 'https://api.stripe.com/v1/invoices';
+// A card payment being charged for the invoice. Other payments wait until it is recorded or released.
+export const INVOICE_CARD_PAYMENT_RESERVATION_EXTENSION_URL =
+  'https://fhir.ottehr.com/billing/invoice-card-payment-reservation';
 
 export interface BillingInvoiceClaim {
   claimId: string;
@@ -183,11 +189,63 @@ export const invoicePaymentExtension = (invoiceId: string): Extension => ({
   },
 });
 
-export function getPaymentNoticeInvoiceId(notice: PaymentNotice): string | undefined {
-  const reference = notice.extension?.find((ext) => ext.url === INVOICE_PAYMENT_EXTENSION_URL)?.valueReference
-    ?.reference;
-  return reference?.startsWith('Invoice/') ? reference.slice('Invoice/'.length) : undefined;
+// reservedAt stays fixed across retries; renewedAt is the lease each retry extends
+export interface InvoiceCardPaymentReservation {
+  paymentId: string;
+  reservedAt: string;
+  renewedAt: string;
 }
+
+export function getInvoiceCardPaymentReservation(invoice: Invoice): InvoiceCardPaymentReservation | undefined {
+  const parts = invoice.extension?.find((ext) => ext.url === INVOICE_CARD_PAYMENT_RESERVATION_EXTENSION_URL)?.extension;
+  const paymentId = parts?.find((ext) => ext.url === 'paymentId')?.valueString;
+  const reservedAt = parts?.find((ext) => ext.url === 'reservedAt')?.valueDateTime;
+  const renewedAt = parts?.find((ext) => ext.url === 'renewedAt')?.valueDateTime;
+  return paymentId && reservedAt && renewedAt
+    ? {
+        paymentId,
+        reservedAt,
+        renewedAt,
+      }
+    : undefined;
+}
+
+export function invoiceExtensionsWithCardPaymentReservation(
+  invoice: Invoice,
+  reservation: InvoiceCardPaymentReservation | undefined
+): Extension[] {
+  const others = (invoice.extension ?? []).filter((ext) => ext.url !== INVOICE_CARD_PAYMENT_RESERVATION_EXTENSION_URL);
+  if (!reservation) return others;
+  return [
+    ...others,
+    {
+      url: INVOICE_CARD_PAYMENT_RESERVATION_EXTENSION_URL,
+      extension: [
+        {
+          url: 'paymentId',
+          valueString: reservation.paymentId,
+        },
+        {
+          url: 'reservedAt',
+          valueDateTime: reservation.reservedAt,
+        },
+        {
+          url: 'renewedAt',
+          valueDateTime: reservation.renewedAt,
+        },
+      ],
+    },
+  ];
+}
+
+export const getNioInvoicePaymentId = (resource: { identifier?: Identifier[] }): string | undefined =>
+  resource.identifier?.find((identifier) => identifier.system === NIO_INVOICE_PAYMENT_ID_SYSTEM)?.value;
+
+export const getPaymentNoticeInvoiceId = (notice: PaymentNotice): string | undefined =>
+  getIdFromReference(
+    notice.extension?.find((ext) => ext.url === INVOICE_PAYMENT_EXTENSION_URL)?.valueReference?.reference,
+    'Invoice'
+  );
 
 export const BILLING_INVOICE_KINDS = ['patient', 'nio'] as const;
 export type BillingInvoiceKind = (typeof BILLING_INVOICE_KINDS)[number];

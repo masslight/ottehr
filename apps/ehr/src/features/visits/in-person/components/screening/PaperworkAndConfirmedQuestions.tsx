@@ -1,5 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
-import { Box, Grid, Paper, Typography, useTheme } from '@mui/material';
+import { Box, GridLegacy as Grid, Paper, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { AdditionalQuestionsPatientColumn } from 'src/features/visits/shared/components/additional-questions/AdditionalQuestionsPatientColumn';
 import { AdditionalQuestionsProviderColumn } from 'src/features/visits/shared/components/additional-questions/AdditionalQuestionsProviderColumn';

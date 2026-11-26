@@ -1,13 +1,13 @@
 {
   "name": "Td booster (≥7 yo)",
   "vaccine": {
-    "id": "588269f0-ce03-4b68-a94a-9d084786f73c",
-    "name": "Td (Tetanus, Diphtheria)"
+    "id": "113",
+    "name": "Td (adult), 5 Lf tetanus toxoid, preservative free, adsorbed"
   },
   "dose": "0.5",
   "units": "ml",
   "route": "78421000",
-  "cvx": "138",
+  "cvx": "113",
   "cptCodes": [
     {
       "code": "90714",

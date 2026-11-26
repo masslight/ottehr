@@ -1,5 +1,4 @@
 import { ArrowBack } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
 import { Box, Button, Checkbox, Modal, Typography } from '@mui/material';
 import { Stack } from '@mui/system';
 import { useState } from 'react';
@@ -89,7 +88,7 @@ const AIInterviewStartPage = (): JSX.Element => {
             >
               Cancel
             </Button>
-            <LoadingButton
+            <Button
               loading={aiChatStartButtonLoading}
               variant="contained"
               color="secondary"
@@ -97,7 +96,7 @@ const AIInterviewStartPage = (): JSX.Element => {
               onClick={saveAiChatConsentAndStartChat}
             >
               Start chat
-            </LoadingButton>
+            </Button>
           </Box>
         </Box>
       </Modal>

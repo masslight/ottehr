@@ -10,16 +10,20 @@ import { getConversation, getQuickTextQuickPicks } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { MessageModel } from './ChatModal';
 
+export const CHAT_MESSAGES_QUERY_KEY = 'chat-messages';
+export const PATIENT_CHAT_DATA_QUERY_KEY = 'patient-chat-data';
+
 export const useFetchChatMessagesQuery = (
   timezone: string,
   patientId: string,
   numbersToSendTo?: string[],
-  onSuccess?: (data: ConversationMessage[] | null) => void
+  onSuccess?: (data: ConversationMessage[] | null) => void,
+  refetchInterval?: number | false
 ): UseQueryResult<ConversationMessage[] | null, Error> => {
   const { oystehrZambda } = useApiClients();
 
   const queryResult = useQuery({
-    queryKey: ['chat-messages', numbersToSendTo, timezone],
+    queryKey: [CHAT_MESSAGES_QUERY_KEY, patientId, numbersToSendTo, timezone],
 
     queryFn: async () => {
       const data = await getConversation(oystehrZambda!, { patientId, timezone });
@@ -27,6 +31,8 @@ export const useFetchChatMessagesQuery = (
     },
 
     enabled: Boolean(oystehrZambda && numbersToSendTo?.length && timezone),
+    refetchInterval,
+    refetchIntervalInBackground: false,
   });
 
   useSuccessQuery(queryResult.data, onSuccess);
@@ -131,6 +137,9 @@ export const buildQuickTextVariables = (ctx: QuickTextsContext): Record<string, 
   'office-phone': ctx.officePhone ?? '',
   'support-phone': ctx.supportPhone ?? '',
 });
+
+// replaceTemplateVariablesHandlebars leaves a {{token}} in place when it has no value; such text must not be sent.
+export const hasUnresolvedTokens = (text: string | undefined): boolean => /\{\{[\w-]+\}\}/.test(text ?? '');
 
 export const resolveQuickText = (
   quickPick: QuickTextQuickPickData,

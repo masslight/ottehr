@@ -9,7 +9,7 @@ import {
   Chip,
   FormControl,
   FormControlLabel,
-  Grid,
+  GridLegacy as Grid,
   InputLabel,
   ListItemText,
   MenuItem,

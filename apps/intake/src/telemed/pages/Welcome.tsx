@@ -1,5 +1,4 @@
-import LoadingButton from '@mui/lab/LoadingButton';
-import { Typography } from '@mui/material';
+import { Button, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { useNavigate } from 'react-router-dom';
 import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
@@ -29,7 +28,7 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
       </Typography>
 
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <LoadingButton
+        <Button
           variant="contained"
           color="secondary"
           size="large"
@@ -42,7 +41,7 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
           data-testid={dataTestIds.continueButton}
         >
           Continue
-        </LoadingButton>
+        </Button>
       </Box>
     </CustomContainer>
   );

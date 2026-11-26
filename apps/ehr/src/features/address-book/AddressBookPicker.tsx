@@ -103,7 +103,8 @@ export const AddressBookPicker: FC<AddressBookPickerProps> = ({
               filterOptions={(_options, state) => [...filterContacts(contacts, state), ADD_NEW]}
               getOptionLabel={(option) => (typeof option === 'string' ? option : optionLabel(option))}
               onInputChange={(_event, value, reason) => {
-                if (reason !== 'reset') field.onChange(value);
+                // only what the user types or clears; picking an option and blurring report other reasons
+                if (reason === 'input' || reason === 'clear') field.onChange(value);
               }}
               onChange={(_event, option) => {
                 if (!option || typeof option === 'string') return;

@@ -17,7 +17,6 @@ import {
 } from '@mui/material';
 import {
   DataGridPro,
-  GridCellParams,
   GridColDef,
   GridFilterItem,
   GridFilterOperator,
@@ -118,8 +117,8 @@ const appointmentDateFilterOperators: GridFilterOperator[] = [
     value: 'dateIs',
     getApplyFilterFn: (filterItem: GridFilterItem) => {
       if (!filterItem.value) return null;
-      return (params: GridCellParams) => {
-        const iso = params.value as string;
+      return (value: unknown) => {
+        const iso = value as string;
         if (!iso) return false;
         return DateTime.fromISO(iso).toFormat('yyyy-MM-dd') === filterItem.value;
       };
@@ -132,8 +131,8 @@ const appointmentDateFilterOperators: GridFilterOperator[] = [
     value: 'dateBefore',
     getApplyFilterFn: (filterItem: GridFilterItem) => {
       if (!filterItem.value) return null;
-      return (params: GridCellParams) => {
-        const iso = params.value as string;
+      return (value: unknown) => {
+        const iso = value as string;
         if (!iso) return false;
         return DateTime.fromISO(iso) < DateTime.fromISO(filterItem.value).startOf('day');
       };
@@ -146,8 +145,8 @@ const appointmentDateFilterOperators: GridFilterOperator[] = [
     value: 'dateAfter',
     getApplyFilterFn: (filterItem: GridFilterItem) => {
       if (!filterItem.value) return null;
-      return (params: GridCellParams) => {
-        const iso = params.value as string;
+      return (value: unknown) => {
+        const iso = value as string;
         if (!iso) return false;
         return DateTime.fromISO(iso) > DateTime.fromISO(filterItem.value).endOf('day');
       };
@@ -161,8 +160,8 @@ const appointmentDateFilterOperators: GridFilterOperator[] = [
     getApplyFilterFn: (filterItem: GridFilterItem) => {
       const [start, end] = Array.isArray(filterItem.value) ? filterItem.value : [null, null];
       if (!start || !end) return null;
-      return (params: GridCellParams) => {
-        const iso = params.value as string;
+      return (value: unknown) => {
+        const iso = value as string;
         if (!iso) return false;
         const cell = DateTime.fromISO(iso);
         return cell >= DateTime.fromISO(start).startOf('day') && cell <= DateTime.fromISO(end).endOf('day');
@@ -431,6 +430,7 @@ export default function CompleteEncounters(): React.ReactElement {
         headerName: 'Appointment ID',
         width: 320,
         sortable: true,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const appointmentId = params.value;
 
@@ -457,6 +457,7 @@ export default function CompleteEncounters(): React.ReactElement {
         headerName: 'Status',
         width: 160,
         sortable: true,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => (
           <Chip
             label={params.value}
@@ -472,6 +473,7 @@ export default function CompleteEncounters(): React.ReactElement {
         width: 180,
         sortable: true,
         filterOperators: appointmentDateFilterOperators,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const visitType = params.row.visitType;
           const locationId = params.row.locationId;

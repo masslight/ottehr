@@ -25,7 +25,6 @@ import {
 } from '@mui/material';
 import {
   DataGridPro,
-  GridCellParams,
   GridColDef,
   GridFilterItem,
   GridFilterOperator,
@@ -109,8 +108,8 @@ const sentDateFilterOperators: GridFilterOperator[] = [
     value: 'dateIs',
     getApplyFilterFn: (filterItem: GridFilterItem) => {
       if (!filterItem.value) return null;
-      return (params: GridCellParams) => {
-        const iso = params.value as string;
+      return (value: unknown) => {
+        const iso = value as string;
         if (!iso) return false;
         return DateTime.fromISO(iso).toFormat('yyyy-MM-dd') === filterItem.value;
       };
@@ -123,8 +122,8 @@ const sentDateFilterOperators: GridFilterOperator[] = [
     value: 'dateBefore',
     getApplyFilterFn: (filterItem: GridFilterItem) => {
       if (!filterItem.value) return null;
-      return (params: GridCellParams) => {
-        const iso = params.value as string;
+      return (value: unknown) => {
+        const iso = value as string;
         if (!iso) return false;
         return DateTime.fromISO(iso) < DateTime.fromISO(filterItem.value).startOf('day');
       };
@@ -137,8 +136,8 @@ const sentDateFilterOperators: GridFilterOperator[] = [
     value: 'dateAfter',
     getApplyFilterFn: (filterItem: GridFilterItem) => {
       if (!filterItem.value) return null;
-      return (params: GridCellParams) => {
-        const iso = params.value as string;
+      return (value: unknown) => {
+        const iso = value as string;
         if (!iso) return false;
         return DateTime.fromISO(iso) > DateTime.fromISO(filterItem.value).endOf('day');
       };
@@ -152,8 +151,8 @@ const sentDateFilterOperators: GridFilterOperator[] = [
     getApplyFilterFn: (filterItem: GridFilterItem) => {
       const [start, end] = Array.isArray(filterItem.value) ? filterItem.value : [null, null];
       if (!start || !end) return null;
-      return (params: GridCellParams) => {
-        const iso = params.value as string;
+      return (value: unknown) => {
+        const iso = value as string;
         if (!iso) return false;
         const cell = DateTime.fromISO(iso);
         return cell >= DateTime.fromISO(start).startOf('day') && cell <= DateTime.fromISO(end).endOf('day');
@@ -535,6 +534,7 @@ export default function MailedStatements(): React.ReactElement {
         headerName: 'Patient',
         width: 200,
         sortable: true,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const patientId = params.row.patientId;
           if (!patientId) {
@@ -563,11 +563,12 @@ export default function MailedStatements(): React.ReactElement {
         headerName: 'Visit Date',
         width: 160,
         sortable: true,
-        valueFormatter: (params) => {
-          if (!params.value) return '-';
-          const dt = DateTime.fromISO(params.value as string);
-          return dt.isValid ? dt.toFormat('yyyy-MMM-dd') : (params.value as string);
+        valueFormatter: (value?: string) => {
+          if (!value) return '-';
+          const dt = DateTime.fromISO(value);
+          return dt.isValid ? dt.toFormat('yyyy-MMM-dd') : value;
         },
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const val = params.value as string;
           if (!val) return '-';
@@ -593,10 +594,11 @@ export default function MailedStatements(): React.ReactElement {
         width: 180,
         sortable: true,
         filterOperators: sentDateFilterOperators,
-        valueFormatter: (params) => {
-          if (!params.value) return 'Unknown';
-          return DateTime.fromISO(params.value as string).toFormat('yyyy-MMM-dd');
+        valueFormatter: (value?: string) => {
+          if (!value) return 'Unknown';
+          return DateTime.fromISO(value).toFormat('yyyy-MMM-dd');
         },
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const iso = params.value as string;
           if (!iso) return 'Unknown';
@@ -609,6 +611,7 @@ export default function MailedStatements(): React.ReactElement {
         headerName: 'Mail Status',
         width: 200,
         sortable: true,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const status = (params.value as string) || 'unknown';
           const displayStatus = formatDisplayName(status, MAIL_STATUS_DISPLAY);
@@ -629,6 +632,7 @@ export default function MailedStatements(): React.ReactElement {
         headerName: 'Mail Class',
         width: 150,
         sortable: true,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const val = params.value as string;
           return formatDisplayName(val, MAILING_CLASS_DISPLAY);
@@ -639,6 +643,7 @@ export default function MailedStatements(): React.ReactElement {
         headerName: 'Pages',
         width: 80,
         sortable: true,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const val = params.value as string;
           return val || '-';
@@ -649,6 +654,7 @@ export default function MailedStatements(): React.ReactElement {
         headerName: 'Envelope',
         width: 130,
         sortable: true,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const val = params.value as string;
           const display = formatDisplayName(val, {});
@@ -666,6 +672,7 @@ export default function MailedStatements(): React.ReactElement {
         sortable: false,
         filterable: false,
         disableExport: true,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const htmlContent = params.value as string;
           const description = params.row.description as string;

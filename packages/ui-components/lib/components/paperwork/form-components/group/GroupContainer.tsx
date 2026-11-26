@@ -1,4 +1,4 @@
-import { Grid } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import { FC, ReactNode } from 'react';
 import { IntakeQuestionnaireItem, QuestionnaireItemGroupType } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { RenderItemsProps } from '../../PagedQuestionnaire';

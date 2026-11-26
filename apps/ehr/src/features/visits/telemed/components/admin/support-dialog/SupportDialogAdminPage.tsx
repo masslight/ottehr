@@ -1,5 +1,4 @@
-import { LoadingButton } from '@mui/lab';
-import { Alert, Box, CircularProgress, Paper, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
 import { RichTextEditorField } from 'src/components/RichTextEditorField';
 import { useAdminGetSupportDialog, useAdminUpdateSupportDialog } from '../admin.queries';
@@ -48,14 +47,14 @@ export default function SupportDialogAdminPage(): ReactElement {
               disabled={isSubmitting}
             />
             <Box>
-              <LoadingButton
+              <Button
                 variant="contained"
                 loading={isSubmitting}
                 onClick={handleSave}
                 disabled={bodyHtml === savedBodyHtml}
               >
                 Save
-              </LoadingButton>
+              </Button>
             </Box>
           </Stack>
         </Paper>

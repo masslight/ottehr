@@ -1,4 +1,3 @@
-import { LoadingButton } from '@mui/lab';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -58,7 +57,7 @@ export default function EMCodeDialog({ open, onClose, existingCode }: EMCodeDial
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <LoadingButton
+        <Button
           loading={isSaving}
           onClick={handleSave}
           disabled={!codeInput.trim() || !displayInput.trim()}
@@ -66,7 +65,7 @@ export default function EMCodeDialog({ open, onClose, existingCode }: EMCodeDial
           data-testid={dataTestIds.emCodesAdminPage.saveButton}
         >
           Save
-        </LoadingButton>
+        </Button>
       </DialogActions>
     </Dialog>
   );

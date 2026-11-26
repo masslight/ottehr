@@ -12,12 +12,11 @@ import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
 import UndoOutlinedIcon from '@mui/icons-material/UndoOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
   Checkbox,
-  Grid,
+  GridLegacy as Grid,
   ListItemIcon,
   Menu,
   MenuItem,
@@ -59,6 +58,7 @@ import ReportIssueDialog from 'src/components/dialogs/ReportIssueDialog';
 import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
 import InsuranceCardOrientationHint from 'src/components/InsuranceCardOrientationHint';
 import PatientBalances from 'src/components/PatientBalances';
+import RotateCardButton from 'src/components/RotateCardButton';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
@@ -1080,13 +1080,14 @@ export default function VisitDetailsPage(): ReactElement {
   // Clean photo-ID thumbnail rendered in the "Patient summary" section HEADER (right-aligned, next to
   // the title), threaded down through PatientAccountComponent -> AboutPatientContainer. Same treatment
   // as the insurance cards: front image + enlarge affordance only; clicking opens the non-modal
-  // FloatingCardPreview (front/back toggle lives there — no OCR/rotate for the ID, so no
-  // previewHeaderActions). Remove-and-reload is wired the same as the insurance cards. An ID with no
-  // image gets a compact upload/scan affordance instead.
+  // FloatingCardPreview (front/back toggle and rotate control live there; the ID has no OCR
+  // orientation hint, so just the bare rotate button). Each face rotates its own DocumentReference.
+  // Remove-and-reload is wired the same as the insurance cards. An ID with no image gets a compact
+  // upload/scan affordance instead.
   const photoIdCardSlot = (
     <CardThumbnail
       item={idCards}
-      title="ID Card"
+      title="Photo ID"
       appointmentID={appointmentID}
       filesMutator={filesMutation}
       uploadingFileType={uploadingFileType}
@@ -1096,6 +1097,12 @@ export default function VisitDetailsPage(): ReactElement {
       backFileType="photo-id-back"
       handleDeleteClick={handleDeleteClick}
       deletingFileId={deletingFileId}
+      previewHeaderActions={(face) => (
+        <RotateCardButton
+          documentReferenceId={face === 'front' ? idCards.frontId : idCards.backId}
+          onRotated={refetchFileData}
+        />
+      )}
     />
   );
 
@@ -1133,7 +1140,7 @@ export default function VisitDetailsPage(): ReactElement {
   );
 
   const consentAttestationSaveButton = (
-    <LoadingButton
+    <Button
       data-testid={dataTestIds.visitDetailsPage.consentAttestationSaveButton}
       onClick={async () => {
         await bookingDetailsMutation
@@ -1158,7 +1165,7 @@ export default function VisitDetailsPage(): ReactElement {
       disabled={!hasConsentChanged}
     >
       Save
-    </LoadingButton>
+    </Button>
   );
 
   const consentAttestationFooter = consentAttested !== null && (
@@ -1982,14 +1989,14 @@ export default function VisitDetailsPage(): ReactElement {
               >
                 Cancel
               </Button>
-              <LoadingButton
+              <Button
                 variant="contained"
                 onClick={handleConfirmPendingSave}
                 loading={pendingSaveIsRunning}
                 data-testid={dataTestIds.dialog.proceedButton}
               >
                 Save
-              </LoadingButton>
+              </Button>
             </Box>
           }
         />

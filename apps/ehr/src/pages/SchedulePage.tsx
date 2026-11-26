@@ -1,5 +1,5 @@
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
-import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
+import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Autocomplete,
   Box,
@@ -335,7 +335,7 @@ export default function SchedulePage(): ReactElement {
                         }}
                       />
                       <br />
-                      <LoadingButton
+                      <Button
                         type="submit"
                         loading={somethingIsLoadingInSomeWay}
                         variant="contained"
@@ -343,7 +343,7 @@ export default function SchedulePage(): ReactElement {
                         disabled={slugError}
                       >
                         Save
-                      </LoadingButton>
+                      </Button>
                     </form>
                   </Paper>
                 </TabPanel>

@@ -1,6 +1,5 @@
 import {
-  PACKET_DOCUMENT_LABELS,
-  PACKET_DOCUMENT_ORDER,
+  DOCUMENT_PACKET_DOCUMENT_LABELS,
   PACKET_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON,
   PacketDocumentAvailability,
 } from 'utils/lib/types/api/document-packet.types';
@@ -15,14 +14,12 @@ export interface PacketDocumentLabelGroups {
 const isInPacket = (entry: PacketDocumentAvailability): boolean =>
   entry.available || entry.unavailableReason === PACKET_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON;
 
-/** Splits the visit's documents into what the packet will and won't contain, for the read-only tooltip. */
+/** Splits the packet's documents into what it will and won't contain, for the read-only tooltip. */
 export const documentLabelGroups = (availability: PacketDocumentAvailability[]): PacketDocumentLabelGroups => {
   const included: string[] = [];
   const excluded: string[] = [];
-  for (const kind of PACKET_DOCUMENT_ORDER) {
-    const entry = availability.find((item) => item.kind === kind);
-    if (!entry) continue;
-    (isInPacket(entry) ? included : excluded).push(PACKET_DOCUMENT_LABELS[kind]);
+  for (const entry of availability) {
+    (isInPacket(entry) ? included : excluded).push(entry.title ?? DOCUMENT_PACKET_DOCUMENT_LABELS[entry.kind]);
   }
   return { included, excluded };
 };

@@ -1,21 +1,22 @@
-import { Grid, Typography, useTheme } from '@mui/material';
+import { GridLegacy as Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useGetVaccines } from 'src/features/visits/in-person/hooks/useImmunization';
 import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
 import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
 import { BASE_ROUTE_OPTIONS, LOCATION_OPTIONS } from 'src/shared/utils/options';
 import { BASE_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
+import { CVX_VACCINES } from 'utils/lib/types/data/immunization/cvx-vaccines.generated';
+
+const VACCINE_OPTIONS = CVX_VACCINES.map(({ cvx, name }) => ({ id: cvx, name }));
 
 export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();
-  const { data: vaccines, isLoading } = useGetVaccines();
   const { chartData } = useChartData();
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
@@ -41,8 +42,7 @@ export const OrderDetailsSection: React.FC = () => {
         <AutocompleteInput
           name="details.medication"
           label="Immunization"
-          options={vaccines}
-          loading={isLoading}
+          options={VACCINE_OPTIONS}
           getOptionLabel={(option) => option.name}
           getOptionKey={(option) => option.id}
           isOptionEqualToValue={(option, value) => option.id === value.id}

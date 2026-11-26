@@ -199,6 +199,9 @@ export function progressNoteDataToText(data: ProgressNoteData): string {
     listSection('PRESCRIPTIONS', [data.prescriptions?.pharmacyGroups?.flatMap((group) => group.prescriptions)]),
     listSection('PATIENT INSTRUCTIONS', [data.plan?.patientInstructions]),
     textSection('DISPOSITION', data.plan?.disposition?.text),
+    listSection('REFERRALS', [
+      data.plan?.referrals?.map((referral) => [referral.title, ...referral.lines].join(' | ')),
+    ]),
   ];
 
   // ROS and Exam always render — their "0 systems documented" line is exactly what a threshold

@@ -23,6 +23,7 @@ export const ClaimsListFiltersSchema = z.object({
   tagMatch: ClaimTagMatchSchema.optional(),
   // Claims with any of these tags are left out.
   excludeTag: stringList.optional(),
+  planType: stringList.optional(),
   type: z.array(z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES)).optional(),
   service: stringList.optional(),
   createdFrom: z.string().optional(),
@@ -60,6 +61,7 @@ export function claimsListFiltersToSearchInput(filters: ClaimsListFilters): Expo
   params.tag = list(filters.tag);
   if (filters.tagMatch === 'all' && params.tag) params.tagMatch = 'all';
   params.excludeTag = list(filters.excludeTag);
+  params.planType = list(filters.planType);
   params.type = list(filters.type);
   params.service = list(filters.service);
   if (filters.createdFrom) params.createdFrom = filters.createdFrom;

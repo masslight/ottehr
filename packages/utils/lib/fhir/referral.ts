@@ -1,0 +1,202 @@
+import { DocumentReference, Reference, ServiceRequest } from 'fhir/r4b';
+import { docRefIsLabGeneratedResult, docRefIsOttehrGeneratedResultAndCurrent } from '../helpers/labs/helpers';
+import { PacketDocumentKind } from '../types/api/document-packet.types';
+import {
+  ReferralActor,
+  ReferralAsk,
+  ReferralCloseReason,
+  ReferralScheduler,
+  ReferralStatus,
+  ReferralUrgency,
+  SaveReferralInput,
+} from '../types/api/referrals/referrals.types';
+import { BUCKET_NAMES } from './constants';
+import { readExtensionJson, withExtensionJson } from './extensions';
+import { ORDER_TYPE_CODE_SYSTEM } from './radiology';
+import { getIdFromReference } from './reference';
+
+/**
+ * How a referral is stored.
+ *
+ * ServiceRequest tagged `order-type-tag|referral` (the same tag system radiology orders use), `intent` order,
+ * `code` SNOMED "Patient referral", `performerType.text` the specialty, `performer[0]` the address-book
+ * Organization (absent when the patient will choose), `priority` the urgency, `reasonCode[0].text` the
+ * reason, `note[0].text` the notes to the recipient, `requester` the referring provider, `subject` and
+ * `encounter` the patient and visit. The Ottehr-only fields live in one JSON extension (`ReferralDetails`),
+ * following `readExtensionJson` / `withExtensionJson`. `ServiceRequest.status` mirrors the referral status
+ * so plain FHIR searches for active/completed requests still make sense.
+ *
+ * Documents from the patient's earlier visits that go out with the referral are `supportingInfo` references to
+ * their DocumentReferences, in the order staff chose them.
+ *
+ * Documents of a referral (the form and filed responses) are DocumentReferences with `context.related`
+ * naming the ServiceRequest; the form is told apart by its `referral-form` type. Nothing on the
+ * ServiceRequest lists them, so filing a response is one transaction with no second write to keep in step.
+ */
+
+export const REFERRAL_ORDER_TYPE_TAG = { system: ORDER_TYPE_CODE_SYSTEM, code: 'referral' } as const;
+export const REFERRAL_ORDER_TYPE_TAG_TOKEN = `${REFERRAL_ORDER_TYPE_TAG.system}|${REFERRAL_ORDER_TYPE_TAG.code}`;
+
+export const REFERRAL_SERVICE_REQUEST_CODE = {
+  system: 'http://snomed.info/sct',
+  code: '3457005',
+  display: 'Patient referral',
+} as const;
+
+export const REFERRAL_DETAILS_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/referral-details';
+
+export const REFERRAL_FORM_DOC_REF_DOCTYPE = {
+  system: 'http://ottehr.org/fhir/StructureDefinition/referral-form',
+  code: 'referral-form',
+  display: 'Referral Form',
+} as const;
+export const REFERRAL_FORM_SOURCE_VERSION_IDENTIFIER_SYSTEM =
+  'https://fhir.ottehr.com/Identifier/referral-form-source-version';
+
+export const REFERRAL_DOCUMENT_FOLDERS: readonly string[] = [
+  BUCKET_NAMES.VISIT_NOTES,
+  BUCKET_NAMES.LABS,
+  BUCKET_NAMES.RADIOLOGY_REPORTS,
+];
+
+export const isReferralLabResult = (docRef: DocumentReference): boolean =>
+  docRefIsOttehrGeneratedResultAndCurrent(docRef) || docRefIsLabGeneratedResult(docRef);
+
+export const isReferralDocumentFolderAllowed = (folderName: string, isLabResult: boolean): boolean =>
+  REFERRAL_DOCUMENT_FOLDERS.includes(folderName) && (folderName !== BUCKET_NAMES.LABS || isLabResult);
+
+export const getReferralEarlierDocumentIds = (serviceRequest: ServiceRequest): string[] =>
+  (serviceRequest.supportingInfo ?? [])
+    .map((reference) => getIdFromReference(reference.reference, 'DocumentReference'))
+    .filter((id): id is string => !!id);
+
+export interface ReferralDetails {
+  status: ReferralStatus;
+  whatIsAsked: ReferralAsk;
+  whoSchedules: ReferralScheduler;
+  responseRequested: boolean;
+  includeDocuments: PacketDocumentKind[];
+  recipientFax?: string;
+  sentAt?: string;
+  givenToPatientAt?: string;
+  givenToPatientBy?: ReferralActor;
+  closedAt?: string;
+  closedBy?: ReferralActor;
+  closeReason?: ReferralCloseReason;
+  outcome?: string;
+}
+
+const FHIR_STATUS_BY_REFERRAL_STATUS: Record<ReferralStatus, ServiceRequest['status']> = {
+  'not-sent': 'draft',
+  sent: 'active',
+  'given-to-patient': 'active',
+  'response-received': 'active',
+  closed: 'completed',
+  cancelled: 'revoked',
+};
+
+export const getReferralDetails = (serviceRequest: ServiceRequest): ReferralDetails | undefined =>
+  readExtensionJson<ReferralDetails>(serviceRequest, REFERRAL_DETAILS_EXTENSION_URL);
+
+export const isReferralServiceRequest = (serviceRequest: ServiceRequest): boolean =>
+  !!serviceRequest.meta?.tag?.some(
+    (tag) => tag.system === REFERRAL_ORDER_TYPE_TAG.system && tag.code === REFERRAL_ORDER_TYPE_TAG.code
+  );
+
+export const getReferralSpecialty = (serviceRequest: ServiceRequest): string =>
+  serviceRequest.performerType?.text ?? '';
+export const getReferralReason = (serviceRequest: ServiceRequest): string => serviceRequest.reasonCode?.[0]?.text ?? '';
+export const getReferralUrgency = (serviceRequest: ServiceRequest): ReferralUrgency =>
+  serviceRequest.priority === 'urgent' || serviceRequest.priority === 'asap' ? serviceRequest.priority : 'routine';
+export const getReferralNotesToRecipient = (serviceRequest: ServiceRequest): string | undefined =>
+  serviceRequest.note?.[0]?.text;
+export const getReferralRecipientContactId = (serviceRequest: ServiceRequest): string | undefined =>
+  getIdFromReference(serviceRequest.performer?.[0]?.reference, 'Organization');
+export const getReferralStatus = (serviceRequest: ServiceRequest): ReferralStatus =>
+  getReferralDetails(serviceRequest)?.status ?? 'not-sent';
+export const getReferralRecipientFax = (serviceRequest: ServiceRequest): string | undefined =>
+  getReferralDetails(serviceRequest)?.recipientFax || undefined;
+
+export interface MakeReferralServiceRequestOptions {
+  patientId: string;
+  encounterId?: string;
+  requester: Reference;
+  recipientDisplay?: string;
+  existing?: ServiceRequest;
+  now: string;
+}
+
+export const makeReferralServiceRequest = (
+  input: SaveReferralInput,
+  options: MakeReferralServiceRequestOptions
+): ServiceRequest => {
+  const { existing } = options;
+  const existingDetails = existing ? getReferralDetails(existing) : undefined;
+  const details: ReferralDetails = {
+    ...existingDetails,
+    status: existingDetails?.status ?? 'not-sent',
+    whatIsAsked: input.whatIsAsked,
+    whoSchedules: input.whoSchedules,
+    responseRequested: input.responseRequested && !!input.recipientContactId,
+    includeDocuments: options.encounterId ? input.includeDocuments : [],
+    recipientFax: input.recipientContactId && input.recipientFax ? input.recipientFax : undefined,
+  };
+  const base: ServiceRequest = {
+    resourceType: 'ServiceRequest',
+    ...(existing?.id ? { id: existing.id } : {}),
+    meta: {
+      ...existing?.meta,
+      tag: [
+        ...(existing?.meta?.tag ?? []).filter((tag) => tag.system !== REFERRAL_ORDER_TYPE_TAG.system),
+        { ...REFERRAL_ORDER_TYPE_TAG },
+      ],
+    },
+    status: FHIR_STATUS_BY_REFERRAL_STATUS[details.status],
+    intent: 'order',
+    priority: input.urgency,
+    code: { coding: [{ ...REFERRAL_SERVICE_REQUEST_CODE }], text: 'Referral' },
+    performerType: { text: input.specialty },
+    subject: { reference: `Patient/${options.patientId}` },
+    ...(options.encounterId ? { encounter: { reference: `Encounter/${options.encounterId}` } } : {}),
+    requester: existing?.requester ?? options.requester,
+    authoredOn: existing?.authoredOn ?? options.now,
+    reasonCode: [{ text: input.reason }],
+    ...(input.recipientContactId
+      ? {
+          performer: [
+            {
+              reference: `Organization/${input.recipientContactId}`,
+              type: 'Organization',
+              display: options.recipientDisplay,
+            },
+          ],
+        }
+      : {}),
+    ...(input.notesToRecipient ? { note: [{ text: input.notesToRecipient, time: options.now }] } : {}),
+    ...(input.earlierDocumentIds?.length
+      ? { supportingInfo: input.earlierDocumentIds.map((id) => ({ reference: `DocumentReference/${id}` })) }
+      : {}),
+  };
+  return { ...base, extension: withExtensionJson(existing ?? base, REFERRAL_DETAILS_EXTENSION_URL, details) };
+};
+
+export const withReferralDetails = (
+  serviceRequest: ServiceRequest,
+  patch: Partial<ReferralDetails>
+): ServiceRequest => {
+  const current = getReferralDetails(serviceRequest);
+  const details: ReferralDetails = {
+    status: 'not-sent',
+    whatIsAsked: 'evaluate-and-treat',
+    whoSchedules: 'patient',
+    responseRequested: false,
+    includeDocuments: [],
+    ...current,
+    ...patch,
+  };
+  return {
+    ...serviceRequest,
+    status: FHIR_STATUS_BY_REFERRAL_STATUS[details.status],
+    extension: withExtensionJson(serviceRequest, REFERRAL_DETAILS_EXTENSION_URL, details),
+  };
+};

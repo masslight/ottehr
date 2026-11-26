@@ -1,6 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -19,7 +18,11 @@ import { FC } from 'react';
 import { Controller, FormProvider, useFieldArray, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
-import { DOCUMENT_PACKET_MAX_VISITS, GetDocumentPacketPreviewOutput } from 'utils/lib/types/api/document-packet.types';
+import {
+  DOCUMENT_PACKET_MAX_VISITS,
+  DocumentPacketSource,
+  GetDocumentPacketPreviewOutput,
+} from 'utils/lib/types/api/document-packet.types';
 import { documentLabelGroups, hasNothingToSend } from '../model/documents';
 import { buildDefaultFormValues } from '../model/form';
 import { applySaveAsPcp, canAddRecipient, canSend, emptyRecipient } from '../model/recipients';
@@ -27,8 +30,10 @@ import { PacketVisitOption, SendDocumentsFormValues } from '../model/types';
 import { RecipientFields } from './RecipientFields';
 
 interface SendDocumentsFormProps {
-  /** Only a single-visit packet has a document checklist; other sources send a fixed set. */
+  /** Only a single-visit or referral packet has a document checklist; other sources send a fixed set. */
   preview?: GetDocumentPacketPreviewOutput;
+  /** Absent for callers that predate sources; treated as the original single-visit flow. */
+  sourceType?: DocumentPacketSource['type'];
   /** The number the packet is sent from. Omitted from the dialog when it cannot be resolved. */
   senderFaxNumber?: string;
   /** When given, the user picks which visits to fax; shown only when there is more than one. */
@@ -40,6 +45,7 @@ interface SendDocumentsFormProps {
 
 export const SendDocumentsForm: FC<SendDocumentsFormProps> = ({
   preview,
+  sourceType,
   senderFaxNumber,
   visits,
   isSending,
@@ -62,6 +68,8 @@ export const SendDocumentsForm: FC<SendDocumentsFormProps> = ({
   const visitSelectionValid = !visits?.length || selectedAppointmentIds.length > 0;
   const tooManyVisits = selectedAppointmentIds.length > DOCUMENT_PACKET_MAX_VISITS;
   const { included, excluded } = documentLabelGroups(preview?.documents ?? []);
+  const isReferral = sourceType === 'referral';
+  const managesPcp = Boolean(preview) && !isReferral;
   const sendEnabled =
     canSend(recipients, preview ? included.length > 0 : true) && visitSelectionValid && !tooManyVisits;
 
@@ -104,7 +112,9 @@ export const SendDocumentsForm: FC<SendDocumentsFormProps> = ({
         <DialogContent>
           {preview && (
             <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 2 }}>
-              <Typography>Send all visit-related documents</Typography>
+              <Typography>
+                {isReferral ? 'Send the referral form and its documents' : 'Send all visit-related documents'}
+              </Typography>
               <Tooltip title={documentsTooltip} placement="top">
                 <InfoOutlinedIcon fontSize="small" sx={{ color: theme.palette.text.secondary }} />
               </Tooltip>
@@ -164,7 +174,7 @@ export const SendDocumentsForm: FC<SendDocumentsFormProps> = ({
               // Only a single-visit preview offers PCP management. The record holds exactly one PCP,
               // so selecting one recipient clears the flag from the others.
               onSaveAsPcpChange={
-                preview
+                managesPcp
                   ? (value) => recipientsArray.replace(applySaveAsPcp(getValues('recipients'), index, value))
                   : undefined
               }
@@ -207,7 +217,7 @@ export const SendDocumentsForm: FC<SendDocumentsFormProps> = ({
           >
             Cancel
           </Button>
-          <LoadingButton
+          <Button
             type="submit"
             variant="contained"
             loading={isSending}
@@ -216,7 +226,7 @@ export const SendDocumentsForm: FC<SendDocumentsFormProps> = ({
             data-testid={dataTestIds.sendDocumentsDialog.sendButton}
           >
             Send
-          </LoadingButton>
+          </Button>
         </DialogActions>
       </form>
     </FormProvider>

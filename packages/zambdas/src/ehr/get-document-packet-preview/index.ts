@@ -3,19 +3,31 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Organization, Patient, Practitioner } from 'fhir/r4b';
 import { getAllPractitionerCredentials, getOrganizationFaxNumber } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getReferralDetails, getReferralEarlierDocumentIds } from 'utils/lib/fhir/referral';
 import { toTenDigitPhoneNumber } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import {
   DocumentPacketRecipient,
   GetDocumentPacketPreviewInput,
   GetDocumentPacketPreviewOutput,
+  PacketDocumentAvailability,
+  REFERRAL_EARLIER_DOCUMENT_PACKET_DOCUMENT_KIND,
+  REFERRAL_FORM_PACKET_DOCUMENT_KIND,
 } from 'utils/lib/types/api/document-packet.types';
+import { REFERRAL_ROLES, ReferralRecipient } from 'utils/lib/types/api/referrals/referrals.types';
 import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
-import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, getUser, getUserToken, requireUserWithRole } from '../../shared/auth';
 import { collectMedicalRecordParts } from '../../shared/document-packet/collect-patient-documents';
 import { resolvePacketDocumentAvailability } from '../../shared/document-packet/collect-visit-documents';
+import { resolveReferralFaxContext } from '../../shared/document-packet/resolve-packet-source';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { loadReferralRecipient } from '../../shared/referrals/recipient';
+import {
+  byVisitDateAscending,
+  loadReferralDocuments,
+  referralDocumentTitle,
+} from '../../shared/referrals/referral-documents';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -29,10 +41,19 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedInput = validateRequestParameters(input);
-  console.log('get-document-packet-preview for appointment', validatedInput.appointmentId ?? '(none)');
+  console.log(
+    'get-document-packet-preview for',
+    validatedInput.referralId
+      ? `referral ${validatedInput.referralId}`
+      : `appointment ${validatedInput.appointmentId ?? '(none)'}`
+  );
 
-  const authorization = input.headers.Authorization;
-  await getUser(authorization.replace('Bearer ', ''), validatedInput.secrets);
+  if (validatedInput.referralId) {
+    await requireUserWithRole(getUserToken(input), validatedInput.secrets, REFERRAL_ROLES);
+  } else {
+    const authorization = input.headers.Authorization;
+    await getUser(authorization.replace('Bearer ', ''), validatedInput.secrets);
+  }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedInput.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedInput.secrets);
@@ -65,6 +86,60 @@ export const mapPcpToRecipient = (pcp: Practitioner | undefined): DocumentPacket
   };
 };
 
+export const mapReferralRecipientToFax = (
+  recipient: ReferralRecipient | undefined
+): DocumentPacketRecipient | undefined => {
+  if (!recipient) return undefined;
+  return {
+    ...(recipient.personName ? { name: recipient.personName } : {}),
+    ...(recipient.organizationName ? { organization: recipient.organizationName } : {}),
+    faxNumber: toTenDigitPhoneNumber(recipient.fax) ?? '',
+    phoneNumber: toTenDigitPhoneNumber(recipient.phone),
+  };
+};
+
+/**
+ * The dialog does not manage the PCP for a referral, so `hasSavedPcp` is reported as true to keep the
+ * "save as PCP" default off.
+ */
+const previewReferral = async (
+  oystehr: Oystehr,
+  referralId: string,
+  senderFaxNumber: Promise<string | undefined>
+): Promise<GetDocumentPacketPreviewOutput> => {
+  const { serviceRequest, patientId, appointmentId, encounterId } = await resolveReferralFaxContext(
+    oystehr,
+    referralId
+  );
+  const includeDocuments = getReferralDetails(serviceRequest)?.includeDocuments ?? [];
+
+  const [recipient, visitDocuments, earlierDocuments] = await Promise.all([
+    loadReferralRecipient(oystehr, serviceRequest).then(mapReferralRecipientToFax),
+    appointmentId && encounterId && includeDocuments.length
+      ? resolvePacketDocumentAvailability({ oystehr, appointmentId, encounterId })
+      : ([] as PacketDocumentAvailability[]),
+    loadReferralDocuments(oystehr, patientId, getReferralEarlierDocumentIds(serviceRequest)),
+  ]);
+
+  return {
+    documents: [
+      { kind: REFERRAL_FORM_PACKET_DOCUMENT_KIND, available: true, count: 1 },
+      ...visitDocuments.filter((document) => includeDocuments.some((kind) => kind === document.kind)),
+      ...[...earlierDocuments].sort(byVisitDateAscending).map(
+        ({ documentReference }): PacketDocumentAvailability => ({
+          kind: REFERRAL_EARLIER_DOCUMENT_PACKET_DOCUMENT_KIND,
+          title: referralDocumentTitle(documentReference),
+          available: true,
+          count: 1,
+        })
+      ),
+    ],
+    recipient,
+    hasSavedPcp: true,
+    senderFaxNumber: await senderFaxNumber,
+  };
+};
+
 /**
  * The number outbound faxes are transmitted from: the fax telecom of the organization
  * `sub-send-document-packet` hands to the fax service as the sender. Never fails the preview — the dialog is
@@ -85,13 +160,16 @@ export const resolveSenderFaxNumber = async (
 };
 
 export const performEffect = async (
-  { appointmentId, medicalRecord }: GetDocumentPacketPreviewInput,
+  { appointmentId, medicalRecord, referralId }: GetDocumentPacketPreviewInput,
   oystehr: Oystehr,
   secrets: Secrets | null
 ): Promise<GetDocumentPacketPreviewOutput> => {
   // Started up front so it overlaps the visit lookups below. It never rejects, so awaiting it late is safe.
   const senderFaxNumber = resolveSenderFaxNumber(oystehr, secrets);
 
+  if (referralId) {
+    return previewReferral(oystehr, referralId, senderFaxNumber);
+  }
   if (medicalRecord) {
     const parts = await collectMedicalRecordParts(oystehr, medicalRecord.patientId, medicalRecord.dateRange);
     return { documents: [], hasSavedPcp: false, senderFaxNumber: await senderFaxNumber, documentCount: parts.length };

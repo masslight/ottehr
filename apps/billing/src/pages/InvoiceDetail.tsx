@@ -22,13 +22,20 @@ import { CLAIM_STATUS_FIELDS_BY_KEY, getActiveStatusGroup } from 'utils/lib/type
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingInvoice } from '../api/api';
 import { ClaimStatusValueChip } from '../components/ClaimStatusValueChip';
+import { CollectInvoiceCardPaymentDialog } from '../components/CollectInvoiceCardPaymentDialog';
 import { InvoiceStatusChip } from '../components/InvoiceStatusChip';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
+import { RecordInvoicePaymentDialog } from '../components/RecordInvoicePaymentDialog';
 import { Row } from '../components/Row';
 import { invoicePaymentMethodLabel } from '../constants/invoice';
 import { useApiClients } from '../hooks/useAppClients';
 import { downloadUrl } from '../utils/downloadFile';
 import { formatDate } from '../utils/format';
+
+interface DownloadableFile {
+  fileName: string;
+  url: string;
+}
 
 const formatPaymentLine = ({ method, reference, amount }: BillingInvoicePayment): string =>
   `${invoicePaymentMethodLabel(method)}${reference ? ` #${reference}` : ''} - ${formatCurrency(amount)}`;
@@ -79,7 +86,35 @@ function ClaimsTable({ invoice }: { invoice: BillingInvoiceDetail }): ReactEleme
   );
 }
 
-function InvoiceSections({ invoice }: { invoice: BillingInvoiceDetail }): ReactElement {
+function PaymentLine({
+  payment,
+  onDownloadAttachment,
+}: {
+  payment: BillingInvoicePayment;
+  onDownloadAttachment: () => void;
+}): ReactElement {
+  return (
+    <>
+      <span>{formatPaymentLine(payment)}</span>
+      {payment.attachment && (
+        <>
+          {' · '}
+          <Link component="button" type="button" underline="hover" onClick={onDownloadAttachment}>
+            {payment.attachment.fileName}
+          </Link>
+        </>
+      )}
+    </>
+  );
+}
+
+function InvoiceSections({
+  invoice,
+  onDownloadAttachment,
+}: {
+  invoice: BillingInvoiceDetail;
+  onDownloadAttachment: (paymentId: string) => void;
+}): ReactElement {
   return (
     <>
       <ReadOnlySection title="Details">
@@ -107,9 +142,11 @@ function InvoiceSections({ invoice }: { invoice: BillingInvoiceDetail }): ReactE
           ? 'No payments recorded.'
           : invoice.payments.map((payment, index) => (
               <Row
-                key={payment.paymentNoticeId}
+                key={payment.paymentId}
                 label={formatDate(payment.paymentDate)}
-                value={formatPaymentLine(payment)}
+                value={
+                  <PaymentLine payment={payment} onDownloadAttachment={() => onDownloadAttachment(payment.paymentId)} />
+                }
                 hideBorder={index === invoice.payments.length - 1}
               />
             ))}
@@ -127,6 +164,8 @@ export default function InvoiceDetail(): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [recordingPayment, setRecordingPayment] = useState(false);
+  const [collectingCardPayment, setCollectingCardPayment] = useState(false);
 
   const invoice = useQuery({
     queryKey: ['billing-invoice', invoiceId],
@@ -140,8 +179,18 @@ export default function InvoiceDetail(): ReactElement {
       }),
   });
 
-  const download = async (): Promise<void> => {
-    if (!invoice.data?.pdfUrl) return;
+  const canRecordPayment =
+    invoice.data?.status === 'issued' && invoice.data.amount > 0 && invoice.data.balance === invoice.data.amount;
+
+  const download = async ({
+    pick,
+    missing,
+    defaultError,
+  }: {
+    pick: (detail: BillingInvoiceDetail) => DownloadableFile | undefined;
+    missing: string;
+    defaultError: string;
+  }): Promise<void> => {
     setDownloading(true);
     setDownloadError(null);
     try {
@@ -149,19 +198,40 @@ export default function InvoiceDetail(): ReactElement {
       const { data } = await invoice.refetch({
         throwOnError: true,
       });
-      if (!data?.pdfUrl) throw new Error('This invoice has no PDF');
-      await downloadUrl(`${data.number ?? data.id}.pdf`, data.pdfUrl);
+      const file = data && pick(data);
+      if (!file) throw new Error(missing);
+      await downloadUrl(file.fileName, file.url);
     } catch (error) {
       setDownloadError(
         getApiError({
           error,
-          defaultError: "The invoice PDF didn't download",
+          defaultError,
         })
       );
     } finally {
       setDownloading(false);
     }
   };
+
+  const downloadPdf = (): Promise<void> =>
+    download({
+      pick: ({ pdfUrl, number, id }) =>
+        pdfUrl
+          ? {
+              fileName: `${number ?? id}.pdf`,
+              url: pdfUrl,
+            }
+          : undefined,
+      missing: 'This invoice has no PDF',
+      defaultError: "The invoice PDF didn't download",
+    });
+
+  const downloadAttachment = (paymentId: string): Promise<void> =>
+    download({
+      pick: ({ payments }) => payments.find((payment) => payment.paymentId === paymentId)?.attachment,
+      missing: 'This payment has no attachment',
+      defaultError: "The payment attachment didn't download",
+    });
 
   return (
     <Box
@@ -190,16 +260,16 @@ export default function InvoiceDetail(): ReactElement {
             flexGrow: 1,
           }}
         />
-        <Button variant="contained" disabled>
+        <Button variant="contained" disabled={!canRecordPayment} onClick={() => setRecordingPayment(true)}>
           Record payment
         </Button>
-        <Button variant="outlined" disabled>
+        <Button variant="outlined" disabled={!canRecordPayment} onClick={() => setCollectingCardPayment(true)}>
           Collect card payment
         </Button>
         <Button
           startIcon={downloading ? <CircularProgress size={14} /> : <DownloadIcon />}
           disabled={!invoice.data?.pdfUrl || downloading}
-          onClick={() => void download()}
+          onClick={() => void downloadPdf()}
         >
           Download invoice
         </Button>
@@ -232,7 +302,26 @@ export default function InvoiceDetail(): ReactElement {
           })}
         </Alert>
       ) : (
-        <InvoiceSections invoice={invoice.data} />
+        <InvoiceSections
+          invoice={invoice.data}
+          onDownloadAttachment={(paymentId) => void downloadAttachment(paymentId)}
+        />
+      )}
+      {invoice.data && (
+        <>
+          <RecordInvoicePaymentDialog
+            open={recordingPayment}
+            onClose={() => setRecordingPayment(false)}
+            onRecorded={() => invoice.refetch()}
+            invoice={invoice.data}
+          />
+          <CollectInvoiceCardPaymentDialog
+            open={collectingCardPayment}
+            onClose={() => setCollectingCardPayment(false)}
+            onPaid={() => invoice.refetch()}
+            invoice={invoice.data}
+          />
+        </>
       )}
     </Box>
   );

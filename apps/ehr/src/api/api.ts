@@ -55,6 +55,7 @@ import {
   ChangeInPersonVisitStatusResponse,
 } from 'utils/lib/types/api/change-in-person-visit-status/change-in-person-visit-status.types';
 import { MigrateExamDataInput, MigrateExamDataOutput } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { GetChatDataInput, GetChatDataResponse } from 'utils/lib/types/api/chat-data.types';
 import {
   CreateEmCodeInput,
   DeleteEmCodeInput,
@@ -355,11 +356,7 @@ import {
   DeletePatientDocumentInput,
   DeletePatientDocumentOutput,
 } from 'utils/lib/types/data/delete-patient-document.types';
-import {
-  RotateInsuranceCardImageInput,
-  RotateInsuranceCardImageResponse,
-  VisitDocuments,
-} from 'utils/lib/types/data/documents';
+import { RotateCardImageInput, RotateCardImageResponse, VisitDocuments } from 'utils/lib/types/data/documents';
 import {
   GetMedicalRecordDateSpanInput,
   GetMedicalRecordExportStatusInput,
@@ -570,7 +567,7 @@ const VISIT_DETAILS_TO_PDF_ZAMBDA_ID = 'visit-details-to-pdf';
 const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 const SEND_RECEIPT_BY_EMAIL_ZAMBDA_ID = 'send-receipt-by-email';
 const BULK_UPDATE_INSURANCE_STATUS_ZAMBDA_ID = 'bulk-update-insurance-status';
-const ROTATE_INSURANCE_CARD_IMAGE_ZAMBDA_ID = 'rotate-insurance-card-image';
+const ROTATE_CARD_IMAGE_ZAMBDA_ID = 'rotate-card-image';
 const ADMIN_GET_QUICK_PICKS_ZAMBDA_ID = 'admin-get-quick-picks';
 const ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID = 'admin-create-quick-pick';
 const ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID = 'admin-update-quick-pick';
@@ -1274,6 +1271,19 @@ export const userActivation = async (
     return chooseJson(response);
   } catch (error: unknown) {
     throw new Error(JSON.stringify(error));
+  }
+};
+
+export const getChatData = async (oystehr: Oystehr, parameters: GetChatDataInput): Promise<GetChatDataResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-chat-data',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
   }
 };
 
@@ -2742,16 +2752,16 @@ export const bulkUpdateInsuranceStatus = async (
   }
 };
 
-export const rotateInsuranceCardImage = async (
+export const rotateCardImage = async (
   oystehr: Oystehr,
-  parameters: RotateInsuranceCardImageInput
-): Promise<RotateInsuranceCardImageResponse> => {
+  parameters: RotateCardImageInput
+): Promise<RotateCardImageResponse> => {
   try {
-    if (ROTATE_INSURANCE_CARD_IMAGE_ZAMBDA_ID == null) {
+    if (ROTATE_CARD_IMAGE_ZAMBDA_ID == null) {
       throw new Error('rotate insurance card image zambda environment variable could not be loaded');
     }
     const response = await oystehr.zambda.execute({
-      id: ROTATE_INSURANCE_CARD_IMAGE_ZAMBDA_ID,
+      id: ROTATE_CARD_IMAGE_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
@@ -3291,6 +3301,7 @@ export interface FileInboundFaxInput {
   folderId: string;
   internalName?: string;
   documentName: string;
+  referralId?: string;
   encounterId?: string;
   reviewTaskAssignee?: { id: string; name: string };
   // Note: the fax PDF url is intentionally not sent; the zambda reads the authoritative

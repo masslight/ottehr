@@ -4,7 +4,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   Table,
   TableBody,

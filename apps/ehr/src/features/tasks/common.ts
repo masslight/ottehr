@@ -1,7 +1,7 @@
 import { Patient } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import { getFullName } from 'utils/lib/fhir/patient';
 import { DME_TASK } from 'utils/lib/types/api/dme.types';
+import { REFERRAL_TASK } from 'utils/lib/types/api/referrals/referrals.types';
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import {
@@ -11,7 +11,7 @@ import {
   PATIENT_REQUEST_TASK,
   RADIOLOGY_TASK,
 } from 'utils/lib/types/data/tasks/types';
-import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { useDmeOrders } from '../dme/dme.queries';
 import { usePatientLabOrders } from '../external-labs/components/labs-orders/usePatientLabOrders';
 import { useInHouseLabOrders } from '../in-house-labs/components/orders/useInHouseLabOrders';
@@ -41,6 +41,7 @@ export const TASK_CATEGORY_LABEL: Record<string, string> = {
   [MANUAL_TASK.category.coding]: 'Coding',
   [MANUAL_TASK.category.billing]: 'Billing',
   [FAX_TASK.category]: 'Fax',
+  [REFERRAL_TASK.category]: 'Referrals',
   [PATIENT_REQUEST_TASK.category]: 'Patient Request',
   [MANUAL_TASK.category.other]: 'Other',
 };
@@ -219,8 +220,6 @@ export function useDmeOrdersOptions(encounterId: string): {
 }
 
 export function getPatientLabel(patient: Patient): string {
-  return (
-    getFullName(patient) +
-    (patient.birthDate ? ` (${DateTime.fromISO(patient.birthDate).toFormat(DOB_DATE_FORMAT)})` : '')
-  );
+  const birthDate = formatDateForDisplay(patient.birthDate);
+  return getFullName(patient) + (birthDate ? ` (${birthDate})` : '');
 }

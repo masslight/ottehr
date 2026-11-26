@@ -5,7 +5,6 @@ import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutl
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
-import { LoadingButton } from '@mui/lab';
 import { Box, Button, IconButton, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
@@ -236,7 +235,7 @@ export const RadiologyExternalOrderDetailsPage: React.FC<RadiologyExternalOrderD
                     accept=".pdf,application/pdf"
                     onChange={handleUploadResult}
                   />
-                  <LoadingButton
+                  <Button
                     variant="outlined"
                     size="small"
                     loading={uploading}
@@ -245,7 +244,7 @@ export const RadiologyExternalOrderDetailsPage: React.FC<RadiologyExternalOrderD
                     sx={{ borderRadius: 28, textTransform: 'none' }}
                   >
                     Upload Result
-                  </LoadingButton>
+                  </Button>
                 </>
               )}
             </Box>

@@ -55,6 +55,15 @@ describe('File Inbound Fax - validateRequestParameters', () => {
     expect(result.secrets).toBeNull();
   });
 
+  test('passes a referral id through only when it is a UUID', () => {
+    const referralId = '850e8400-e29b-41d4-a716-446655440000';
+    expect(validateFileParams(createMockZambdaInput({ ...validBody, referralId })).referralId).toBe(referralId);
+    expect(validateFileParams(createMockZambdaInput(validBody)).referralId).toBeUndefined();
+
+    const error = catchApiError(() => validateFileParams(createMockZambdaInput({ ...validBody, referralId: 'nope' })));
+    expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
+  });
+
   test('should throw structured error when body is missing', () => {
     const error = catchApiError(() => validateFileParams(emptyBodyInput));
     expect(error.code).toBe(APIErrorCode.MISSING_REQUEST_BODY);

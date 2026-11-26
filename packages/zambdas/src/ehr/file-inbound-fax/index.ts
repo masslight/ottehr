@@ -1,15 +1,29 @@
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { DocumentReference, Encounter, FhirResource, List, Patient, Reference, Task } from 'fhir/r4b';
+import {
+  DocumentReference,
+  Encounter,
+  FhirResource,
+  List,
+  Patient,
+  Reference,
+  ServiceRequest,
+  Task,
+  TaskInput,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { TASK_INPUT_SYSTEM } from 'utils/lib/fhir/constants';
 import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { getReferralSpecialty, getReferralStatus, withReferralDetails } from 'utils/lib/fhir/referral';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
+import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
+import { isReferralOpen, REFERRAL_TASK, referralReviewTaskTitle } from 'utils/lib/types/api/referrals/referrals.types';
 import { FAX_TASK, getTaskInputValue, isInboundFaxDeleting, isInboundFaxFiled } from 'utils/lib/types/data/tasks/types';
 import {
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
@@ -18,8 +32,11 @@ import {
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
 } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { isFhirVersionConflictError } from '../../shared/errors';
 import { topLevelCatch } from '../../shared/lambda';
 import { resolveCallerPractitionerRef } from '../../shared/practitioners';
+import { loadReferral } from '../../shared/referrals/load-referral';
+import { buildReferralTask, findOpenReferralTask } from '../../shared/referrals/referral-task';
 import { wrapHandler } from '../../shared/sentry';
 import { createOwnerReference, createTask } from '../../shared/tasks';
 import { ZambdaInput } from '../../shared/types/common';
@@ -44,6 +61,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       internalName,
       encounterId,
       reviewTaskAssignee,
+      referralId,
     } = validateRequestParameters(input);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -121,6 +139,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         : encounter;
       appointmentId = getIdFromReference(visitEncounter?.appointment?.[0]?.reference, 'Appointment');
     }
+    const referral = referralId ? await getOpenReferralOrThrow(oystehr, referralId, patientId) : undefined;
     const reviewTaskContext = reviewTaskAssignee
       ? await Promise.all([
           oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
@@ -147,9 +166,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const now = DateTime.now().setZone('UTC').toISO() ?? '';
 
-    // Single FHIR transaction: DocumentReference create + folder List update + Task marked filed.
-    // A partial failure rolls everything back, so the folder can never be left half-updated
-    // and the task can never be marked filed without the document actually being filed.
+    // Single FHIR transaction: DocumentReference create + folder List update + Task marked filed, plus, for a
+    // referral response, the referral marked Response received and its review routed. A partial failure rolls
+    // everything back, so the folder can never be left half-updated, the task can never be marked filed
+    // without the document actually being filed, and a referral can never be answered by a document that
+    // was not filed (or filed without being answered, which a retry would then file twice).
     // The Task is deliberately NOT completed here: fax tasks stay open until a person presses
     // Complete in the Tasks queue, the same as manual tasks.
     const docRefFullUrl = `urn:uuid:${randomUUID()}`;
@@ -165,7 +186,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         subject: {
           reference: `Patient/${patientId}`,
         },
-        ...(encounterId ? { context: { encounter: [{ reference: `Encounter/${encounterId}` }] } } : {}),
+        ...(encounterId || referral
+          ? {
+              context: {
+                ...(encounterId ? { encounter: [{ reference: `Encounter/${encounterId}` }] } : {}),
+                ...(referral ? { related: [{ reference: `ServiceRequest/${referral.id}` }] } : {}),
+              },
+            }
+          : {}),
         content: [
           {
             attachment: {
@@ -218,7 +246,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ifMatch: makeOptimisticLockIfMatchHeader(task),
     });
 
-    const requests: BatchInputRequest<FhirResource>[] = [createDocRefRequest, updateListRequest, markTaskFiledRequest];
+    const referralRequests = referral
+      ? await buildReferralResponseRequests({ oystehr, referral, docRefFullUrl, patientId })
+      : [];
+
+    const requests: BatchInputRequest<FhirResource>[] = [
+      createDocRefRequest,
+      updateListRequest,
+      markTaskFiledRequest,
+      ...referralRequests,
+    ];
 
     // Created in the same transaction so a fax is never filed without the review task that was asked for.
     if (reviewTaskAssignee && reviewTaskContext) {
@@ -240,9 +277,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const transactionResult = await oystehr.fhir.transaction<FhirResource>({ requests }).catch((error: unknown) => {
-      // A lost optimistic lock (Task or folder List changed concurrently) is an expected race, not a server fault.
-      if (error instanceof Oystehr.OystehrFHIRError && error.code === 412) {
-        throw PRECONDITION_FAILED(`Task/${taskId} or its folder changed while filing`);
+      // A lost optimistic lock (Task, folder List or referral changed concurrently) is an expected race, not a server fault.
+      if (isFhirVersionConflictError(error)) {
+        throw PRECONDITION_FAILED(`Task/${taskId}, its folder or the referral changed while filing`);
       }
       throw error;
     });
@@ -256,9 +293,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     console.log(
-      `[${ZAMBDA_NAME}] filed DocumentReference/${documentRefId} into List/${resolvedFolderId} and marked Task/${taskId} filed${
-        reviewTaskAssignee ? ', with a review task' : ''
-      }`
+      `[${ZAMBDA_NAME}] filed DocumentReference/${documentRefId} into List/${resolvedFolderId} and marked Task/${taskId} filed` +
+        (referral ? ` as a response to ServiceRequest/${referral.id}` : '') +
+        (reviewTaskAssignee ? ', with a review task' : '')
     );
 
     return {
@@ -271,6 +308,90 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
+
+const getOpenReferralOrThrow = async (
+  oystehr: Oystehr,
+  referralId: string,
+  patientId: string
+): Promise<ServiceRequest> => {
+  const referral = await loadReferral(oystehr, referralId, { patientId });
+  if (!isReferralOpen(getReferralStatus(referral))) {
+    throw INVALID_INPUT_ERROR(`Referral ${referralId} is not an open referral of this patient`);
+  }
+  return referral;
+};
+
+const taskInput = (
+  code: string,
+  value: { valueString?: string; valueReference?: TaskInput['valueReference'] }
+): TaskInput => ({
+  type: { coding: [{ system: TASK_INPUT_SYSTEM, code }] },
+  ...value,
+});
+
+const buildReferralResponseRequests = async (args: {
+  oystehr: Oystehr;
+  referral: ServiceRequest;
+  docRefFullUrl: string;
+  patientId: string;
+}): Promise<BatchInputRequest<FhirResource>[]> => {
+  const { oystehr, referral, docRefFullUrl, patientId } = args;
+  const referralId = referral.id!;
+
+  const markResponseReceived: BatchInputPutRequest<ServiceRequest> = {
+    method: 'PUT',
+    url: `/ServiceRequest/${referralId}`,
+    resource: withReferralDetails(referral, { status: 'response-received' }),
+    ifMatch: makeOptimisticLockIfMatchHeader(referral),
+  };
+
+  const recipientName = referral.performer?.[0]?.display;
+  const openTask = await findOpenReferralTask(oystehr, referralId);
+
+  if (openTask?.id) {
+    const requesterId = getIdFromReference(referral.requester?.reference, 'Practitioner');
+    const owner = requesterId ? createOwnerReference(requesterId, referral.requester?.display ?? '') : undefined;
+    const responseInput = taskInput(REFERRAL_TASK.input.responseDocumentReferenceId, {
+      valueReference: { reference: docRefFullUrl },
+    });
+    // Drop the notification tags so the cron treats the re-assignment as new and tells the provider (as unassign
+    // does), and the overdue window: the response has arrived, so the task is no longer waiting for one.
+    const { restriction: _restriction, ...taskWithoutRestriction } = openTask;
+    const remainingTags = (openTask.meta?.tag ?? []).filter((tag) => tag.system !== PROVIDER_NOTIFICATION_TAG_SYSTEM);
+    const { tag: _tag, ...metaWithoutTags } = openTask.meta ?? {};
+    const routed: Task = {
+      ...taskWithoutRestriction,
+      description: referralReviewTaskTitle(getReferralSpecialty(referral), recipientName),
+      code: { coding: [{ system: REFERRAL_TASK.system, code: REFERRAL_TASK.code.reviewResponse }] },
+      ...(owner ? { owner, status: 'in-progress' } : {}),
+      ...(openTask.meta
+        ? { meta: remainingTags.length ? { ...metaWithoutTags, tag: remainingTags } : metaWithoutTags }
+        : {}),
+      input: [...(openTask.input ?? []), responseInput],
+    };
+    const routeOpenTask: BatchInputPutRequest<Task> = {
+      method: 'PUT',
+      url: `/Task/${openTask.id}`,
+      resource: routed,
+      ifMatch: makeOptimisticLockIfMatchHeader(openTask),
+    };
+    return [markResponseReceived, routeOpenTask];
+  }
+
+  const patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
+  const createReviewTask: BatchInputPostRequest<Task> = {
+    method: 'POST',
+    url: '/Task',
+    resource: buildReferralTask({
+      serviceRequest: referral,
+      patient,
+      recipientName,
+      owner: referral.requester,
+      responseDocument: { reference: docRefFullUrl },
+    }),
+  };
+  return [markResponseReceived, createReviewTask];
+};
 
 export const reviewFaxTaskTitle = (documentName: string, patientName: string | undefined): string =>
   `Review fax “${documentName}”${patientName ? ` for ${patientName}` : ''}`;

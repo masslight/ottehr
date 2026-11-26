@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Patient } from 'fhir/r4b';
+import { Claim, Patient, PaymentNotice } from 'fhir/r4b';
+import { NIO_INVOICE_PAYMENT_ID_SYSTEM } from 'utils/lib/fhir/billing-invoice';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   AR_STAGE,
@@ -13,6 +14,7 @@ import {
 } from 'utils/lib/types/data/billing/claim-status';
 import { describe, expect, it, vi } from 'vitest';
 import { ClaimPaymentSummary } from '../../../src/billing/claim-amounts';
+import { MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM } from '../../../src/billing/payments';
 import {
   deriveFinalizationDate,
   fetchAllActivePatientArClaims,
@@ -40,6 +42,7 @@ const payments = (overrides: Partial<ClaimPaymentSummary> = {}): ClaimPaymentSum
   // a remit reporting PR is what an adjudicated summary means in these tests
   patientResp: overrides.adjudicated ? 0 : null,
   patientPaid: 0,
+  nioPaid: 0,
   writeOffsTotal: 0,
   balance: 0,
   adjudicated: false,
@@ -440,6 +443,12 @@ describe('fetchAllActivePatientArClaims with encounter ids', () => {
     resourceType: 'PaymentNotice',
     status: 'active',
     amount: { value: amount },
+    identifier: [
+      {
+        system: MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM,
+        value: `payment-${encounterId}`,
+      },
+    ],
     request: { identifier: { value: encounterId } },
   });
 
@@ -452,7 +461,14 @@ describe('fetchAllActivePatientArClaims with encounter ids', () => {
         return { link: [], unbundle: () => claims };
       }
       if (args.resourceType === 'PaymentNotice') {
-        return { link: [], unbundle: () => notices };
+        const systems = (args.params.find((param) => param.name === 'identifier')?.value ?? '')
+          .split(',')
+          .map((systemFilter) => systemFilter.split('|')[0]);
+        const matching = notices.filter(
+          (notice) =>
+            (notice as PaymentNotice).identifier?.some((identifier) => systems.includes(identifier.system ?? ''))
+        );
+        return { link: [], unbundle: () => matching };
       }
       return { link: [], unbundle: () => [] };
     });
@@ -492,6 +508,30 @@ describe('fetchAllActivePatientArClaims with encounter ids', () => {
     expect(items.map((item) => item.claimId)).toEqual(['c-partial']);
     expect(items[0].patientPaid).toBe(40);
     expect(items[0].balance).toBe(60);
+  });
+
+  it('drops a claim its non-insurance payer paid, without counting it as patient paid', async () => {
+    const nioPaid = arClaim('c-nio-paid', 'enc-0');
+    const owing = arClaim('c-owing', 'enc-1');
+    const nioPayment = {
+      resourceType: 'PaymentNotice',
+      status: 'active',
+      amount: { value: 100 },
+      identifier: [
+        {
+          system: NIO_INVOICE_PAYMENT_ID_SYSTEM,
+          value: 'payment-1',
+        },
+      ],
+      request: { reference: 'Claim/c-nio-paid' },
+    };
+
+    const items = await fetchAllActivePatientArClaims(oystehrReturning([[nioPaid, owing]], [nioPayment]), {
+      encounterIds: ['enc-0', 'enc-1'],
+    });
+
+    expect(items.map((item) => item.claimId)).toEqual(['c-owing']);
+    expect(items[0].patientPaid).toBe(0);
   });
 
   it('keeps settled and overpaid claims when zero balances are requested', async () => {

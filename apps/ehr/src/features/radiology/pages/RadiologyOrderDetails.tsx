@@ -1,5 +1,4 @@
 import CheckIcon from '@mui/icons-material/Check';
-import { LoadingButton } from '@mui/lab';
 import {
   Button,
   Checkbox,
@@ -73,7 +72,6 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
 
   const [preliminaryReport, setPreliminaryReport] = useState<string | undefined>();
   const [preliminaryReportDx, setPreliminaryReportDx] = useState<RadiologyDiagnosis[]>([]);
-  const [missingPreliminaryReportDx, setMissingPreliminaryReportDx] = useState(false);
   const [performedById, setPerformedById] = useState('');
   const [missingPerformedBy, setMissingPerformedBy] = useState(false);
   const [markAsFinal, setMarkAsFinal] = useState(false);
@@ -142,8 +140,8 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
     }
   };
 
-  // Seed the preliminary-read diagnosis picker with any diagnosis already on the order (diagnosis is
-  // optional at order time, so this may be empty). Runs once when the order first loads.
+  // Seed the preliminary-read diagnosis picker with any diagnosis already on the order. Runs once when
+  // the order first loads.
   useEffect(() => {
     if (order?.status === 'performed' && !order.preliminaryReport && order.diagnoses) {
       setPreliminaryReportDx(order.diagnoses.map((d) => ({ code: d.code, display: d.display })));
@@ -261,7 +259,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
     disabledReason?: string
   ): JSX.Element => {
     const btn = (
-      <LoadingButton
+      <Button
         loading={loading}
         variant="contained"
         color="primary"
@@ -270,7 +268,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
         disabled={isReadOnly || disabled || !!disabledReason}
       >
         {label}
-      </LoadingButton>
+      </Button>
     );
 
     const tooltip = isReadOnly ? `Please unlock the progress note to use "${label}"` : disabledReason;
@@ -422,14 +420,9 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
                   <Box sx={{ mt: 2 }}>
                     <RadiologyDiagnosisField
                       value={preliminaryReportDx}
-                      onChange={(dx) => {
-                        setMissingPreliminaryReportDx(false);
-                        setPreliminaryReportDx(dx);
-                      }}
+                      onChange={setPreliminaryReportDx}
                       quickPickOptions={chartData?.diagnosis}
                       disabled={isReadOnly}
-                      error={missingPreliminaryReportDx}
-                      helperText={missingPreliminaryReportDx ? 'Please enter a diagnosis to continue' : undefined}
                     />
                   </Box>
                   <RadiologyPreliminaryReadSuggestions
@@ -583,7 +576,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
 
               {order.task && (
                 <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                  <LoadingButton
+                  <Button
                     data-testid={dataTestIds.radiologyPage.markAsReviewedButton}
                     loading={isMarkingAsReviewed}
                     variant="contained"
@@ -592,7 +585,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
                     onClick={() => void handleMarkAsReviewed()}
                   >
                     Mark as Reviewed
-                  </LoadingButton>
+                  </Button>
                 </Box>
               )}
             </Box>
@@ -617,10 +610,6 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
             {order.status === 'performed' &&
               !order.preliminaryReport &&
               saveReportButton(markAsFinal ? 'Save as Final' : 'Save Preliminary Report', isSavingReport, () => {
-                if (preliminaryReportDx.length === 0) {
-                  setMissingPreliminaryReportDx(true);
-                  return;
-                }
                 // This is the only screen that records the performer, so it's captured here or never.
                 if (!selectedPerformedBy) {
                   setMissingPerformedBy(true);

@@ -1,5 +1,14 @@
-import { LoadingButton } from '@mui/lab';
-import { Box, CircularProgress, FormHelperText, FormLabel, Grid, Paper, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  Button,
+  CircularProgress,
+  FormHelperText,
+  FormLabel,
+  GridLegacy as Grid,
+  Paper,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import type Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
@@ -212,7 +221,7 @@ function ToggleStatusSection(props: ToggleStatusSectionProps): ReactElement {
           >
             {formBodyText}
           </Typography>
-          <LoadingButton
+          <Button
             type="submit"
             variant="contained"
             loading={isSubmitting}
@@ -220,7 +229,7 @@ function ToggleStatusSection(props: ToggleStatusSectionProps): ReactElement {
             disabled={disableEdits}
           >
             {formVerb}
-          </LoadingButton>
+          </Button>
           {submitError && (
             <FormHelperText sx={{ color: theme.palette.error.main }}>{submitError.message}</FormHelperText>
           )}

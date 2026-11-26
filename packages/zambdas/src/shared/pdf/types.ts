@@ -26,6 +26,7 @@ import {
 import { DmeOrderDTO } from 'utils/lib/types/api/dme.types';
 import { ProviderDetails } from 'utils/lib/types/api/encounter.types';
 import { ExternalLabOrderResult, InHouseLabResult as InHouseLabResultPdfData } from 'utils/lib/types/api/lab';
+import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import { QuantityDataEntryComponent } from 'utils/lib/types/data/in-house/in-house.types';
@@ -33,6 +34,7 @@ import { SupportedObsImgAttachmentTypes } from 'utils/lib/types/data/labs/labs.c
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
 import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { testDataForOrderForm } from '../../ehr/lab/external/submit-lab-order/helpers';
+import { EncounterReferral } from '../referrals/load-encounter-referrals';
 import { UpcomingFollowUp } from './get-upcoming-follow-ups';
 import { Column, PdfInfo } from './pdf-utils';
 import { AllChartData, FullAppointmentResourcePackage } from './visit-details-pdf/types';
@@ -587,6 +589,7 @@ export interface PlanData extends PdfData {
     specialty?: string;
   };
   subSpecialtyFollowup?: string[];
+  referrals?: ReferralsData['referrals'];
   workSchoolExcuse?: string[];
   addendumNote?: string;
   addendumNotes?: AddendumEntry[];
@@ -633,6 +636,10 @@ export interface Procedures extends PdfData {
 
 export interface DmeOrdersData extends PdfData {
   dmeOrders: { itemName: string; lines: string[] }[];
+}
+
+export interface ReferralsData extends PdfData {
+  referrals: { title: string; lines: string[] }[];
 }
 
 export interface ContactInfo extends PdfData {
@@ -712,6 +719,16 @@ interface Payment {
 
 export interface PatientPaymentsInfo extends PdfData {
   payments: Payment[];
+}
+
+export interface EligibilityRowGroup {
+  title?: string;
+  rows: { label: string; value: string }[];
+}
+
+export interface EligibilityInfo extends PdfData {
+  groups: EligibilityRowGroup[];
+  unavailable?: boolean;
 }
 
 export interface ResponsiblePartyInfo extends PdfData {
@@ -806,6 +823,7 @@ export interface VisitDetailsInput {
   consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
   payments: PatientPaymentDTO[];
+  coverageChecks: CoverageCheckWithDetails[] | undefined;
   serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
@@ -890,9 +908,17 @@ export interface PatientPaymentsDataInput {
   payments: PatientPaymentDTO[];
 }
 
+export interface EligibilityDataInput {
+  coverages: OrderedCoveragesWithSubscribers;
+  insurances: InsuranceInfo;
+  coverageChecks: CoverageCheckWithDetails[] | undefined;
+  timezone: string;
+}
+
 export interface UploadMetadata {
   patientId: string;
   fileName: string;
+  title?: string;
   bucketName: string;
   /** Reuse one object per patient instead of writing a new timestamped one. */
   stableKey?: boolean;
@@ -1009,6 +1035,7 @@ export interface DischargeSummaryData extends PdfData {
   patientInstructions?: PatientInstructionsData;
   educationDocuments?: EducationDocumentsData;
   disposition: DispositionData;
+  referrals?: ReferralsData;
   physician: PhysicianData;
   workSchoolExcuse?: WorkSchoolExcuseData;
   upcomingVisits: UpcomingVisitsData;
@@ -1031,6 +1058,7 @@ export interface VisitDetailsData extends PdfData {
   documents: Documents;
   pharmacy: pharmacyInfo;
   paymentHistory: PatientPaymentsInfo;
+  eligibility: EligibilityInfo;
 }
 export interface GetPaymentDataResponse {
   chargeUuid: string;
@@ -1080,6 +1108,7 @@ export interface ProgressNoteInput {
   serviceCategories?: ServiceCategoryCatalogEntry[];
   erxPharmacies?: Record<string, ErxGetPharmacyResponse>;
   dmeOrders?: DmeOrderDTO[];
+  referrals?: EncounterReferral[];
   signatures?: ProgressNoteSignatures;
   signed?: boolean;
   /** This visit's responses to practice forms that belong in the note (Screening and Questionnaires). */
@@ -1137,6 +1166,7 @@ export interface DischargeSummaryInput {
   serviceCategories?: ServiceCategoryCatalogEntry[];
   erxPharmacies?: Record<string, ErxGetPharmacyResponse>;
   dmeOrders?: DmeOrderDTO[];
+  referrals?: EncounterReferral[];
 }
 
 export interface DischargeSummaryData extends PdfData {
@@ -1156,6 +1186,7 @@ export interface DischargeSummaryData extends PdfData {
   patientInstructions?: PatientInstructionsData;
   educationDocuments?: EducationDocumentsData;
   disposition: DispositionData;
+  referrals?: ReferralsData;
   physician: PhysicianData;
   workSchoolExcuse?: WorkSchoolExcuseData;
   upcomingVisits: UpcomingVisitsData;

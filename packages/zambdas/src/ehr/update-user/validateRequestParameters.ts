@@ -1,4 +1,9 @@
-import { isNPIValidWithChecksum, isPhoneNumberValid, isProviderTypeCode } from 'utils/lib/helpers/helpers';
+import {
+  isNPIValidWithChecksum,
+  isPhoneNumberValid,
+  isProviderTypeCode,
+  isValidNANPNumber,
+} from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { PROVIDER_TYPE_VALUES } from 'utils/lib/types/api/practitioner.types';
 import { UpdateUserParams } from 'utils/lib/types/api/update-user/update-user.types';
@@ -7,6 +12,8 @@ import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/e
 import { z } from 'zod';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
+
+const isStrictNANPNumber = (value: string): boolean => isPhoneNumberValid(value) && isValidNANPNumber(value);
 
 const UpdateUserSchema = z
   .object({
@@ -28,15 +35,8 @@ const UpdateUserSchema = z
     addressState: z.string().optional(),
     addressZip: z.string().optional(),
   })
-  .refine(
-    (data) => {
-      if (data.phoneNumber && !isPhoneNumberValid(data.phoneNumber)) {
-        return false;
-      }
-      return true;
-    },
-    { message: 'Invalid phone number' }
-  )
+  .refine((data) => !data.phoneNumber || isStrictNANPNumber(data.phoneNumber), { message: 'Invalid phone number' })
+  .refine((data) => !data.faxNumber || isStrictNANPNumber(data.faxNumber), { message: 'Invalid fax number' })
   .refine(
     (data) => {
       if (data.selectedRoles?.includes(RoleType.Provider) && data.npi && !isNPIValidWithChecksum(data.npi)) {

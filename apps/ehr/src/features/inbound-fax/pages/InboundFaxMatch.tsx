@@ -3,7 +3,6 @@ import ClearIcon from '@mui/icons-material/Clear';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Box,
@@ -11,7 +10,8 @@ import {
   Checkbox,
   CircularProgress,
   FormControlLabel,
-  Grid,
+  FormHelperText,
+  GridLegacy as Grid,
   IconButton,
   Link,
   List,
@@ -33,6 +33,8 @@ import { deleteInboundFax, fileInboundFax } from 'src/api/api';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
+import { NO_RECIPIENT_LABEL } from 'src/features/referrals/referralForm.helpers';
+import { REFERRALS_QUERY_KEY, useReferralsQuery } from 'src/features/referrals/referrals.queries';
 import { formatDate, GET_TASKS_KEY } from 'src/features/visits/in-person/hooks/useTasks';
 import { SearchResultParsedPatient } from 'src/features/visits/shared/components/patients-search/types';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
@@ -47,8 +49,10 @@ import { useGetPatientVisitHistory } from 'src/hooks/useGetPatientVisitHistory';
 import PageContainer from 'src/layout/PageContainer';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { isReferralOpen, REFERRAL_STATUS_LABELS, ReferralDTO } from 'utils/lib/types/api/referrals/referrals.types';
 import { FAX_TASK, isInboundFaxDeleting, isInboundFaxFiled } from 'utils/lib/types/data/tasks/types';
 import { APIErrorCode } from 'utils/lib/types/errors';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { UnsolicitedPatientMatchSearchCard } from '../../external-labs/components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
 
 // Someone else filed, completed or deleted the fax (or changed its folder) after this page loaded.
@@ -59,8 +63,17 @@ const isStaleFaxError = (e: unknown): boolean => {
 };
 const STALE_FAX_MESSAGE = 'This fax was changed by someone else. The page has been refreshed.';
 
+const referralOptionLabel = (referral: ReferralDTO): string =>
+  [
+    referral.specialty,
+    referral.recipient?.name ?? NO_RECIPIENT_LABEL,
+    REFERRAL_STATUS_LABELS[referral.status],
+    `created ${formatDateForDisplay(referral.createdAt)}`,
+  ].join(', ');
+
 type MatchFormValues = {
   visitEncounterId: string | null;
+  referralId: string | null;
   reviewAssignee: { id: string; name: string } | null;
 };
 
@@ -95,9 +108,15 @@ export const InboundFaxMatch: React.FC = () => {
   const [selectedFolder, setSelectedFolder] = useState<PatientDocumentsFolder | undefined>();
   const [documentName, setDocumentName] = useState('');
   const [createReviewTask, setCreateReviewTask] = useState(false);
-  const methods = useForm<MatchFormValues>({ defaultValues: { visitEncounterId: null, reviewAssignee: null } });
+  const methods = useForm<MatchFormValues>({
+    defaultValues: { visitEncounterId: null, referralId: null, reviewAssignee: null },
+  });
   const { setValue } = methods;
-  const [visitEncounterId, reviewAssignee] = methods.watch(['visitEncounterId', 'reviewAssignee']);
+  const [visitEncounterId, referralId, reviewAssignee] = methods.watch([
+    'visitEncounterId',
+    'referralId',
+    'reviewAssignee',
+  ]);
 
   if (!communicationId) {
     throw new Error('communicationId is required');
@@ -214,6 +233,16 @@ export const InboundFaxMatch: React.FC = () => {
     [foldersData, confirmedPatientId]
   );
 
+  const { data: referralsData, isLoading: referralsLoading } = useReferralsQuery(
+    confirmedPatientId ? { patientId: confirmedPatientId } : undefined
+  );
+  const openReferrals: ReferralDTO[] = useMemo(
+    () => (referralsData?.referrals ?? []).filter((referral) => isReferralOpen(referral.status)),
+    [referralsData]
+  );
+  const selectedReferral = openReferrals.find((referral) => referral.id === referralId);
+  const selectedReferralClosed = !!referralId && !referralsLoading && !selectedReferral;
+
   const { data: visitHistory, isLoading: visitsLoading } = useGetPatientVisitHistory(confirmedSelectedPatient?.id);
   // Follow-ups, scheduled ones included, are only listed under their original visit.
   const visitOptions = useMemo(() => {
@@ -244,6 +273,7 @@ export const InboundFaxMatch: React.FC = () => {
       setConfirmedSelectedPatient(patient);
       setSelectedFolder(undefined);
       setValue('visitEncounterId', null);
+      setValue('referralId', null);
     },
     [setValue]
   );
@@ -267,12 +297,14 @@ export const InboundFaxMatch: React.FC = () => {
         ...(createReviewTask && reviewAssignee
           ? { reviewTaskAssignee: { id: reviewAssignee.id, name: reviewAssignee.name } }
           : {}),
+        ...(referralId ? { referralId } : {}),
       });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: [GET_TASKS_KEY], exact: false }),
         queryClient.invalidateQueries({
           queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId: confirmedSelectedPatient.id }],
         }),
+        queryClient.invalidateQueries({ queryKey: [REFERRALS_QUERY_KEY] }),
       ]);
       enqueueSnackbar(createReviewTask ? 'Fax filed and review task created' : 'Fax filed successfully', {
         variant: 'success',
@@ -280,6 +312,7 @@ export const InboundFaxMatch: React.FC = () => {
       navigate('/tasks');
     } catch (e) {
       console.error('Failed to file fax:', e);
+      void queryClient.invalidateQueries({ queryKey: [REFERRALS_QUERY_KEY] });
       if (isStaleFaxError(e)) {
         enqueueSnackbar(STALE_FAX_MESSAGE, { variant: 'error' });
         setReloadCount((count) => count + 1);
@@ -328,6 +361,7 @@ export const InboundFaxMatch: React.FC = () => {
     // Staff must be able to see the document before filing it against a patient chart.
     !!presignedPdfUrl &&
     !deletionPending &&
+    !selectedReferralClosed &&
     (!createReviewTask || !!reviewAssignee);
 
   if (error) {
@@ -476,6 +510,42 @@ export const InboundFaxMatch: React.FC = () => {
                         />
                       )}
 
+                      {/* Response to one of the patient's open referrals */}
+                      {confirmedSelectedPatient && (referralsLoading || openReferrals.length > 0 || !!referralId) && (
+                        <Box>
+                          <SelectInput
+                            name="referralId"
+                            label="Response to referral (optional)"
+                            options={
+                              referralsLoading
+                                ? []
+                                : [
+                                    ...openReferrals.map((referral) => referral.id),
+                                    ...(selectedReferralClosed && referralId ? [referralId] : []),
+                                  ]
+                            }
+                            getOptionLabel={(option) => {
+                              const referral = referralsData?.referrals.find((candidate) => candidate.id === option);
+                              return referral ? referralOptionLabel(referral) : 'Referral no longer open';
+                            }}
+                            loading={referralsLoading}
+                            size="medium"
+                            dataTestId="inbound-fax-referral-select"
+                          />
+                          {selectedReferral && (
+                            <FormHelperText>
+                              Sets the referral to Response received and routes a review task to{' '}
+                              {selectedReferral.referringProvider.name}
+                            </FormHelperText>
+                          )}
+                          {selectedReferralClosed && (
+                            <FormHelperText error>
+                              This referral is no longer open. Clear it to file the fax.
+                            </FormHelperText>
+                          )}
+                        </Box>
+                      )}
+
                       {/* Folder selection */}
                       {confirmedSelectedPatient && (
                         <Stack spacing={1}>
@@ -572,7 +642,7 @@ export const InboundFaxMatch: React.FC = () => {
                           }}
                         >
                           {(showDialog) => (
-                            <LoadingButton
+                            <Button
                               loading={isDeleting}
                               variant="outlined"
                               color="error"
@@ -580,10 +650,10 @@ export const InboundFaxMatch: React.FC = () => {
                               sx={{ borderRadius: '50px', textTransform: 'none', px: 4 }}
                             >
                               Delete
-                            </LoadingButton>
+                            </Button>
                           )}
                         </ConfirmationDialog>
-                        <LoadingButton
+                        <Button
                           loading={isFiling}
                           variant="contained"
                           color="primary"
@@ -592,7 +662,7 @@ export const InboundFaxMatch: React.FC = () => {
                           sx={{ borderRadius: '50px', textTransform: 'none', px: 4 }}
                         >
                           Save
-                        </LoadingButton>
+                        </Button>
                       </Stack>
                     </Stack>
                   </FormProvider>

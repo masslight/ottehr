@@ -434,8 +434,8 @@ export interface ListBillingPatientAccountPaymentsResponse {
   visits: BillingPatientVisit[];
 }
 
-// a saved card on the Stripe customer a visit takes payments on
-export interface BillingPatientCard {
+// a saved card on a patient's or non-insurance payer's Stripe customer
+export interface BillingCard {
   // Stripe PaymentMethod id
   id: string;
   brand: string;
@@ -448,7 +448,7 @@ export interface BillingPatientCard {
 
 export interface ListBillingPatientPaymentMethodsResponse {
   // unexpired cards, the default first
-  cards: BillingPatientCard[];
+  cards: BillingCard[];
 }
 
 export interface GetBillingPatientAccountPaymentResponse {
@@ -470,6 +470,16 @@ export interface ClaimPatientPayment {
   method: string;
   description: string;
   checkNumber?: string;
+  status: string;
+}
+
+export interface ClaimNioPayment {
+  paymentNoticeId: string;
+  invoiceId: string;
+  paymentDate: string;
+  amount: number;
+  method: string;
+  reference?: string;
   status: string;
 }
 
@@ -636,6 +646,7 @@ export interface ClaimDetailResponse {
   insurancePaid: number;
   patientResp: number | null;
   patientPaid: number;
+  nioPaid: number;
   writeOffsTotal: number;
   balance: number;
   adjudicated: boolean;
@@ -644,6 +655,7 @@ export interface ClaimDetailResponse {
   remits: ClaimRemit[];
   insurancePayments: ClaimInsurancePayment[];
   patientPayments: ClaimPatientPayment[];
+  nioPayments: ClaimNioPayment[];
   otherClaims: {
     id: string;
     status: string;
@@ -1313,11 +1325,34 @@ export interface BillingInvoiceClaimLine {
 }
 
 export interface BillingInvoicePayment {
-  paymentNoticeId: string;
+  paymentId: string;
   paymentDate: string;
   amount: number;
   method: string;
   reference?: string;
+  attachment?: {
+    fileName: string;
+    url: string;
+  };
+}
+
+export interface RecordBillingNioInvoicePaymentResponse {
+  paymentId: string;
+}
+
+export interface PresignBillingInvoicePaymentAttachmentResponse {
+  uploadUrl: string;
+  path: string;
+}
+
+export interface SetupBillingNioInvoiceCardResponse {
+  clientSecret: string;
+  // undefined for the platform account
+  stripeAccount?: string;
+}
+
+export interface ListBillingNioInvoicePaymentMethodsResponse {
+  cards: BillingCard[];
 }
 
 export interface BillingInvoiceDetail extends BillingInvoiceListItem {

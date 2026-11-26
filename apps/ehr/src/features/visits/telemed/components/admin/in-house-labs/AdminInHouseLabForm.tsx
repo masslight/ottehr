@@ -1,12 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
+  Button,
   Checkbox,
   FormControlLabel,
   FormHelperText,
   FormLabel,
-  Grid,
+  GridLegacy as Grid,
   lighten,
   TextField,
   Theme,
@@ -147,9 +147,9 @@ export default function AdminInHouseLabform(props: AdminInHouseLabFormProps): Re
         </SubSection>
 
         <SubSection label={''} theme={theme}>
-          <LoadingButton type="submit" variant="contained" loading={isSubmitting} disabled={disableEdits}>
+          <Button type="submit" variant="contained" loading={isSubmitting} disabled={disableEdits}>
             {submitButtonText}
-          </LoadingButton>
+          </Button>
           {submitError && (
             <FormHelperText sx={{ color: theme.palette.error.main }}>{submitError.message}</FormHelperText>
           )}

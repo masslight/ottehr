@@ -1,5 +1,4 @@
 import { Close } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Button,
@@ -268,7 +267,7 @@ export const EditFormResponseDialog: FC<EditFormResponseDialogProps> = ({ form, 
         <Button variant="outlined" size="medium" onClick={onClose} disabled={saving} sx={BUTTON_SX}>
           Cancel
         </Button>
-        <LoadingButton
+        <Button
           variant="contained"
           size="medium"
           onClick={submitFromActions}
@@ -278,7 +277,7 @@ export const EditFormResponseDialog: FC<EditFormResponseDialogProps> = ({ form, 
           data-testid={dataTestIds.visitDetailsPage.editFormResponseSaveButton}
         >
           Save
-        </LoadingButton>
+        </Button>
       </DialogActions>
     </Dialog>
   );

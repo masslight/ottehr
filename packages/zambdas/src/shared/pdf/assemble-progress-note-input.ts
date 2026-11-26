@@ -16,6 +16,7 @@ import { buildVisitNote } from '../chart-sections/visit-note';
 import { DME_ORDER_SEARCH_TAG, isDmeOrderDeleted, parseDmeOrder } from '../dme';
 import { fetchErxPharmacies } from '../erx';
 import { getEncounterFormResponses } from '../practice-forms';
+import { loadEncounterReferrals } from '../referrals/load-encounter-referrals';
 import { getEncounterSignatures } from './get-encounter-signatures';
 import { getUpcomingFollowUps } from './get-upcoming-follow-ups';
 import { ProgressNoteInput } from './types';
@@ -63,20 +64,22 @@ export async function assembleProgressNoteInput(
   // Follow-ups hang off the top-level encounter, so resolve to the parent if this one is a follow-up.
   const followUpParentEncounterId = removePrefix('Encounter/', encounter.partOf?.reference ?? '') ?? encounterId;
 
-  const [visitNote, medicationOrdersData, upcomingFollowUps, signatures, dmeOrders, formResponses] = await Promise.all([
-    buildVisitNote({ oystehr, m2mToken: token }, encounterId, {
-      noteTypes: isInPersonAppointment ? progressNoteNoteTypes : telemedProgressNoteNoteTypes,
-    }),
-    getMedicationOrders(oystehr, { searchBy: { field: 'encounterId', value: encounterId } }),
-    getUpcomingFollowUps(oystehr, followUpParentEncounterId, visitResources.timezone, encounter.id),
-    // Supplementary: a signature lookup failure must not block PDF generation.
-    getEncounterSignatures(oystehr, encounterId).catch((error) => {
-      console.error(`Failed to resolve encounter signatures for encounter ${encounterId}:`, error);
-      return { signedBy: undefined, approvedBy: undefined };
-    }),
-    getEncounterDmeOrders(oystehr, encounterId),
-    getEncounterFormResponses(oystehr, encounterId, visitResources.questionnaireResponse, secrets),
-  ]);
+  const [visitNote, medicationOrdersData, upcomingFollowUps, signatures, dmeOrders, formResponses, referrals] =
+    await Promise.all([
+      buildVisitNote({ oystehr, m2mToken: token }, encounterId, {
+        noteTypes: isInPersonAppointment ? progressNoteNoteTypes : telemedProgressNoteNoteTypes,
+      }),
+      getMedicationOrders(oystehr, { searchBy: { field: 'encounterId', value: encounterId } }),
+      getUpcomingFollowUps(oystehr, followUpParentEncounterId, visitResources.timezone, encounter.id),
+      // Supplementary: a signature lookup failure must not block PDF generation.
+      getEncounterSignatures(oystehr, encounterId).catch((error) => {
+        console.error(`Failed to resolve encounter signatures for encounter ${encounterId}:`, error);
+        return { signedBy: undefined, approvedBy: undefined };
+      }),
+      getEncounterDmeOrders(oystehr, encounterId),
+      getEncounterFormResponses(oystehr, encounterId, visitResources.questionnaireResponse, secrets),
+      loadEncounterReferrals(oystehr, encounterId),
+    ]);
 
   const immunizationOrders = (await getImmunizationOrders(oystehr, { encounterIds: [encounterId] })).orders;
   // The composers read the two whole-chart shapes; the adapter presents the note as both.
@@ -95,6 +98,7 @@ export async function assembleProgressNoteInput(
     upcomingFollowUps,
     erxPharmacies,
     dmeOrders,
+    referrals,
     signatures,
     signed: options?.signed,
     formResponses,

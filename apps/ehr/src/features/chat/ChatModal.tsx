@@ -1,15 +1,15 @@
 import { Close, Search } from '@mui/icons-material';
 import SendIcon from '@mui/icons-material/Send';
-import { LoadingButton } from '@mui/lab';
 import {
   Avatar,
   Box,
+  Button,
   CircularProgress,
   Dialog,
   DialogContent,
   DialogTitle,
   Divider,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   InputAdornment,
   List,
@@ -34,6 +34,7 @@ import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../../hooks/useEvolveUser';
 import {
   buildQuickTextVariables,
+  hasUnresolvedTokens,
   QuickTextsContext,
   resolveQuickText,
   useFetchChatMessagesQuery,
@@ -85,6 +86,7 @@ const ChatModal = memo(
     onClose,
     onMarkAllRead,
     quickTextsContext,
+    sendDisabled = false,
   }: {
     appointment: AppointmentMessaging;
     patient?: Patient;
@@ -92,6 +94,7 @@ const ChatModal = memo(
     onClose: () => void;
     onMarkAllRead: () => void;
     quickTextsContext: QuickTextsContext;
+    sendDisabled?: boolean;
   }): ReactElement => {
     const theme = useTheme();
     const { oystehr } = useApiClients();
@@ -132,7 +135,16 @@ const ChatModal = memo(
         if (sendResult) {
           setPendingMessageSend(sendResult);
           setMessageText('');
-          void refetchMessages({ throwOnError: true });
+          // The lock is released when this refetch settles, not when the selected ID shows up: get-conversation
+          // dedupes identical multi-recipient sends and may drop the Communication this result points at.
+          void refetchMessages()
+            .then((result) => {
+              if (result.data) {
+                _setMessages(result.data);
+              }
+            })
+            .catch((e) => console.error('failed to refresh messages after send: ', e))
+            .finally(() => setPendingMessageSend(undefined));
         } else {
           throw new Error('send message failed - no id returned');
         }
@@ -151,8 +163,8 @@ const ChatModal = memo(
         if (!messages) {
           return;
         }
+        // Polling also lands here, so this must not clear pendingMessageSend; the post-send refetch does that.
         _setMessages(messages);
-        setPendingMessageSend(undefined);
       }
     );
 
@@ -196,7 +208,7 @@ const ChatModal = memo(
     const handleSendMessage = async (event: UIEvent, message: string): Promise<void> => {
       event.preventDefault();
 
-      if (message.trim() === '') {
+      if (message.trim() === '' || sendDisabled || sendMessagesMutation.isPending || pendingMessageSend !== undefined) {
         return;
       }
       if (!currentUser) {
@@ -225,7 +237,10 @@ const ChatModal = memo(
       return rawQuickTexts.map((quickPick) => resolveQuickText(quickPick, vars));
     }, [rawQuickTexts, quickTextsContext]);
     const visibleQuickTexts = useMemo(
-      () => quickTexts.filter((text) => (text[language] ?? '').trim().length > 0),
+      // Templates whose tokens have no value here (e.g. {{office-phone}} with no known office) are hidden rather
+      // than offered with a literal placeholder the user could send to the patient.
+      () =>
+        quickTexts.filter((text) => (text[language] ?? '').trim().length > 0 && !hasUnresolvedTokens(text[language])),
       [quickTexts, language]
     );
     const searchedQuickTexts = useMemo(() => {
@@ -368,15 +383,15 @@ const ChatModal = memo(
             </Grid>
 
             <Grid item xs={3} sx={{ alignSelf: 'center', textAlign: 'center', display: 'flex' }}>
-              <LoadingButton
+              <Button
                 sx={{ marginX: 1, borderRadius: '100px', textTransform: 'none', fontWeight: 500 }}
                 variant="outlined"
                 onClick={() => setQuickTextsOpen(true)}
                 disabled={pendingMessageSend !== undefined}
               >
                 Quick text
-              </LoadingButton>
-              <LoadingButton
+              </Button>
+              <Button
                 sx={{
                   background: theme.palette.primary.main,
                   borderRadius: '100px',
@@ -387,10 +402,11 @@ const ChatModal = memo(
                 startIcon={<SendIcon />}
                 onClick={(event) => handleSendMessage(event, messageText)}
                 loading={pendingMessageSend !== undefined}
+                disabled={sendDisabled}
                 type="submit"
               >
                 Send
-              </LoadingButton>
+              </Button>
             </Grid>
           </Grid>
           <Dialog

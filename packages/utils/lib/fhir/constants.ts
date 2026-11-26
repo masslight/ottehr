@@ -810,6 +810,7 @@ export const BUCKET_NAMES = {
   CUSTOM_FOLDERS: 'patient-docs-custom-folders',
   MEDICAL_RECORD_EXPORTS: 'medical-record-exports',
   FAXES: 'faxes',
+  REFERRALS: 'referrals',
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
@@ -909,6 +910,13 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.FAXES,
     display: 'Faxes',
     documentTypeCode: FAX_PACKET_CODE,
+  },
+  {
+    title: BUCKET_NAMES.REFERRALS,
+    display: 'Referrals',
+    // Literal rather than REFERRAL_FORM_DOC_REF_DOCTYPE.code: `./referral` imports `./radiology`, which imports
+    // this file, so importing it here would close an import cycle.
+    documentTypeCode: 'referral-form',
   },
 ];
 
@@ -1364,6 +1372,7 @@ export const OUTBOUND_DELIVERY_INPUT_CODES = {
   senderOrganization: 'sender-organization',
   packetPageCount: 'fax-packet-page-count',
   packetParts: 'fax-packet-parts',
+  basedOnVersion: 'based-on-version',
 } as const;
 export const OUTBOUND_DELIVERY_OUTPUT_SYSTEM = ottehrCodeSystemUrl('outbound-delivery-output');
 export const OUTBOUND_DELIVERY_OUTPUT_CODES = {

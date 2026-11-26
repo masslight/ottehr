@@ -506,20 +506,12 @@ export interface ExternalLabCommunications {
 }
 
 export enum UnsolicitedResultsRequestType {
-  UNSOLICITED_RESULTS_ICON = 'unsolicited-results-icon',
-  GET_UNSOLICITED_RESULTS_TASKS = 'get-unsolicited-results-tasks',
   MATCH_UNSOLICITED_RESULTS = 'match-unsolicited-result',
   GET_UNSOLICITED_RESULTS_RELATED_REQUESTS = 'get-unsolicited-results-related-requests',
   UNSOLICITED_RESULTS_DETAIL = 'unsolicited-results-detail',
   UNSOLICITED_RESULTS_PATIENT_LIST = 'unsolicited-results-patient-list',
 }
 
-export type GetUnsolicitedResultsIconStatusInput = {
-  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON;
-};
-export type GetUnsolicitedResultsTasksInput = {
-  requestType: UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_TASKS;
-};
 export type GetUnsolicitedResultsMatchDataInput = {
   requestType: UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS;
   diagnosticReportId: string;
@@ -539,30 +531,11 @@ export type GetUnsolicitedResultsPatientListInput = {
 };
 
 export type GetUnsolicitedResultsResourcesInput =
-  | GetUnsolicitedResultsIconStatusInput
-  | GetUnsolicitedResultsTasksInput
   | GetUnsolicitedResultsMatchDataInput
   | GetUnsolicitedResultsRelatedRequestsInput
   | GetUnsolicitedResultsDetailInput
   | GetUnsolicitedResultsPatientListInput;
 
-export const UR_TASK_ACTION_TEXT = ['Match', 'Go to Lab Results'] as const;
-export type UR_TASK_ACTION = (typeof UR_TASK_ACTION_TEXT)[number];
-
-export type UnsolicitedResultTaskRowDTO = {
-  diagnosticReportId: string;
-  actionText: UR_TASK_ACTION;
-  actionUrl: string;
-  taskRowDescription: string;
-  resultsReceivedDateTime: string;
-};
-
-export type GetUnsolicitedResultsIconStatusOutput = {
-  tasksAreReady: boolean;
-};
-export type GetUnsolicitedResultsTasksOutput = {
-  unsolicitedResultsTasks: UnsolicitedResultTaskRowDTO[];
-};
 export type GetUnsolicitedResultsMatchDataOutput = {
   unsolicitedLabInfo: {
     patientName?: string;
@@ -590,8 +563,6 @@ export type GetUnsolicitedResultsPatientListOutput = {
 };
 
 export type GetUnsolicitedResultsResourcesOutput =
-  | GetUnsolicitedResultsIconStatusOutput
-  | GetUnsolicitedResultsTasksOutput
   | GetUnsolicitedResultsMatchDataOutput
   | GetUnsolicitedResultsRelatedRequestsOutput
   | GetUnsolicitedResultsDetailOutput

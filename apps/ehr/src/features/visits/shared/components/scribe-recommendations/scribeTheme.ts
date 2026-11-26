@@ -1,5 +1,4 @@
-import { Theme } from '@mui/material/styles';
-import { Variant } from '@mui/material/styles/createTypography';
+import { Theme, TypographyVariant } from '@mui/material/styles';
 
 /** Panel text size relative to the note's; the narrow column reads better one step larger. */
 const SCRIBE_TEXT_SCALE = 1.15;
@@ -10,7 +9,7 @@ export const scaled = (px: number): number => px * SCRIBE_TEXT_SCALE;
 /** RoundedButton fixes its label at 14px in its own styles, which the theme can't reach. */
 export const roundedButtonSx = { fontSize: scaled(14) };
 
-const VARIANTS: Variant[] = [
+const VARIANTS: TypographyVariant[] = [
   'h1',
   'h2',
   'h3',
@@ -43,7 +42,7 @@ export const scaleScribeTheme = (outer: Theme): Theme => {
       variant,
       { ...typography[variant], fontSize: scaleFontSize(typography[variant].fontSize) },
     ])
-  ) as Pick<Theme['typography'], Variant>;
+  ) as Pick<Theme['typography'], TypographyVariant>;
   return {
     ...outer,
     typography: {

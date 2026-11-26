@@ -4,7 +4,7 @@ import {
   Checkbox,
   FormControlLabel,
   FormGroup,
-  Grid,
+  GridLegacy as Grid,
   Paper,
   Stack,
   TextField,
@@ -146,7 +146,6 @@ export const CreateExternalRadiologyOrder: React.FC<CreateExternalRadiologyOrder
     e.preventDefault();
     setSubmitting(true);
 
-    // Diagnosis is optional at order time — it is captured when the preliminary read is saved.
     const paramsSatisfied =
       orderCpt &&
       encounter.id &&

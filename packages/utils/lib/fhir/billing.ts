@@ -10,6 +10,7 @@ import {
   Practitioner,
   Reference,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   CODE_SYSTEM_CPT_MODIFIER,
   EXTENSION_CLAIM_ASSIGNMENT_OR_PLAN_PARTICIPATION_CODE,
@@ -117,6 +118,25 @@ export const parseCoverageEligibilityResponse = (
   return coverageResponse.servicedDate ? { ...parsed, servicedDate: coverageResponse.servicedDate } : parsed;
 };
 
+const PAYER_ELIGIBILITY_NOT_SUPPORTED_CODES = ['410', 'ml-410'];
+
+const formatEligibilityDateOfBirth = (yyyymmdd: string | undefined): string | undefined => {
+  if (!yyyymmdd) return undefined;
+
+  const date = DateTime.fromFormat(yyyymmdd, 'yyyyMMdd');
+  return date.isValid ? date.toFormat('MM/dd/yyyy') : undefined;
+};
+
+const formatEligibilityAddress = (
+  street: string | undefined,
+  city: string | undefined,
+  state: string | undefined,
+  zip: string | undefined
+): string | undefined => {
+  const locality = [city, [state, zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  return [street, locality].filter(Boolean).join(' ') || undefined;
+};
+
 const parseCoverageEligibilityResponseOutcome = (
   coverageResponse: CoverageEligibilityResponse
 ): InsuranceCheckStatusWithDate => {
@@ -130,7 +150,7 @@ const parseCoverageEligibilityResponseOutcome = (
       console.log('errors', JSON.stringify(errors));
       const errorCodes = errors.map((error) => error.code);
       const errorMessages = errors.map((error) => error.text);
-      if (errorCodes.includes('410')) {
+      if (PAYER_ELIGIBILITY_NOT_SUPPORTED_CODES.some((code) => errorCodes.includes(code))) {
         // "Payer ID [<ID>] does not support real-time eligibility."
         console.log('Payer does not support real-time eligibility. Bypassing.');
         return {
@@ -184,11 +204,14 @@ const parseCoverageEligibilityResponseOutcome = (
             firstName: benefitsResponse['elig']?.['ins_name_f'],
             middleName: benefitsResponse['elig']?.['ins_name_m'],
             lastName: benefitsResponse['elig']?.['ins_name_l'],
-            dateOfBirth: `${benefitsResponse['elig']?.['ins_dob']?.slice(4, 6)}/${benefitsResponse['elig']?.[
-              'ins_dob'
-            ]?.slice(6, 8)}/${benefitsResponse['elig']?.['ins_dob']?.slice(0, 4)}`,
+            dateOfBirth: formatEligibilityDateOfBirth(benefitsResponse['elig']?.['ins_dob']),
             memberID: benefitsResponse['elig']?.['ins_number'],
-            address: `${benefitsResponse['elig']?.['ins_addr_1']} ${benefitsResponse['elig']?.['ins_city']}, ${benefitsResponse['elig']?.['ins_state']} ${benefitsResponse['elig']?.['ins_zip']}`,
+            address: formatEligibilityAddress(
+              benefitsResponse['elig']?.['ins_addr_1'],
+              benefitsResponse['elig']?.['ins_city'],
+              benefitsResponse['elig']?.['ins_state'],
+              benefitsResponse['elig']?.['ins_zip']
+            ),
           };
           const insuranceDetails = benefitsTemp.find(
             (benefit) => benefit.coverageCode === '1' && benefit.code === '30'

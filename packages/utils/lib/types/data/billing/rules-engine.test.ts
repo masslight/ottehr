@@ -42,6 +42,17 @@ describe('applyTag canonicalization', () => {
   });
 });
 
+describe('copyMemberIdToGroupNumber action schema', () => {
+  it('parses the action for every insurance position and rejects a missing or unknown one', () => {
+    for (const insurance of ['primary', 'secondary', 'tertiary', 'quaternary']) {
+      const action = { type: 'copyMemberIdToGroupNumber', insurance };
+      expect(RuleActionSchema.parse(action)).toEqual(action);
+    }
+    expect(RuleActionSchema.safeParse({ type: 'copyMemberIdToGroupNumber' }).success).toBe(false);
+    expect(RuleActionSchema.safeParse({ type: 'copyMemberIdToGroupNumber', insurance: 'fifth' }).success).toBe(false);
+  });
+});
+
 describe('service line action schemas', () => {
   it('parses updateServiceLines and removeServiceLines actions', () => {
     const update = {

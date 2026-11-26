@@ -28,6 +28,10 @@ import { composePhysician, createPhysicianSection } from './sections/discharge-s
 import { composeRadiology, createRadiologySection } from './sections/discharge-summary/radiology';
 import { createReasonForVisitSection } from './sections/discharge-summary/reasonForVisit';
 import {
+  composeReferralsForDischargeSummary,
+  createReferralsSectionForDischargeSummary,
+} from './sections/discharge-summary/referrals';
+import {
   composeVitalsForDischargeSummary,
   createVitalsSectionForDischargeSummary,
 } from './sections/discharge-summary/vitals';
@@ -73,6 +77,7 @@ const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, Discharge
     patientInstructions: composePatientInstructions({ allChartData }),
     educationDocuments: composeEducationalDocuments({ allChartData }),
     disposition: composeDisposition({ allChartData }),
+    referrals: composeReferralsForDischargeSummary({ referrals: input.referrals, timezone }),
     physician: composePhysician({ appointmentPackage }),
     workSchoolExcuse,
     upcomingVisits: composeUpcomingVisits({ upcomingFollowUps }),
@@ -105,6 +110,7 @@ const dischargeSummaryRenderConfig: PdfRenderConfig<DischargeSummaryData> = {
     createPatientInstructionsSection(),
     createEducationalDocumentsSection(),
     createDispositionSection(),
+    createReferralsSectionForDischargeSummary(),
     createWorkSchoolExcuseSection(),
     createUpcomingVisitsSection(),
     createPhysicianSection(),

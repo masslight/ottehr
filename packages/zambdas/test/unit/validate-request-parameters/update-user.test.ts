@@ -28,7 +28,7 @@ describe('update-user - validateRequestParameters', () => {
       phoneNumber: '+12223334444',
       npi: '1234567893',
       birthDate: '1990-01-01',
-      faxNumber: '1234567890',
+      faxNumber: '2223335555',
       addressLine1: '123 Main St',
       addressLine2: 'Suite 1',
       addressCity: 'Springfield',
@@ -62,6 +62,11 @@ describe('update-user - validateRequestParameters', () => {
   test('should throw when userId is not a valid UUID', () => {
     const input = createMockZambdaInput({ userId: 'user-123' }, { secrets });
     expect(() => validateRequestParameters(input)).toThrow();
+  });
+
+  test('should throw when faxNumber is not a valid NANP number', () => {
+    const input = createMockZambdaInput({ ...validBody, faxNumber: '(000) 000-0000' }, { secrets });
+    expect(() => validateRequestParameters(input)).toThrow('fax');
   });
 
   test('should throw when phoneNumber is invalid', () => {

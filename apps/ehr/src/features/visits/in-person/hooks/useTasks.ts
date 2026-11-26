@@ -23,6 +23,12 @@ import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { DME_TASK } from 'utils/lib/types/api/dme.types';
 import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
+import {
+  REFERRAL_OVERDUE_DAYS,
+  REFERRAL_TASK,
+  REFERRAL_URGENCY_LABELS,
+  ReferralUrgency,
+} from 'utils/lib/types/api/referrals/referrals.types';
 import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
@@ -40,7 +46,9 @@ import {
   Task,
   TaskAlertCode,
 } from 'utils/lib/types/data/tasks/types';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { inboundFaxMatchPath } from '../../../inbound-fax/routes';
+import { patientReferralsPath, visitPlanPath } from '../../../referrals/referralPaths';
 import {
   getDmeOrderDetailsUrl,
   getImmunizationVaccineDetailsUrl,
@@ -635,6 +643,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
   let subtitle = '';
   let completable = false;
   let details: string | undefined = undefined;
+  let overdue: boolean | undefined = undefined;
 
   // Extract encounterId and check if it's a follow-up encounter
   const encounterId = getTaskEncounterId(task);
@@ -703,7 +712,13 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
         code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
         code === LAB_ORDER_TASK.code.reviewPreliminaryResult)
     ) {
-      if (labTypeString === LabType.unsolicited && !serviceRequestId) {
+      // Solicited preliminary results are kept off the board, but unsolicited ones are shown. Even when matched to an order
+      // they go to their own report: the order page drops a preliminary result once that order has a final/corrected
+      // result for the same code (get-lab-orders), which would leave this task with nothing to review.
+      if (
+        labTypeString === LabType.unsolicited &&
+        (!serviceRequestId || code === LAB_ORDER_TASK.code.reviewPreliminaryResult)
+      ) {
         const receivedDate = getInputString(LAB_ORDER_TASK.input.receivedDate, task);
         title = `Review unsolicited test results for “${fullTestName}” for ${patientName}`;
         subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
@@ -764,7 +779,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     if (category === MANUAL_TASK.category.patientFollowUp && documentReferenceId && patientIdFromRef) {
       title =
         getInputString(MANUAL_TASK.input.title, task) ||
-        `Patient follow-up for ${patientReference?.display?.replaceAll(',', '') ?? ''}`;
+        `Patient follow-up for ${formatTaskPatientDisplay(patientReference?.display)}`;
       subtitle = `Form completed / ${task.location?.display ?? ''}`;
       details = '';
       completable = true;
@@ -795,8 +810,8 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     }
     title =
       getInputString(MANUAL_TASK.input.title, task) +
-      (patientReference ? ' for ' + patientReference.display?.replaceAll(',', '') : '');
-    subtitle = `Manual task by ${providerName} / ${task.location?.display ?? ''}`;
+      (patientReference ? ' for ' + formatTaskPatientDisplay(patientReference.display) : '');
+    subtitle = `Manual task by ${providerName}${task.location?.display ? ` / ${task.location.display}` : ''}`;
     details = getInputString(MANUAL_TASK.input.details, task) ?? '';
     completable = true;
     if (orderId) {
@@ -977,6 +992,30 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
       }
     }
   }
+  if (category === REFERRAL_TASK.category) {
+    const patientReference = getInputReference(REFERRAL_TASK.input.patient, task);
+    title = `${task.description ?? ''}${patientReference?.display ? ` for ${patientReference.display}` : ''}`;
+    overdue = isTaskOverdue(task);
+    const urgency = getInputString(REFERRAL_TASK.input.urgency, task) as ReferralUrgency | undefined;
+    const urgencyLabel = urgency ? REFERRAL_URGENCY_LABELS[urgency] : '';
+    const responseInput = getInput(REFERRAL_TASK.input.responseDocumentReferenceId, task);
+    if (responseInput?.valueString || responseInput?.valueReference?.reference) {
+      subtitle = [urgencyLabel, 'Response received'].filter(Boolean).join(': ');
+    } else if (overdue && urgency) {
+      subtitle = `${urgencyLabel}: no response after ${REFERRAL_OVERDUE_DAYS[urgency]} days`;
+    } else {
+      subtitle = urgencyLabel;
+    }
+    // Closing the referral (on the visit or patient record) completes the task, not the reverse.
+    completable = false;
+    const appointmentId = encounter?.appointment?.[0]?.reference?.split('/')?.[1];
+    const patientId = patientReference?.reference?.split('/')?.[1];
+    if (appointmentId) {
+      action = { name: GO_TO_TASK, link: addEncounterIdToLink(visitPlanPath(appointmentId)) };
+    } else if (patientId) {
+      action = { name: GO_TO_TASK, link: patientReferralsPath(patientId) };
+    }
+  }
 
   return {
     id: task.id ?? '',
@@ -998,6 +1037,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     alert: getAlertCode(task),
     completable: completable,
     reopenable: isReopenableTaskCategory(category),
+    overdue,
     chat:
       FEATURE_FLAGS.SUPPORT_CHAT_ENABLED && category === PATIENT_REQUEST_TASK.category
         ? {
@@ -1007,6 +1047,13 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
           }
         : undefined,
   };
+}
+
+export function isTaskOverdue(task: FhirTask, now: DateTime = DateTime.now()): boolean {
+  const end = task.restriction?.period?.end;
+  if (!end || task.status === 'completed' || task.status === 'cancelled') return false;
+  const endDate = DateTime.fromISO(end);
+  return endDate.isValid && endDate < now;
 }
 
 function getInputString(code: string, task: FhirTask): string | undefined {
@@ -1028,6 +1075,14 @@ function getInputReference(code: string, task: FhirTask): Reference | undefined 
 function getInput(code: string, task: FhirTask): TaskInput | undefined {
   return task.input?.find((input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === code);
 }
+
+const ISO_BIRTH_DATE_SUFFIX = /\((\d{4}-\d{2}-\d{2})\)$/;
+
+const formatTaskPatientDisplay = (display: string | undefined): string =>
+  (display ?? '').replaceAll(',', '').replace(ISO_BIRTH_DATE_SUFFIX, (storedSuffix, isoDate: string) => {
+    const birthDate = formatDateForDisplay(isoDate);
+    return birthDate ? `(${birthDate})` : storedSuffix;
+  });
 
 export function formatDate(dateIso: string): string {
   return DateTime.fromISO(dateIso).toFormat('MM/dd/yyyy h:mm a', { locale: 'en-US' });
