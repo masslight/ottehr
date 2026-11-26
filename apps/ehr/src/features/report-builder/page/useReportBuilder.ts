@@ -243,6 +243,11 @@ export function useReportBuilder(): UseReportBuilder {
         const wanted = Object.keys(opts).filter((id) => opts[id]);
         const missing = session ? wanted.filter((id) => !session.layers.has(id)) : wanted;
 
+        const dropCachedRows = (): void =>
+          queryClient.removeQueries({ predicate: (query) => String(query.queryKey[0]).startsWith('adhoc-') });
+
+        if (refresh) dropCachedRows();
+
         const fetchLayers = (ids: string[]): Promise<AdHocRow[]> =>
           dataset.fetch({
             oystehrZambda,
@@ -262,6 +267,7 @@ export function useReportBuilder(): UseReportBuilder {
           layers = session.layers;
         } else {
           const merged = mergeRows(session.rows, await fetchLayers(missing), dataset.rowKey);
+          if (!merged) dropCachedRows();
           fetched = merged ?? (await fetchLayers(wanted));
           layers = merged ? new Set([...session.layers, ...missing]) : new Set(wanted);
           if (!merged) showAdHocDebugLog('fetch', 'rows changed since the first load: loaded every layer again');

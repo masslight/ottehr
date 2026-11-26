@@ -241,7 +241,10 @@ export const foldIntoForeignLayers = (
           folds = false;
           break;
         }
+
         added.push(...other.layerIds.map((layerId) => `${other.id}.${layerId}`));
+
+        if (offered.has(`${other.id}.${LINK_BASE_LAYER}`)) added.push(`${other.id}.${LINK_BASE_LAYER}`);
       } else if (offered.has(`${other.id}.${LINK_BASE_LAYER}`)) {
         added.push(`${other.id}.${LINK_BASE_LAYER}`);
       } else if (!findLink(hostId, other.id)) {
@@ -253,6 +256,7 @@ export const foldIntoForeignLayers = (
     if (!folds) continue;
 
     const own = picked.find((d) => d.id === hostId)?.layerIds ?? [];
+
     return [{ id: hostId, layerIds: Array.from(new Set([...own, ...added])) }];
   }
 

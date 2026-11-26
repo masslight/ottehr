@@ -166,7 +166,12 @@ describe('foldIntoForeignLayers', () => {
         ],
         linked
       )
-    ).toEqual([{ id: 'encounters-comprehensive', layerIds: ['patients.allergies', 'billing-claims.remits'] }]);
+    ).toEqual([
+      {
+        id: 'encounters-comprehensive',
+        layerIds: ['patients.allergies', 'billing-claims.remits', 'billing-claims.base'],
+      },
+    ]);
   });
 
   it('prefers a picked host over one the model did not pick', () => {
