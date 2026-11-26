@@ -21,7 +21,11 @@ describe('referrals dataset fetch', () => {
     const noCreatedAt = { referralId: 'referral-2', createdAt: '', date: null };
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => ({ ok: true, json: async () => ({ referrals: [lateEvening, noCreatedAt] }) }))
+      vi.fn(async () => ({
+        ok: true,
+        arrayBuffer: async () =>
+          new TextEncoder().encode(JSON.stringify({ referrals: [lateEvening, noCreatedAt] })).buffer,
+      }))
     );
 
     const rows = await referralsDataset.fetch({

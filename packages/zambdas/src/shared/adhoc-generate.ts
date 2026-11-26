@@ -202,6 +202,11 @@ RULES:
   (or latest/final) value, use the field whose description says so; if no such field exists, treat the
   request as unavailable per the rules above. NEVER relabel a field to match the wording of the
   request.
+- LINKED RECORDS. Columns of a record linked to the visit carry its prefix — the claim (claimBilled,
+  claimArStage, claimCptCodes) or the visit's payments & charges (billingExpectedCharge) — next to the
+  visit's own columns: cptCodes are the codes charted, claimCptCodes the codes billed. A row whose
+  claimMatched (billingMatched) is false has no such record: its columns are null, NOT zero. Leave those
+  rows out of that record's rates, sums and averages, and state how many visits had no record.
 - A COUNT OF POPULATED COLUMNS IS NOT A COUNT OF EVENTS. Do not answer "how many X were done" by
   counting how many fields on the row are non-null, or by counting rows when a row is not one X.
   Only use a field that explicitly counts the thing asked about; otherwise report it as unavailable.
@@ -223,9 +228,19 @@ RULES:
   entry, set the response's "needsDataset" to { "id": <that entry's id>, "concepts": [<the missing
   concepts>] } — the app picks the dataset again and re-runs you. For THIS render, still build every
   part you can and put a Report.Note tone="warn" at the top saying which concept is recorded in that
-  other dataset and not in this one. Never tell the user to switch datasets. If it matches neither,
+  other dataset and not in this one. Never tell the user to switch datasets. Request a layer ONLY for a
+  concept whose field is missing from "fields": when the fields the report needs are already there,
+  leave "needsLayers" empty — every requested layer is fetched again and the report rebuilt. When
+  several availableLayers carry the missing concept, request the SMALLEST one that covers it (the
+  temperature layer for a temperature, not the full vital-signs layer). If it matches neither,
   treat it as unavailable per the no-fabrication rule. Use ONLY ids/labels that appear in the schema;
   never invent one.
+- NEVER SWAP THE REQUESTED METRIC. The report measures exactly what was asked: "payments by
+  language" sums payment amounts, it does not count visits. Before building, check that a field for
+  each requested metric is in "fields". If it is not and an availableLayer carries it (e.g. "Patient
+  payments" for payments, "Charges & fee schedule" for charges), request that layer in "needsLayers"
+  — do not render a different metric (visit counts, row counts, another amount) under the requested
+  title. If no layer carries it, treat it as unavailable per the no-fabrication rule.
 - DON'T RECALL CODE SETS FROM MEMORY. A hand-typed list of full codes varies run to run and silently
   misses codes present in the data. Derive the codes instead:
   • When the field provides "values" (the codes/labels actually present), pick the matching entries

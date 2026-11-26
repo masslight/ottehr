@@ -1,31 +1,38 @@
 import Oystehr from '@oystehr/sdk';
-import { Appointment, FhirResource, Patient } from 'fhir/r4b';
+import { Appointment, Encounter, FhirResource, Location, Patient } from 'fhir/r4b';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchAppointmentReportResources } from '../src/shared/adhoc-report';
+import { DEFAULT_WINDOW_DAYS, fetchAppointmentReportResources, fetchReportVisits } from '../src/shared/adhoc-report';
 
-const appt = (id: string): Appointment => ({ resourceType: 'Appointment', id, status: 'fulfilled', participant: [] });
-const patient = (id: string): Patient => ({ resourceType: 'Patient', id });
+process.env.ADHOC_SYNC_PAGES = '0';
 
-const APPOINTMENT_URL = 'https://example.test/Appointment.ndjson';
-const PATIENT_URL = 'https://example.test/Patient.ndjson';
+type Param = { name: string; value: string };
+
+const appt = (id: string): Appointment => ({
+  resourceType: 'Appointment',
+  id,
+  status: 'fulfilled',
+  participant: [
+    { actor: { reference: 'Patient/pat-1' }, status: 'accepted' },
+    { actor: { reference: 'Location/loc-1' }, status: 'accepted' },
+  ],
+});
+const encounter = (id: string): Encounter => ({
+  resourceType: 'Encounter',
+  id,
+  status: 'finished',
+  class: { code: 'AMB' },
+  appointment: [{ reference: `Appointment/${id}` }],
+});
+const patient: Patient = { resourceType: 'Patient', id: 'pat-1' };
+const location: Location = { resourceType: 'Location', id: 'loc-1' };
 
 const ndjson = (resources: FhirResource[]): string => resources.map((resource) => JSON.stringify(resource)).join('\n');
 
-const bodyByUrl = new Map<string, string>([
-  [APPOINTMENT_URL, ndjson(Array.from({ length: 1002 }, (_, i) => appt(`appt-${i}`)))],
-  // An _include lands in its own file rather than inside the matched resources.
-  [PATIENT_URL, ndjson([patient('pat-1'), patient('pat-2')])],
-]);
+const bodyByUrl = new Map<string, string>();
+const jobs: { resourceType: string; params: Param[] }[] = [];
 
-const requestedUrls: string[] = [];
-const searchCalls: { name: string; value: string }[][] = [];
-
-// Stubbed rather than assigned, so vitest restores the real fetch even if a test throws — a leaked
-// stub would silently change the behaviour of whatever file runs next in this worker.
 vi.stubGlobal('fetch', (async (input: RequestInfo | URL) => {
-  const url = String(input);
-  requestedUrls.push(url);
-  const body = bodyByUrl.get(url);
+  const body = bodyByUrl.get(String(input));
   if (body === undefined) return { ok: false, status: 404, text: async () => 'not found' };
   return { ok: true, status: 200, text: async () => body };
 }) as unknown as typeof fetch);
@@ -34,66 +41,142 @@ afterAll(() => {
   vi.unstubAllGlobals();
 });
 
-// The manifest asks for a token: the SDK would add an Authorization header and the storage would
-// answer 400, which is why the zambda downloads the files itself, unauthenticated.
+const resourcesFor = (resourceType: string): FhirResource[] => {
+  if (resourceType === 'Appointment') {
+    const appointments = Array.from({ length: 1002 }, (_, i) => appt(`appt-${i}`));
+    return [...appointments, ...appointments.map((a) => encounter(a.id!))];
+  }
+  if (resourceType === 'Patient') return [patient];
+  if (resourceType === 'Location') return [location];
+  return [];
+};
+
 const fakeOystehr = {
   fhir: {
-    search: async ({ params }: { resourceType: string; params?: { name: string; value: string }[] }) => {
-      searchCalls.push(params ?? []);
-      return { jobId: 'job', contentLocation: '', mode: 'bulk' };
+    search: async ({ resourceType, params }: { resourceType: string; params: Param[] }) => {
+      jobs.push({ resourceType, params });
+      return { jobId: `job-${jobs.length}`, contentLocation: '', mode: 'bulk' };
     },
-    waitForAsyncJob: async () => ({
-      status: 200,
-      mode: 'bulk',
-      manifest: {
-        requiresAccessToken: true,
-        output: [
-          { type: 'Appointment', url: APPOINTMENT_URL },
-          { type: 'Patient', url: PATIENT_URL },
-        ],
-      },
-    }),
+    waitForAsyncJob: async (jobId: string) => {
+      const { resourceType } = jobs[Number(jobId.replace('job-', '')) - 1];
+      const byType = new Map<string, FhirResource[]>();
+      for (const r of resourcesFor(resourceType))
+        byType.set(r.resourceType, [...(byType.get(r.resourceType) ?? []), r]);
+      const output = Array.from(byType.entries()).map(([type, resources]) => {
+        const url = `https://example.test/${jobId}/${type}.ndjson`;
+        bodyByUrl.set(url, ndjson(resources));
+        return { type, url };
+      });
+      return { status: 200, mode: 'bulk', manifest: { requiresAccessToken: true, output, error: [] } };
+    },
   },
 } as unknown as Oystehr;
 
-describe('async-bulk search (via fetchAppointmentReportResources)', () => {
+const values = (params: Param[], name: string): string[] => params.filter((p) => p.name === name).map((p) => p.value);
+
+describe('report root (fetchAppointmentReportResources)', () => {
   beforeEach(() => {
-    searchCalls.length = 0;
-    requestedUrls.length = 0;
+    jobs.length = 0;
+    bodyByUrl.clear();
   });
 
-  it('downloads every file in the manifest and returns all of their resources', async () => {
-    // Inside one window, so the manifest is fetched once.
+  it('a short range: one window; patients and locations by id, not as _include', async () => {
     const dateRange = { start: '2026-07-01T00:00:00.000Z', end: '2026-07-02T23:59:59.999Z' };
     const resources = await fetchAppointmentReportResources<FhirResource>(fakeOystehr, { dateRange });
 
-    expect(requestedUrls).toEqual([APPOINTMENT_URL, PATIENT_URL]);
+    const windows = jobs.filter((job) => job.resourceType === 'Appointment');
+    expect(windows).toHaveLength(1);
+    expect(values(windows[0].params, '_include')).toEqual([]);
+    expect(values(windows[0].params, '_revinclude')).toEqual(['Encounter:appointment']);
+    expect(values(windows[0].params, '_count')).toEqual(['30000']);
+
+    expect(jobs.some((job) => job.resourceType === 'Patient' && values(job.params, '_id')[0] === 'pat-1')).toBe(true);
+    expect(jobs.some((job) => job.resourceType === 'Location' && values(job.params, '_id')[0] === 'loc-1')).toBe(true);
+
     expect(resources.filter((r) => r.resourceType === 'Appointment')).toHaveLength(1002);
-    expect(resources.filter((r) => r.resourceType === 'Patient')).toHaveLength(2);
+    expect(resources.filter((r) => r.resourceType === 'Encounter')).toHaveLength(1002);
+    expect(resources.filter((r) => r.resourceType === 'Patient')).toHaveLength(1);
+    expect(resources.filter((r) => r.resourceType === 'Location')).toHaveLength(1);
   });
 
-  it('splits a long range into windows and returns each resource once', async () => {
-    // Bulk lifts the limit on how much the server may send, not on the query it has to run: a
-    // six-month range failed the job itself, so the range is searched window by window.
-    const dateRange = { start: '2026-01-01T00:00:00.000Z', end: '2026-01-10T00:00:00.000Z' };
+  it('a long range: one job per window of DEFAULT_WINDOW_DAYS, back to back, each resource once', async () => {
+    const dateRange = { start: '2026-01-01T00:00:00.000Z', end: '2026-03-02T00:00:00.000Z' };
+
     const resources = await fetchAppointmentReportResources<FhirResource>(fakeOystehr, { dateRange });
 
-    const bounds = Array.from(
-      new Set(
-        searchCalls
-          .flatMap((params) => params.filter((p) => p.name === 'date' && p.value.startsWith('ge')))
-          .map((p) => p.value)
-      )
-    ).sort();
-    // Nine days in windows of three.
-    expect(bounds).toHaveLength(3);
-    // Windows start where the previous one ended, and the last one stops at the requested end.
-    expect(bounds[0]).toContain('2026-01-01');
-    expect(bounds.some((b) => b.includes('2026-01-10'))).toBe(false);
+    const windows = jobs.filter((job) => job.resourceType === 'Appointment');
+    expect(windows).toHaveLength(Math.ceil(60 / DEFAULT_WINDOW_DAYS));
 
-    // The fake serves the same ids for every window; a resource must not be reported twice.
-    const appointments = resources.filter((r) => r.resourceType === 'Appointment');
-    expect(appointments).toHaveLength(1002);
-    expect(new Set(appointments.map((a) => a.id)).size).toBe(1002);
+    const bounds = windows.map((job) => values(job.params, 'date'));
+    expect(bounds[0][0]).toBe(`ge${dateRange.start}`);
+    expect(bounds.at(-1)?.[1]).toBe(`le${dateRange.end}`);
+
+    expect(resources.filter((r) => r.resourceType === 'Appointment')).toHaveLength(1002);
+  });
+});
+
+describe('report visits (fetchReportVisits): appointments and encounters searched side by side', () => {
+  const visit = (id: string, status = 'fulfilled'): Appointment => ({
+    ...appt(id),
+    status: status as Appointment['status'],
+  });
+  const enc = (id: string, apptId?: string, partOf?: string): Encounter => ({
+    resourceType: 'Encounter',
+    id,
+    status: 'finished',
+    class: { code: 'AMB' },
+    ...(apptId ? { appointment: [{ reference: `Appointment/${apptId}` }] } : {}),
+    ...(partOf ? { partOf: { reference: `Encounter/${partOf}` } } : {}),
+  });
+
+  const client = (byKind: Record<string, FhirResource[] | 'refuse'>): Oystehr =>
+    ({
+      fhir: {
+        search: async ({ resourceType, params }: { resourceType: string; params: Param[] }) => {
+          const kind = params.some((p) => p.name.startsWith('part-of.'))
+            ? 'chained'
+            : params.some((p) => p.name === 'part-of')
+            ? 'byParent'
+            : resourceType;
+          const answer = byKind[kind] ?? [];
+          if (answer === 'refuse') throw Object.assign(new Error('unknown search parameter'), { code: 400 });
+          return { unbundle: () => answer, link: [] };
+        },
+      },
+    }) as unknown as Oystehr;
+
+  beforeEach(() => {
+    process.env.ADHOC_SYNC_PAGES = '3';
+  });
+  afterAll(() => {
+    process.env.ADHOC_SYNC_PAGES = '0';
+  });
+
+  const dateRange = { start: '2026-07-01T00:00:00.000Z', end: '2026-07-02T00:00:00.000Z' };
+  const ids = (rs: FhirResource[]): string[] => rs.map((r) => `${r.resourceType}/${r.id}`).sort();
+
+  it('keeps the encounters of the kept appointments and their follow-ups, nothing else', async () => {
+    const out = await fetchReportVisits(
+      client({
+        Appointment: [visit('a1')],
+        Encounter: [enc('e1', 'a1'), enc('e2', 'other')],
+        chained: [enc('f1', undefined, 'e1'), enc('f2', undefined, 'e2'), enc('f3', undefined, 'f1')],
+      }),
+      { dateRange }
+    );
+    expect(ids(out)).toEqual(['Appointment/a1', 'Encounter/e1', 'Encounter/f1', 'Encounter/f3']);
+  });
+
+  it('when the chained follow-up search is refused, finds the follow-ups by their parents', async () => {
+    const out = await fetchReportVisits(
+      client({
+        Appointment: [visit('a1')],
+        Encounter: [enc('e1', 'a1')],
+        chained: 'refuse',
+        byParent: [enc('f1', undefined, 'e1')],
+      }),
+      { dateRange }
+    );
+    expect(ids(out)).toEqual(['Appointment/a1', 'Encounter/e1', 'Encounter/f1']);
   });
 });

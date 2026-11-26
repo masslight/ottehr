@@ -4,13 +4,13 @@ import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   AdHocBillingInputSchema,
   AdHocBillingOutputSchema,
-  BILLING_LAYERS,
+  BILLING_ALL_LAYERS,
 } from 'utils/lib/types/adhoc/datasets/billing';
 import { layerIncludeFlags } from 'utils/lib/types/adhoc/datasets/dataset';
 import {
   AdHocEncountersInputSchema,
   AdHocEncountersOutputSchema,
-  ENCOUNTER_LAYERS,
+  ENCOUNTER_ALL_LAYERS,
 } from 'utils/lib/types/adhoc/datasets/encounters';
 import {
   AdHocMedicationInventoryInputSchema,
@@ -33,13 +33,14 @@ import {
   ADHOC_REPORT_PARAMS_CODE,
   ADHOC_REPORT_TASK_SYSTEM,
 } from 'utils/lib/types/adhoc/generation/report-task';
-import { createBillingClient } from '../../billing/shared';
+import { createBillingClient, createEraReadClient } from '../../billing/shared';
 import { fetchAdHocBillingRows } from '../../shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../../shared/adhoc-datasets/encounters';
+import { applyDatasetLinks, LinkSourceContext } from '../../shared/adhoc-datasets/links';
 import { fetchAdHocMedicationInventoryRows } from '../../shared/adhoc-datasets/medication-inventory';
 import { fetchAdHocPatientRows } from '../../shared/adhoc-datasets/patients';
 import { fetchAdHocReferralRows } from '../../shared/adhoc-datasets/referrals';
-import { beginReportBudget, uploadAdHocReportJsonToZ3 } from '../../shared/adhoc-report';
+import { beginReportBudget, reportDeadline, uploadAdHocReportJsonToZ3 } from '../../shared/adhoc-report';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
 import { wrapTaskHandler } from '../task/helpers';
@@ -64,13 +65,30 @@ async function buildOutputJson(
   oystehr: Oystehr,
   billingOystehr: Oystehr,
   params: ReportParams,
-  environment: string
+  environment: string,
+  eraReadClient: () => Oystehr
 ): Promise<{ json: string; rowCount: number }> {
   const { datasetId, dateRange, options } = params;
+  const linkContext: LinkSourceContext = {
+    oystehr,
+    billingOystehr,
+    eraReadClient,
+    dateRange,
+    deadline: reportDeadline(),
+  };
   switch (datasetId) {
     case 'encounters-comprehensive': {
-      const input = AdHocEncountersInputSchema.parse({ dateRange, ...layerIncludeFlags(ENCOUNTER_LAYERS, options) });
-      const rows = await fetchAdHocEncounterRows(oystehr, input, { environment });
+      const input = AdHocEncountersInputSchema.parse({
+        dateRange,
+        ...layerIncludeFlags(ENCOUNTER_ALL_LAYERS, options),
+      });
+      const rows = await applyDatasetLinks({
+        hostId: datasetId,
+        hostLayers: ENCOUNTER_ALL_LAYERS,
+        rows: await fetchAdHocEncounterRows(oystehr, input, { environment }),
+        options,
+        ctx: linkContext,
+      });
 
       const json = JSON.stringify(
         validateOutputWithSchema(AdHocEncountersOutputSchema, { encounters: rows }, ZAMBDA_NAME)
@@ -96,8 +114,14 @@ async function buildOutputJson(
     }
 
     case 'billing': {
-      const input = AdHocBillingInputSchema.parse({ dateRange, ...layerIncludeFlags(BILLING_LAYERS, options) });
-      const rows = await fetchAdHocBillingRows(oystehr, input, billingOystehr);
+      const input = AdHocBillingInputSchema.parse({ dateRange, ...layerIncludeFlags(BILLING_ALL_LAYERS, options) });
+      const rows = await applyDatasetLinks({
+        hostId: datasetId,
+        hostLayers: BILLING_ALL_LAYERS,
+        rows: await fetchAdHocBillingRows(oystehr, input, billingOystehr),
+        options,
+        ctx: linkContext,
+      });
       const json = JSON.stringify(validateOutputWithSchema(AdHocBillingOutputSchema, { rows }, ZAMBDA_NAME));
       return { json, rowCount: rows.length };
     }
@@ -158,7 +182,8 @@ export const index = wrapTaskHandler(ZAMBDA_NAME, async (input, oystehr) => {
       oystehr,
       createBillingClient(m2mToken, secrets),
       params,
-      getSecret(SecretsKeys.ENVIRONMENT, secrets)
+      getSecret(SecretsKeys.ENVIRONMENT, secrets),
+      () => createEraReadClient(m2mToken, secrets)
     )
   );
   console.log(`[adhoc] data ready task=${task.id} ms=${Date.now() - startedAt} rows=${rowCount} bytes=${json.length}`);

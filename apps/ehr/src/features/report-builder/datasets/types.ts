@@ -17,6 +17,7 @@ export interface AdHocDataset {
   id: string;
   label: string;
   description: string;
+  rowKey: string;
   options?: AdHocLayer[];
   layers?: AdHocLayerMap;
   baseSchema?: z.ZodObject<z.ZodRawShape>;

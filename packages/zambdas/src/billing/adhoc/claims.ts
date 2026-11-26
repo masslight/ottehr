@@ -14,6 +14,7 @@ import { datasetRowSchema } from 'utils/lib/types/adhoc/datasets/dataset';
 import { CLAIM_STATUS_DATE_EXTENSION_URLS } from 'utils/lib/types/data/billing/claim-status';
 import { writeOffReasonLabel } from 'utils/lib/types/data/billing/write-off-reasons';
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { fetchScopedResources } from '../../shared/adhoc-report';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../shared/stripeIntegration';
 import {
   ClaimEraLinks,
@@ -107,7 +108,11 @@ const extraElementsFor = (flags: LayerFlags): string[] => [
 export async function fetchAdHocClaimRows(
   oystehr: Oystehr,
   input: AdHocBillingClaimsInput,
-  { eraReadClient }: { eraReadClient?: Oystehr } = {}
+  {
+    eraReadClient,
+    encounterIds,
+    deadline: callerDeadline,
+  }: { eraReadClient?: Oystehr; encounterIds?: readonly string[]; deadline?: number } = {}
 ): Promise<AdHocBillingClaimsRow[]> {
   const flags: LayerFlags = {
     codes: !!input.includeCodes,
@@ -127,7 +132,7 @@ export async function fetchAdHocClaimRows(
 
   const extraElements = extraElementsFor(flags);
   const startedAt = Date.now();
-  const deadline = startedAt + ADHOC_CLAIMS_BUILD_BUDGET_MS;
+  const deadline = callerDeadline ?? startedAt + ADHOC_CLAIMS_BUILD_BUDGET_MS;
 
   const assertWithinBudget = (): void => {
     if (Date.now() > deadline) throw new Error(ADHOC_CLAIMS_OVER_BUDGET_MESSAGE);
@@ -149,15 +154,23 @@ export async function fetchAdHocClaimRows(
 
   const emCodes = flags.codes && eraReadClient ? await withinBudget(loadEmCodes(eraReadClient)) : new Set<string>();
 
-  const scanned = await withinBudget(scanAllClaims(oystehr, assertWithinBudget));
+  let claimIds: string[];
+  if (encounterIds) {
+    claimIds = await withinBudget(claimIdsForEncounters(oystehr, encounterIds));
+    console.log(
+      `[adhoc-billing] claims of ${encounterIds.length} encounters: ${claimIds.length} ms=${Date.now() - startedAt}`
+    );
+  } else {
+    const scanned = await withinBudget(scanAllClaims(oystehr, assertWithinBudget));
 
-  const claimIds = scanned
-    .filter((claim) => claimMatchesServiceDateRange(claim, input.dateRange.start, input.dateRange.end))
-    .map((claim) => claim.id);
+    claimIds = scanned
+      .filter((claim) => claimMatchesServiceDateRange(claim, input.dateRange.start, input.dateRange.end))
+      .map((claim) => claim.id);
 
-  console.log(
-    `[adhoc-billing] claims scanned=${scanned.length} inRange=${claimIds.length} ms=${Date.now() - startedAt}`
-  );
+    console.log(
+      `[adhoc-billing] claims scanned=${scanned.length} inRange=${claimIds.length} ms=${Date.now() - startedAt}`
+    );
+  }
 
   const payers = createPayerResolver(oystehr);
   const patientKeyResolver = createPatientKeyResolver(oystehr);
@@ -255,6 +268,19 @@ async function loadEmCodes(eraReadClient: Oystehr): Promise<ReadonlySet<string>>
   }
 }
 
+async function claimIdsForEncounters(oystehr: Oystehr, encounterIds: readonly string[]): Promise<string[]> {
+  const unique = Array.from(new Set(encounterIds.filter(Boolean)));
+  if (!unique.length) return [];
+  const claims = await fetchScopedResources<Claim>(
+    oystehr,
+    'Claim',
+    'identifier',
+    unique.map((id) => `${CLAIM_ENCOUNTER_ID_SYSTEM}|${id}`),
+    [{ name: '_elements', value: 'id' }]
+  );
+  return Array.from(new Set(claims.map((claim) => claim.id).filter((id): id is string => !!id))).sort();
+}
+
 async function scanAllClaims(
   oystehr: Oystehr,
   beforePage: () => void
@@ -276,9 +302,6 @@ async function scanAllClaims(
   return claims;
 }
 
-// Not `_summary=count`: Oystehr answers it with total 1 when nothing matches (see ehr/patient-notes/count),
-// which failed every run on a project with no claims. A one-entry search carries an accurate total, and an
-// empty one means there are none, whatever its total says.
 async function countClaims(oystehr: Oystehr): Promise<number> {
   const bundle = await oystehr.fhir.search<Claim>({
     resourceType: 'Claim',

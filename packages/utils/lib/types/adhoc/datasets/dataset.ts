@@ -11,6 +11,7 @@ export interface AdHocLayerDef {
   label: string;
   description: string;
   default?: boolean;
+  key?: string;
   schema: z.ZodObject<z.ZodRawShape>;
 }
 export type AdHocLayerMap = Record<string, AdHocLayerDef>;
@@ -79,3 +80,38 @@ export function unloadedLayers(
     .filter(([id]) => !selected[id])
     .map(([id, def]) => ({ id, label: def.label, description: def.description }));
 }
+
+export function foreignLayers(params: {
+  sourceId: string;
+  sourceLabel: string;
+  source: AdHocLayerMap;
+  key: string;
+  base: z.ZodObject<z.ZodRawShape>;
+  native: AdHocLayerMap;
+}): AdHocLayerMap {
+  const { sourceId, sourceLabel, source, key, base, native } = params;
+  if (!(key in base.shape)) return {};
+
+  const taken = new Set([
+    ...Object.keys(base.shape),
+    ...Object.values(native).flatMap((def) => Object.keys(def.schema.shape)),
+  ]);
+
+  const out: AdHocLayerMap = {};
+  for (const [id, def] of Object.entries(source)) {
+    const fields = Object.keys(def.schema.shape).filter((field) => !taken.has(field));
+    if (!fields.length) continue;
+    out[`${sourceId}.${id}`] = {
+      label: `${sourceLabel}: ${def.label}`,
+      description: `${
+        def.description
+      } (${sourceLabel.toLowerCase()}-level: the same value on every row of the ${sourceLabel.toLowerCase()})`,
+      default: false,
+      key,
+      schema: def.schema.pick(Object.fromEntries(fields.map((field) => [field, true as const]))),
+    };
+  }
+  return out;
+}
+
+export const layerFields = (def: AdHocLayerDef): string[] => Object.keys(def.schema.shape);

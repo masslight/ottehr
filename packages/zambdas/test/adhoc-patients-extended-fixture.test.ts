@@ -26,6 +26,7 @@ import {
 import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { AdHocBillingOutputSchema } from 'utils/lib/types/adhoc/datasets/billing';
+import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
 import { AdHocPatientsOutputSchema } from 'utils/lib/types/adhoc/datasets/patients';
 import {
   PATIENT_HAS_MEDICAID_URL,
@@ -37,8 +38,11 @@ import {
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { PATIENT_CONTAINED_PHARMACY_ID } from '../src/ehr/shared/harvest';
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
+import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 import { makeProcedureResource } from '../src/shared/chart-data';
+
+process.env.ADHOC_SYNC_PAGES = '0';
 
 // Fixture tests for the Patients layers that reuse app logic: the Recent Patients report's new-vs-existing
 // rule and the visit details face sheet's demographics / PCP / pharmacy composers.
@@ -508,6 +512,7 @@ const resourcesByJob: Record<string, FhirResource[]> = {
   ),
   'Appointment:prior': [priorAppointment, priorSeenVisit, longAgoSeenVisit],
 };
+resourcesByJob.Encounter ??= (resourcesByJob.Appointment ?? []).filter((r) => r.resourceType === 'Encounter');
 
 const jobIdFor = (resourceType: string, params: { name: string; value: string }[]): string => {
   if (resourceType === 'Appointment' && params.some((p) => p.name === 'patient')) return 'Appointment:prior';
@@ -791,6 +796,38 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
     expect(other).toMatchObject({ allergies: [], problemCount: 0, currentMedicationCount: 0, surgicalHistory: [] });
   });
 
+  it('foreign patient layers: the encounters and billing rows carry the patient layer columns by patientId', async () => {
+    const patientRows = await fetchAdHocPatientRows(fakeOystehr, {
+      dateRange,
+      includeAllergies: true,
+      includeVisitHistory: true,
+    });
+    const encounterRows = await fetchAdHocEncounterRows(fakeOystehr, {
+      dateRange,
+      'includePatients.allergies': true,
+      'includePatients.visitHistory': true,
+    });
+    expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: encounterRows }))).toEqual([]);
+
+    for (const row of encounterRows) {
+      const patient = patientRows.find((p) => p.patientId === row.patientId)!;
+      expect(row.allergies).toEqual(patient.allergies);
+      expect(row.allergyDetails).toEqual(patient.allergyDetails);
+      expect(row.patientStatus).toBe(patient.patientStatus);
+    }
+    expect(encounterRows.find((r) => r.patientId === 'pat-1')?.allergies).toEqual(['Penicillin', 'Aspirin']);
+
+    expect(encounterRows.every((r) => !('totalVisits' in r))).toBe(true);
+
+    const billingRows = await fetchAdHocBillingRows(
+      fakeOystehr,
+      { dateRange, 'includePatients.allergies': true },
+      emptyBillingOystehr
+    );
+    expect(issuesOf(AdHocBillingOutputSchema.safeParse({ rows: billingRows }))).toEqual([]);
+    expect(billingRows.find((r) => r.patientId === 'pat-1')?.allergies).toEqual(['Penicillin', 'Aspirin']);
+  });
+
   it('rows parse against the schema', async () => {
     const rows = await fetchAdHocPatientRows(fakeOystehr, {
       dateRange,
@@ -825,30 +862,36 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
   });
 
   it('visit history: without an earlier visit, the intake staff "seen in the last 3 years" answer decides', async () => {
-    const staffAnswer = {
-      resourceType: 'Observation',
-      id: 'obs-seen',
-      status: 'final',
-      code: { text: 'seen-in-last-three-years' },
-      encounter: { reference: 'Encounter/enc-2' },
-      valueString: 'yes',
-      meta: {
-        tag: [{ system: `${PRIVATE_EXTENSION_BASE_URL}/additional-questions-field`, code: 'seen-in-last-three-years' }],
-      },
-    };
-    const withAnswers = {
-      ...fakeOystehr,
-      fhir: {
-        ...fakeOystehr.fhir,
-        search: async (args: { resourceType: string }, options?: { mode?: string }) =>
-          args.resourceType === 'Observation' && options?.mode !== 'async-bulk'
-            ? { unbundle: () => [staffAnswer], link: [] }
-            : (fakeOystehr.fhir.search as any)(args, options),
-      },
-    } as unknown as Oystehr;
+    const staffAnswer = (id: string, value: string, lastUpdated: string): FhirResource =>
+      ({
+        resourceType: 'Observation',
+        id,
+        status: 'final',
+        code: { text: 'seen-in-last-three-years' },
+        encounter: { reference: 'Encounter/enc-2' },
+        valueString: value,
+        meta: {
+          lastUpdated,
+          tag: [
+            { system: `${PRIVATE_EXTENSION_BASE_URL}/additional-questions-field`, code: 'seen-in-last-three-years' },
+          ],
+        },
+      }) as FhirResource;
 
-    const rows = await fetchAdHocPatientRows(withAnswers, { dateRange, includeVisitHistory: true });
-    expect(rows.find((r) => r.patientId === 'pat-2')?.patientStatus).toBe('existing');
+    try {
+      resourcesByJob.Observation = [staffAnswer('obs-seen', 'yes', '2026-07-01T10:00:00.000Z')];
+      const rows = await fetchAdHocPatientRows(fakeOystehr, { dateRange, includeVisitHistory: true });
+      expect(rows.find((r) => r.patientId === 'pat-2')?.patientStatus).toBe('existing');
+
+      resourcesByJob.Observation = [
+        staffAnswer('obs-new', 'no', '2026-07-02T10:00:00.000Z'),
+        staffAnswer('obs-old', 'yes', '2026-07-01T10:00:00.000Z'),
+      ].reverse();
+      const corrected = await fetchAdHocPatientRows(fakeOystehr, { dateRange, includeVisitHistory: true });
+      expect(corrected.find((r) => r.patientId === 'pat-2')?.patientStatus).toBe('new');
+    } finally {
+      delete resourcesByJob.Observation;
+    }
   });
 
   it('demographics: face-sheet details, PCP and pharmacy', async () => {

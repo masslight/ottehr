@@ -132,12 +132,14 @@ export function llmFieldsForLayers(
   internalFields: readonly string[] = [],
   domains: Record<string, string[]> = {}
 ): LlmFieldSchema[] {
-  return [
+  const fields = [
     ...llmFieldsFromZodObject(base, internalFields, domains),
     ...Object.entries(layers)
       .filter(([id]) => selected[id])
       .flatMap(([, layer]) => llmFieldsFromZodObject(layer, internalFields, domains)),
   ];
+  const seen = new Set<string>();
+  return fields.filter((field) => !seen.has(field.name) && !!seen.add(field.name));
 }
 
 // Max distinct values a whitelisted field may disclose. Above this the field is too high-cardinality

@@ -39,6 +39,7 @@ async function fetchAdHocReferrals({
 
 export const referralsDataset: AdHocDataset = {
   id: 'referrals',
+  rowKey: 'referralId',
   label: 'Referrals',
   description:
     'One row per referral created in the date range: specialty, recipient, referring provider, location, status ' +

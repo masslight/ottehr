@@ -41,6 +41,7 @@ async function fetchAdHocMedicationInventory({
 
 export const medicationInventoryDataset: AdHocDataset = {
   id: MEDICATION_INVENTORY_DATASET_ID,
+  rowKey: 'entryId',
   label: LABEL,
   description: DESCRIPTION,
   options: layerOptions(MEDICATION_INVENTORY_LAYERS),

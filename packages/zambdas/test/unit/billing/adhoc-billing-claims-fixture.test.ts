@@ -68,6 +68,8 @@ import {
 import { WRITE_OFF_PARTY_EXT_URL, WRITE_OFF_REASON_EXT_URL, WRITE_OFF_SYSTEM } from '../../../src/billing/write-offs';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
 
+process.env.ADHOC_SYNC_PAGES = '0';
+
 const ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 const PAYER_A = 'https://rcm-api.zapehr.com/v1/payer/payer-a';
 const PAYER_B = 'https://rcm-api.zapehr.com/v1/payer/payer-b';
@@ -500,7 +502,6 @@ function stubBillingClient({
     let matches = store.filter((r) => r.resourceType === resourceType && !(noClaims && r.resourceType === 'Claim'));
 
     if (all('_summary')[0] === 'count') {
-      // As Oystehr does: an empty match set still reports total 1.
       return { resourceType: 'Bundle', type: 'searchset', total: Math.max(matches.length, 1), unbundle: () => [] };
     }
 
@@ -783,6 +784,46 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
 
     await expect(fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE })).rejects.toThrow(
       `Claim scan returned ${claims.length} of the ${claims.length + 1} claims that existed when it began`
+    );
+  });
+
+  it("builds the rows of the given encounters' claims, by identifier and whatever their service date", async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const previous = process.env.ADHOC_SYNC_PAGES;
+    process.env.ADHOC_SYNC_PAGES = '6';
+    try {
+      const { oystehr, search } = stubBillingClient();
+      const rows = await fetchAdHocClaimRows(
+        oystehr,
+        { dateRange: DATE_RANGE },
+        { encounterIds: ['enc-claim-1', 'enc-claim-3', 'enc-claim-3', 'enc-without-claim'] }
+      );
+
+      expect(rows.map((r) => r.claimId).sort()).toEqual(['claim-1', 'claim-3']);
+      expect(() => AdHocBillingClaimsOutputSchema.parse({ rows })).not.toThrow();
+
+      const scans = search.mock.calls.filter(
+        ([arg]) =>
+          (arg.params as Param[]).find((p) => p.name === '_elements')?.value === 'id,meta,created,item,billablePeriod'
+      );
+      expect(scans).toHaveLength(0);
+      const lookup = search.mock.calls.find(([arg]) => (arg.params as Param[]).some((p) => p.name === 'identifier'));
+      expect(lookup?.[0].resourceType).toBe('Claim');
+    } finally {
+      process.env.ADHOC_SYNC_PAGES = previous;
+    }
+  });
+
+  it('builds no rows and runs no search for an empty encounter list', async () => {
+    const { oystehr, search } = stubBillingClient();
+    await expect(fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE }, { encounterIds: [] })).resolves.toEqual([]);
+    expect(search.mock.calls.filter(([arg]) => arg.resourceType === 'Claim')).toHaveLength(0);
+  });
+
+  it('stops at the deadline the caller passes, with the budget error', async () => {
+    const { oystehr } = stubBillingClient();
+    await expect(fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE }, { deadline: Date.now() - 1 })).rejects.toThrow(
+      ADHOC_CLAIMS_OVER_BUDGET_MESSAGE
     );
   });
 

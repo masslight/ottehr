@@ -11,12 +11,26 @@ export const toLocalYmd = (iso: string | null | undefined): string | null => {
 
 export const ADHOC_QUERY_STALE_MS = 5 * 60 * 1000;
 
+const isGzip = (bytes: Uint8Array): boolean => bytes.length > 1 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+
+export async function readReportDataBytes(bytes: Uint8Array): Promise<string> {
+  if (!isGzip(bytes)) return new TextDecoder().decode(bytes);
+
+  if (typeof DecompressionStream === 'undefined') {
+    throw new Error('This browser cannot open the report data. Update the browser and try again.');
+  }
+
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+
+  return new Response(stream).text();
+}
+
 export async function downloadReportData<T>(downloadUrl: string): Promise<T> {
   const response = await fetch(downloadUrl);
   if (!response.ok) {
     throw new Error(`Report data download failed: ${response.status}`);
   }
-  return (await response.json()) as T;
+  return JSON.parse(await readReportDataBytes(new Uint8Array(await response.arrayBuffer()))) as T;
 }
 
 const ADHOC_POLL_INTERVAL_MS = 2000;
@@ -29,6 +43,8 @@ export async function pollAdHocTask<S extends { status: string; error?: string }
   { failedMessage, timeoutMessage }: { failedMessage: string; timeoutMessage: string }
 ): Promise<S> {
   const deadline = Date.now() + ADHOC_POLL_TIMEOUT_MS;
+
+  await new Promise((resolve) => setTimeout(resolve, ADHOC_POLL_INTERVAL_MS));
 
   while (Date.now() < deadline) {
     const status = await getStatus();

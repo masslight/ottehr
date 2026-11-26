@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
+  BILLING_ALL_LAYERS,
   BILLING_DOMAIN_FIELDS,
   BILLING_INTERNAL_FIELDS,
-  BILLING_LAYERS,
   BillingBaseRowSchema,
 } from './datasets/billing';
 import {
@@ -22,6 +22,7 @@ import { AdHocLayerMap, layerIncludeFlags, layerOptions, layerSchemas, unloadedL
 import {
   AdHocEncountersInputSchema,
   AdHocEncountersOutputSchema,
+  ENCOUNTER_ALL_LAYERS,
   ENCOUNTER_DOMAIN_FIELDS,
   ENCOUNTER_INTERNAL_FIELDS,
   ENCOUNTER_LAYERS,
@@ -320,14 +321,14 @@ describe('data leak boundary — only whitelisted domain fields emit sampled val
     {
       name: 'encounters',
       base: EncounterBaseRowSchema,
-      layers: ENCOUNTER_LAYERS,
+      layers: ENCOUNTER_ALL_LAYERS,
       internal: ENCOUNTER_INTERNAL_FIELDS,
       domain: ENCOUNTER_DOMAIN_FIELDS,
     },
     {
       name: 'billing',
       base: BillingBaseRowSchema,
-      layers: BILLING_LAYERS,
+      layers: BILLING_ALL_LAYERS,
       internal: BILLING_INTERNAL_FIELDS,
       domain: BILLING_DOMAIN_FIELDS,
     },
@@ -384,6 +385,18 @@ describe('data leak boundary — only whitelisted domain fields emit sampled val
 
     // Explicit spot check: a non-whitelisted identifier never carries data values.
     if (byName.patientName) expect(byName.patientName.values).toBeUndefined();
+  });
+});
+
+describe('llmFieldsForLayers: one field per name', () => {
+  it('lists a field declared by several selected layers once (claimMatched is in every claim link layer)', () => {
+    const selected = { 'billing-claims.base': true, 'billing-claims.codes': true, 'billing-claims.remits': true };
+    const names = llmFieldsForLayers(EncounterBaseRowSchema, layerSchemas(ENCOUNTER_ALL_LAYERS), selected).map(
+      (f) => f.name
+    );
+    expect(names.filter((name) => name === 'claimMatched')).toHaveLength(1);
+    expect(new Set(names).size).toBe(names.length);
+    expect(names.indexOf('claimMatched')).toBeLessThan(names.indexOf('claimCptCodes'));
   });
 });
 

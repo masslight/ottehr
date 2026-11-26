@@ -17,6 +17,9 @@ import {
 
 const SCREENING_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/${ADDITIONAL_QUESTIONS_META_SYSTEM}`;
 const SEEN_BEFORE_FIELDS = [SEEN_IN_LAST_THREE_YEARS_FIELD, PATIENT_SEEN_IN_LAST_THREE_YEARS_FIELD];
+export const SEEN_BEFORE_ANSWER_TAGS = SEEN_BEFORE_FIELDS.map((field) => `${SCREENING_TAG_SYSTEM}|${field}`).join(',');
+
+export type SeenBeforeAnswers = Map<string, NonNullable<VisitSeenBeforeData['observations']>>;
 const ENCOUNTERS_PER_SEARCH = 100;
 const SEARCH_CONCURRENCY = 4;
 
@@ -28,6 +31,12 @@ interface VisitInRange {
 export interface PatientVisitsInRange {
   hasPriorVisit: boolean;
   visits: VisitInRange[];
+}
+
+export function seenBeforeEncounterIds(visits: VisitInRange[]): string[] {
+  return visitsBeforeFirstSeen(visits)
+    .map((visit) => visit.encounterId)
+    .filter((id): id is string => Boolean(id));
 }
 
 function visitsBeforeFirstSeen(visits: VisitInRange[]): VisitInRange[] {
@@ -43,7 +52,8 @@ function visitsBeforeFirstSeen(visits: VisitInRange[]): VisitInRange[] {
 
 export async function resolveNewPatients<K>(
   oystehr: Oystehr,
-  patients: Map<K, PatientVisitsInRange>
+  patients: Map<K, PatientVisitsInRange>,
+  answers?: SeenBeforeAnswers
 ): Promise<Map<K, boolean>> {
   const relevantVisits = new Map<K, VisitInRange[]>();
 
@@ -51,13 +61,15 @@ export async function resolveNewPatients<K>(
     relevantVisits.set(key, hasPriorVisit ? [] : visitsBeforeFirstSeen(visits));
   }
 
-  const answersByEncounter = await fetchSeenBeforeAnswers(
-    oystehr,
-    Array.from(relevantVisits.values())
-      .flat()
-      .map((visit) => visit.encounterId)
-      .filter((id): id is string => Boolean(id))
-  );
+  const answersByEncounter =
+    answers ??
+    (await fetchSeenBeforeAnswers(
+      oystehr,
+      Array.from(relevantVisits.values())
+        .flat()
+        .map((visit) => visit.encounterId)
+        .filter((id): id is string => Boolean(id))
+    ));
 
   const result = new Map<K, boolean>();
 
@@ -88,7 +100,7 @@ async function fetchSeenBeforeAnswers(
           resourceType: 'Observation',
           params: [
             { name: 'encounter', value: ids.map((id) => `Encounter/${id}`).join(',') },
-            { name: '_tag', value: SEEN_BEFORE_FIELDS.map((field) => `${SCREENING_TAG_SYSTEM}|${field}`).join(',') },
+            { name: '_tag', value: SEEN_BEFORE_ANSWER_TAGS },
             { name: '_sort', value: '-_lastUpdated' },
           ],
         },
@@ -96,23 +108,32 @@ async function fetchSeenBeforeAnswers(
       )
   );
 
-  const byEncounter = new Map<string, NonNullable<VisitSeenBeforeData['observations']>>();
-
+  const observations: Observation[] = [];
   for (const group of chunkThings(searches, SEARCH_CONCURRENCY)) {
-    for (const observation of (await Promise.all(group.map((search) => search()))).flat()) {
-      const encounterId = observation.encounter?.reference?.replace('Encounter/', '');
-
-      const field = observation.meta?.tag?.find(
-        (tag) => tag.system === SCREENING_TAG_SYSTEM && SEEN_BEFORE_FIELDS.includes(tag.code ?? '')
-      )?.code;
-
-      if (!encounterId || !field) continue;
-
-      byEncounter.set(encounterId, [
-        ...(byEncounter.get(encounterId) ?? []),
-        { field, value: observation.valueString ?? observation.valueBoolean },
-      ]);
-    }
+    observations.push(...(await Promise.all(group.map((search) => search()))).flat());
   }
+  return groupSeenBeforeAnswers(observations);
+}
+
+export function groupSeenBeforeAnswers(observations: Observation[]): SeenBeforeAnswers {
+  const byEncounter: SeenBeforeAnswers = new Map();
+  const updatedAt = (o: Observation): number => Date.parse(o.meta?.lastUpdated ?? '') || 0;
+  const newestFirst = [...observations].sort((a, b) => updatedAt(b) - updatedAt(a));
+
+  for (const observation of newestFirst) {
+    const encounterId = observation.encounter?.reference?.replace('Encounter/', '');
+
+    const field = observation.meta?.tag?.find(
+      (tag) => tag.system === SCREENING_TAG_SYSTEM && SEEN_BEFORE_FIELDS.includes(tag.code ?? '')
+    )?.code;
+
+    if (!encounterId || !field) continue;
+
+    byEncounter.set(encounterId, [
+      ...(byEncounter.get(encounterId) ?? []),
+      { field, value: observation.valueString ?? observation.valueBoolean },
+    ]);
+  }
+
   return byEncounter;
 }
