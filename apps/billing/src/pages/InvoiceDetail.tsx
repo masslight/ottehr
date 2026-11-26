@@ -187,11 +187,8 @@ export default function InvoiceDetail(): ReactElement {
       }),
   });
 
-  const isLocked = !(
-    invoice.data?.status === 'issued' &&
-    invoice.data.amount > 0 &&
-    invoice.data.balance === invoice.data.amount
-  );
+  const takesPayment = invoice.data?.status === 'issued' && (invoice.data.balance ?? 0) > 0;
+  const voidable = takesPayment && invoice.data?.balance === invoice.data?.amount;
   const isVoid = invoice.data?.status === 'cancelled';
 
   const download = async ({
@@ -272,13 +269,13 @@ export default function InvoiceDetail(): ReactElement {
             flexGrow: 1,
           }}
         />
-        <Button variant="contained" disabled={isLocked} onClick={() => setRecordingPayment(true)}>
+        <Button variant="contained" disabled={!takesPayment} onClick={() => setRecordingPayment(true)}>
           Record payment
         </Button>
-        <Button variant="outlined" disabled={isLocked} onClick={() => setCollectingCardPayment(true)}>
+        <Button variant="outlined" disabled={!takesPayment} onClick={() => setCollectingCardPayment(true)}>
           Collect card payment
         </Button>
-        <Button variant="outlined" color="error" disabled={isLocked} onClick={() => setVoiding(true)}>
+        <Button variant="outlined" color="error" disabled={!voidable} onClick={() => setVoiding(true)}>
           Void invoice
         </Button>
         <Tooltip title={isVoid ? 'This invoice is void, so its PDF is no longer available' : ''}>
@@ -328,18 +325,23 @@ export default function InvoiceDetail(): ReactElement {
       )}
       {invoice.data && (
         <>
-          <RecordInvoicePaymentDialog
-            open={recordingPayment}
-            onClose={() => setRecordingPayment(false)}
-            onRecorded={() => invoice.refetch()}
-            invoice={invoice.data}
-          />
-          <CollectInvoiceCardPaymentDialog
-            open={collectingCardPayment}
-            onClose={() => setCollectingCardPayment(false)}
-            onPaid={() => invoice.refetch()}
-            invoice={invoice.data}
-          />
+          {/* mounted only while open, so each opening starts from the current balance */}
+          {recordingPayment && (
+            <RecordInvoicePaymentDialog
+              open
+              onClose={() => setRecordingPayment(false)}
+              onRecorded={() => invoice.refetch()}
+              invoice={invoice.data}
+            />
+          )}
+          {collectingCardPayment && (
+            <CollectInvoiceCardPaymentDialog
+              open
+              onClose={() => setCollectingCardPayment(false)}
+              onPaid={() => invoice.refetch()}
+              invoice={invoice.data}
+            />
+          )}
           <VoidInvoiceDialog
             open={voiding}
             onClose={() => setVoiding(false)}

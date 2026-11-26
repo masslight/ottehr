@@ -13,7 +13,6 @@ import {
   FormHelperText,
   FormLabel,
   IconButton,
-  InputAdornment,
   InputLabel,
   ListItemText,
   MenuItem,
@@ -37,6 +36,7 @@ import { listBillingPatientPaymentMethods, postBillingPatientPayment, recordBill
 import { useApiClients } from '../hooks/useAppClients';
 import { CardSelect } from './CardSelect';
 import { DateInput } from './DateInput';
+import { PaymentAmountField, toAmountInCents } from './PaymentAmountField';
 
 // mirrors the EHR visit-details payment dialog; a card reader payment is keyed in like cash here,
 // since payments taken on a Stripe-connected reader record themselves
@@ -57,8 +57,6 @@ interface PaymentForm {
   paymentDate: string;
   checkNumber: string;
 }
-
-const AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
 
 const defaultValues = (visits: BillingPatientVisit[]): PaymentForm => ({
   encounterId: visits[0]?.encounterId ?? '',
@@ -164,7 +162,7 @@ export function AddPatientPaymentDialog({
 
   const submit = async (form: PaymentForm): Promise<void> => {
     if (!oystehrZambda) return;
-    const amountInCents = Math.round(Number(form.amount) * 100);
+    const amountInCents = toAmountInCents(form.amount);
     const checkNumber = form.paymentMethod === 'check' ? form.checkNumber.trim() || undefined : undefined;
     const signature = JSON.stringify([
       form.encounterId,
@@ -254,29 +252,7 @@ export function AddPatientPaymentDialog({
               </FormControl>
             )}
           />
-          <Controller
-            name="amount"
-            control={control}
-            rules={{
-              required: REQUIRED_FIELD_ERROR_MESSAGE,
-              validate: (value) =>
-                (AMOUNT_PATTERN.test(value.trim()) && Number(value) > 0) ||
-                'Enter an amount greater than $0 with at most 2 decimal places',
-            }}
-            render={({ field, fieldState: { error } }) => (
-              <TextField
-                label="Amount *"
-                size="small"
-                fullWidth
-                InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                inputProps={{ inputMode: 'decimal' }}
-                value={field.value}
-                onChange={(e) => field.onChange(e.target.value)}
-                error={!!error}
-                helperText={error?.message}
-              />
-            )}
-          />
+          <PaymentAmountField control={control} name="amount" />
           <Controller
             name="paymentMethod"
             control={control}

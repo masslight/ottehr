@@ -77,11 +77,10 @@ describe('RecordInvoicePaymentDialog', () => {
     mocks.upload.mockResolvedValue(undefined);
   });
 
-  it('records the whole balance with the method, date and reference entered', async () => {
+  it('records the balance by default with the method, date and reference entered', async () => {
     renderDialog();
-    const amount = screen.getByRole('textbox', { name: 'Amount' });
+    const amount = screen.getByRole('textbox', { name: 'Amount *' });
     expect(amount).toHaveValue('320.00');
-    expect(amount).toBeDisabled();
 
     fillPayment();
     submit();
@@ -98,6 +97,43 @@ describe('RecordInvoicePaymentDialog', () => {
     });
     expect(mocks.presign).not.toHaveBeenCalled();
     expect(mocks.onClose).toHaveBeenCalled();
+  });
+
+  it('records an amount under the balance', async () => {
+    renderDialog();
+    fillPayment();
+    const amount = screen.getByRole('textbox', { name: 'Amount *' });
+    fireEvent.change(amount, {
+      target: {
+        value: '120.50',
+      },
+    });
+
+    submit();
+
+    await waitFor(() => expect(mocks.record).toHaveBeenCalled());
+    expect(mocks.record).toHaveBeenCalledWith(
+      mocks.client,
+      expect.objectContaining({
+        amountInCents: 12050,
+      })
+    );
+  });
+
+  it('refuses an amount over the balance without recording', async () => {
+    renderDialog();
+    fillPayment();
+    const amount = screen.getByRole('textbox', { name: 'Amount *' });
+    fireEvent.change(amount, {
+      target: {
+        value: '320.01',
+      },
+    });
+
+    submit();
+
+    expect(await screen.findByText('Enter at most $320.00')).toBeInTheDocument();
+    expect(mocks.record).not.toHaveBeenCalled();
   });
 
   it('refuses a payment date in the future without recording', async () => {
@@ -180,6 +216,27 @@ describe('RecordInvoicePaymentDialog', () => {
     expect(second.idempotencyKey).toBe(first.idempotencyKey);
     expect(second.attachment).toEqual(first.attachment);
     expect(mocks.upload).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps its key when the details are edited after a failure', async () => {
+    mocks.record.mockRejectedValueOnce(new Error('Network error'));
+    renderDialog();
+    fillPayment();
+
+    submit();
+    await screen.findByText('Network error');
+    const reference = screen.getByRole('textbox', { name: 'Reference #' });
+    fireEvent.change(reference, {
+      target: {
+        value: 'WIRE-89',
+      },
+    });
+    submit();
+
+    await waitFor(() => expect(mocks.onRecorded).toHaveBeenCalled());
+    const [[, first], [, second]] = mocks.record.mock.calls;
+    expect(second.reference).toBe('WIRE-89');
+    expect(second.idempotencyKey).toBe(first.idempotencyKey);
   });
 
   it('resends the amount it first sent after a refetch shows the invoice paid', async () => {

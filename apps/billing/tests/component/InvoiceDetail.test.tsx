@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { BillingInvoiceDetail } from 'utils/lib/types/data/billing/billing.types';
@@ -193,14 +193,16 @@ describe('InvoiceDetail', () => {
     expect(collectCardPayment).toBeEnabled();
   });
 
-  it('takes no payment on a partially paid invoice, since only full payments are taken', async () => {
+  it('takes another payment on a partially paid invoice, but no longer voids it', async () => {
     renderPage();
 
     await screen.findByRole('heading', { name: 'INV-00042' });
     const recordPayment = screen.getByRole('button', { name: 'Record payment' });
     const collectCardPayment = screen.getByRole('button', { name: 'Collect card payment' });
-    expect(recordPayment).toBeDisabled();
-    expect(collectCardPayment).toBeDisabled();
+    const voidInvoice = screen.getByRole('button', { name: 'Void invoice' });
+    expect(recordPayment).toBeEnabled();
+    expect(collectCardPayment).toBeEnabled();
+    expect(voidInvoice).toBeDisabled();
   });
 
   it('takes no payment on a paid invoice', async () => {
@@ -231,7 +233,7 @@ describe('InvoiceDetail', () => {
     await user.click(collectCardPayment);
 
     const dialog = within(screen.getByRole('dialog'));
-    expect(dialog.getByRole('textbox', { name: 'Amount' })).toHaveValue('320.00');
+    expect(dialog.getByRole('textbox', { name: 'Amount *' })).toHaveValue('320.00');
     expect(mocks.listCards).toHaveBeenCalledWith(mocks.client, {
       invoiceId: 'invoice-1',
     });
@@ -329,7 +331,27 @@ describe('InvoiceDetail', () => {
     await user.click(recordPayment);
 
     const dialog = within(screen.getByRole('dialog'));
-    expect(dialog.getByRole('textbox', { name: 'Amount' })).toHaveValue('320.00');
+    expect(dialog.getByRole('textbox', { name: 'Amount *' })).toHaveValue('320.00');
+  });
+
+  it('reopens the record payment dialog with the balance after an edited amount was cancelled', async () => {
+    const user = userEvent.setup();
+    mocks.getInvoice.mockResolvedValue(unpaidInvoice);
+    renderPage();
+    await screen.findByRole('heading', { name: 'INV-00042' });
+    const recordPayment = screen.getByRole('button', { name: 'Record payment' });
+
+    await user.click(recordPayment);
+    const amount = within(screen.getByRole('dialog')).getByRole('textbox', { name: 'Amount *' });
+    await user.clear(amount);
+    await user.type(amount, '100');
+    const cancel = within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' });
+    await user.click(cancel);
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await user.click(recordPayment);
+
+    const reopened = within(screen.getByRole('dialog'));
+    expect(reopened.getByRole('textbox', { name: 'Amount *' })).toHaveValue('320.00');
   });
 
   it('downloads the invoice PDF from a freshly presigned link', async () => {
