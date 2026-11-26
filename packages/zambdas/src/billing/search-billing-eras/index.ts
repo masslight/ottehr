@@ -9,6 +9,7 @@ import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { countEraClaims, fetchClaimEraLinks, fetchClaimResponsesByPaymentReconciliations } from '../claim-amounts';
 import { resolvePayerIssuerFilter } from '../custom-insurance-org.helpers';
@@ -44,7 +45,7 @@ export async function performEffect(
   const offset = params.offset ?? 0;
   const hasClaimFilters = params.claimStatus || params.dosFrom || params.dosTo || params.patientId || params.searchText;
 
-  const [payerIssuerFilter, claimFilterPrIds] = await Promise.all([
+  const [payerIssuerFilterResult, claimFilterPrIdsResult] = await Promise.allSettled([
     // Resolve the payer filter to Oystehr payer list URLs; null when no payer matches the name
     (async (): Promise<string | null | undefined> => {
       if (params.payerId) {
@@ -66,6 +67,7 @@ export async function performEffect(
         )
       : undefined,
   ]);
+  const payerIssuerFilter = settledValueOrThrow(payerIssuerFilterResult);
   if (payerIssuerFilter === null) return { eras: [], total: 0, offset, pageSize };
 
   // ERA-level FHIR search, without the paging the server can only apply to the filters it runs
@@ -76,6 +78,7 @@ export async function performEffect(
   if (params.eraDateTo) filterParams.push({ name: 'created', value: `le${params.eraDateTo}` });
   if (payerIssuerFilter) filterParams.push({ name: 'payment-issuer', value: payerIssuerFilter });
 
+  const claimFilterPrIds = settledValueOrThrow(claimFilterPrIdsResult);
   if (claimFilterPrIds) {
     if (claimFilterPrIds.size === 0) return { eras: [], total: 0, offset, pageSize };
 

@@ -4,6 +4,7 @@ import { Patient, ProvenanceAgent } from 'fhir/r4b';
 import { UpdateBillingPatientInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { commitClaimResourceChange, resolveClaimActor } from '../provenance';
@@ -44,7 +45,12 @@ export async function performEffect(
   params: UpdateBillingPatientParams,
   callerAgent?: ProvenanceAgent | Promise<ProvenanceAgent | undefined>
 ): Promise<{ id: string }> {
-  const [patient, agent] = await Promise.all([fetchById<Patient>(oystehr, 'Patient', params.patientId), callerAgent]);
+  const [patientResult, agentResult] = await Promise.allSettled([
+    fetchById<Patient>(oystehr, 'Patient', params.patientId),
+    callerAgent,
+  ]);
+  const agent = settledValueOrThrow(agentResult);
+  const patient = settledValueOrThrow(patientResult);
   const before = structuredClone(patient);
 
   patient.name = [{ family: params.lastName, given: [params.firstName] }];

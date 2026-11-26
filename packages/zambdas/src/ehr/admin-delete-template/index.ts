@@ -10,6 +10,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import { findHolderList, verifyIsTemplate } from '../shared/template-helpers';
@@ -50,17 +51,19 @@ const performEffect = async (
 ): Promise<{ message: string }> => {
   const { templateId } = validatedInput;
 
-  const [templateList, holderList] = await Promise.all([
+  const [templateListResult, holderListResult] = await Promise.allSettled([
     oystehr.fhir.get<List>({
       resourceType: 'List',
       id: templateId,
     }),
     findHolderList(oystehr),
   ]);
+  const templateList = settledValueOrThrow(templateListResult);
 
   verifyIsTemplate(templateList, templateId);
 
   // Remove the template reference from the holder list.
+  const holderList = settledValueOrThrow(holderListResult);
 
   if (holderList?.id) {
     const holderId = holderList.id;

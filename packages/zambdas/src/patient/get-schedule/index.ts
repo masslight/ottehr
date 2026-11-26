@@ -39,6 +39,7 @@ import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { isEntryAtBookableLocation } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -89,7 +90,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   const availableSlots: SlotListItem[] = [];
 
   console.time('get-schedule-from-slug');
-  const [scheduleData, fhirCategoryHits] = await Promise.all([
+  const [scheduleDataResult, fhirCategoryHitsResult] = await Promise.allSettled([
     getSchedules(oystehr, scheduleType, { slug }),
     oystehr.fhir
       .search<HealthcareService>({
@@ -101,7 +102,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
       })
       .then((bundle) => bundle.unbundle()),
   ]);
-  const { scheduleList, metadata, rootScheduleOwner: scheduleOwner } = scheduleData;
+  const { scheduleList, metadata, rootScheduleOwner: scheduleOwner } = settledValueOrThrow(scheduleDataResult);
   console.timeEnd('get-schedule-from-slug');
   console.log('groupItems retrieved from getScheduleUtil:', JSON.stringify(scheduleList, null, 2));
   //console.log('owner retrieved from getScheduleUtil:', JSON.stringify(scheduleOwner, null, 2));
@@ -118,6 +119,8 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   // Same lookup feeds Slot.serviceCategory stamping, slot duration, AND cadence.
   // We fetch the category-tagged HealthcareServices once and use the result for
   // every downstream lookup that needs them.
+  const fhirCategoryHits = settledValueOrThrow(fhirCategoryHitsResult);
+
   const parseCategoryConfig = (hs: HealthcareService): { durationMinutes?: number; cadenceMinutes?: number } => ({
     durationMinutes: getServiceCategoryDurationMinutes(hs),
     cadenceMinutes: getServiceCategoryCadenceMinutes(hs),

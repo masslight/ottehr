@@ -6,6 +6,7 @@ import { CreateBillingClaimTaskInputSchema } from 'utils/lib/types/data/billing/
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { findBillingClaimForEncounter } from '../payments';
@@ -23,10 +24,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
 
-  const [encounter, existingClaim] = await Promise.all([
+  const [encounterResult, existingClaimResult] = await Promise.allSettled([
     complexValidation(clinicalOystehr, params),
     findBillingClaimForEncounter(billingOystehr, params.encounterId),
   ]);
+  const encounter = settledValueOrThrow(encounterResult);
+  const existingClaim = settledValueOrThrow(existingClaimResult);
   const response = await performEffect(billingOystehr, params, encounter, existingClaim);
   return { statusCode: 200, body: JSON.stringify(response) };
 });

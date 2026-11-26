@@ -17,6 +17,7 @@ import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { getMyPractitionerId } from '../../../../shared/practitioners';
 import { wrapHandler } from '../../../../shared/sentry';
+import { settledValueOrThrow } from '../../../../shared/settled';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { makeSoftDeleteStatusPatchRequest } from '../../shared/helpers';
 import {
@@ -38,13 +39,13 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-  const [
-    practitionerIdFromCurrentUser,
-    { serviceRequest, questionnaireResponse, tasks, communications, documentReferences, diagnosticReports },
-  ] = await Promise.all([
+  const [practitionerIdResult, labOrderResourcesResult] = await Promise.allSettled([
     getMyPractitionerId(validatedParameters.userToken, validatedParameters.secrets),
     getLabOrderRelatedResources(oystehr, validatedParameters),
   ]);
+  const practitionerIdFromCurrentUser = settledValueOrThrow(practitionerIdResult);
+  const { serviceRequest, questionnaireResponse, tasks, communications, documentReferences, diagnosticReports } =
+    settledValueOrThrow(labOrderResourcesResult);
 
   if (!serviceRequest) {
     return {

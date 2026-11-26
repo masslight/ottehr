@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 
@@ -138,7 +139,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, parsed.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, parsed.secrets);
 
-  const [currentGroup, slugClash, supportedCategoryHsBundle] = await Promise.all([
+  const [currentGroupResult, slugClashResult, supportedCategoryHsBundleResult] = await Promise.allSettled([
     oystehr.fhir.get<HealthcareService>({
       resourceType: 'HealthcareService',
       id: parsed.groupId,
@@ -156,6 +157,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         })
       : undefined,
   ]);
+  const currentGroup = settledValueOrThrow(currentGroupResult);
 
   // Groups and service categories share resourceType='HealthcareService';
   // SERVICE_CATEGORY_TAG is the only wire-level discriminator, so the
@@ -170,6 +172,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Slug uniqueness — a second Group already using this slug would silently
   // start winning URL routing depending on FHIR search order. Check before
   // writing so the caller gets a clear error instead of a corrupted UX.
+  const slugClash = settledValueOrThrow(slugClashResult);
   if (slugClash) {
     const conflicting = slugClash.unbundle().find((hs) => hs.id && hs.id !== parsed.groupId);
     if (conflicting) {
@@ -232,8 +235,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Group's category allow-list.
   if (parsed.supportedCategoryHsIds !== undefined) {
     const newType: CodeableConcept[] = [];
-    if (supportedCategoryHsBundle) {
-      const hsBundle = supportedCategoryHsBundle;
+    const hsBundle = settledValueOrThrow(supportedCategoryHsBundleResult);
+    if (hsBundle) {
       const hsById = new Map<string, HealthcareService>();
       for (const hs of hsBundle.unbundle()) {
         if (hs.id) hsById.set(hs.id, hs);

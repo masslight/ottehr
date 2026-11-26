@@ -6,6 +6,7 @@ import { CLAIM_STATUS_FIELDS_BY_KEY, getClaimStatusFieldValue } from 'utils/lib/
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { applyClaimStatusField, commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../provenance';
 import { assertValidClaimStatusField, buildUpdatedClaimStatusTags, createBillingClient, fetchById } from '../shared';
@@ -31,13 +32,15 @@ export async function performEffect(
   params: SetClaimStatusParams,
   callerAgent: ProvenanceAgent | Promise<ProvenanceAgent>
 ): Promise<{ ok: true }> {
-  const [{ value, claim }, agent] = await Promise.all([
+  const [claimResult, agentResult] = await Promise.allSettled([
     (async () => {
       const value = assertValidClaimStatusField(params.field, params.value ?? null);
       return { value, claim: await fetchById<Claim>(oystehr, 'Claim', params.claimId) };
     })(),
     callerAgent,
   ]);
+  const agent = settledValueOrThrow(agentResult);
+  const { value, claim } = settledValueOrThrow(claimResult);
 
   const enteringNewStage =
     params.field === 'arStage' &&

@@ -85,10 +85,11 @@ const performEffect = async (
 ): Promise<FillFormTemplateOutput> => {
   const { documentReferenceId, appointmentId, secrets } = validatedInput;
 
-  const [template, visitResources] = await Promise.all([
+  const [templateResult, visitResourcesResult] = await Promise.allSettled([
     getFormTemplateOrThrow(oystehr, documentReferenceId),
     getAppointmentAndRelatedResources(oystehr, appointmentId, true),
   ]);
+  const template = settledValueOrThrow(templateResult);
 
   // `getFormTemplateOrThrow` only proves the record is a form template, not that it is one anybody should
   // be filling. Prefilling is chart-facing and reachable by every clinical role, so an id is enough to
@@ -106,6 +107,7 @@ const performEffect = async (
     throw new Error(`Form template DocumentReference/${documentReferenceId} has no attachment URL`);
   }
 
+  const visitResources = settledValueOrThrow(visitResourcesResult);
   if (!visitResources?.patient?.id) {
     throw new Error(`No patient found for appointment ${appointmentId}`);
   }

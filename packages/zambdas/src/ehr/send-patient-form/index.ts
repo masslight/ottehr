@@ -12,6 +12,7 @@ import { sendSmsForPatient } from '../../shared/communication';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -25,7 +26,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const [questionnaire, { userPractitionerId, userPractitioner }, encounterBundle] = await Promise.all([
+  const [questionnaireResult, userPractitionerResult, encounterBundleResult] = await Promise.allSettled([
     oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: questionnaireId }),
     (async () => {
       const userPractitionerId = await getMyPractitionerId(userToken, secrets);
@@ -44,6 +45,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ],
     }),
   ]);
+  const { userPractitionerId, userPractitioner } = settledValueOrThrow(userPractitionerResult);
+  const questionnaire = settledValueOrThrow(questionnaireResult);
 
   if (!questionnaire) throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Could not find the Questionnaire/${questionnaireId}`);
 
@@ -51,7 +54,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const questionnaireName = questionnaire.title || 'a form';
 
-  const resources = encounterBundle.unbundle();
+  const resources = settledValueOrThrow(encounterBundleResult).unbundle();
 
   const patient = resources.find((r) => r.resourceType === 'Patient');
   // The encounter on screen when given; otherwise the visit's own encounter, never an attached follow-up note.

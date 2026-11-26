@@ -37,6 +37,7 @@ import { getOrCreateInvoicingConfig } from '../../rcm/invoice-config/helpers';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { sendErrors } from '../../shared/errors';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { getStripeClient, STRIPE_METADATA_KEYS, stripeEncounterMetadata } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { INVOICE_ISSUER_CLAIM_INCLUDES, resolveClaimInvoiceIssuer } from '../invoice-issuer';
@@ -73,14 +74,15 @@ export async function performEffect(
   params: CreateBillingInvoiceParams,
   callerAgent: ProvenanceAgent | Promise<ProvenanceAgent>
 ): Promise<CreateBillingInvoiceResponse> {
-  const [claimBundle, agent] = await Promise.all([
+  const [claimBundleResult, agentResult] = await Promise.allSettled([
     oystehr.fhir.search<Claim | Location | Organization | Practitioner>({
       resourceType: 'Claim',
       params: [{ name: '_id', value: params.claimId }, ...INVOICE_ISSUER_CLAIM_INCLUDES],
     }),
     callerAgent,
   ]);
-  const resources = claimBundle.unbundle();
+  const agent = settledValueOrThrow(agentResult);
+  const resources = settledValueOrThrow(claimBundleResult).unbundle();
   const claim = resources.find((resource): resource is Claim => resource.resourceType === 'Claim');
   if (!claim) throw FHIR_RESOURCE_NOT_FOUND('Claim');
   const encounterId = getInvoiceableEncounterId(claim);

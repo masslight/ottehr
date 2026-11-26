@@ -20,6 +20,7 @@ import { SaveManualEraResponse } from 'utils/lib/types/data/billing/billing.type
 import { INVALID_INPUT_ERROR, MANUAL_ERA_VERSION_CONFLICT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import {
   fetchClaimResponsesFromEraProvenances,
@@ -301,16 +302,18 @@ export async function performEffect(
 }
 
 async function loadManualEra(oystehr: Oystehr, eraId: string, expectedVersionId?: string): Promise<StoredManualEra> {
-  const [pr, [provenance]] = await Promise.all([
+  const [prResult, provenancesResult] = await Promise.allSettled([
     fetchById<PaymentReconciliation>(oystehr, 'PaymentReconciliation', eraId),
     fetchEraProcessingProvenances(oystehr, [`PaymentReconciliation/${eraId}`]),
   ]);
+  const pr = settledValueOrThrow(prResult);
   assertEraNotVoided(pr);
   if (getEraSource(pr) !== ERA_SOURCE.manual) {
     throw INVALID_INPUT_ERROR('Only manually entered remits can be edited');
   }
   if (pr.meta?.versionId !== expectedVersionId) throw MANUAL_ERA_VERSION_CONFLICT_ERROR;
 
+  const [provenance] = settledValueOrThrow(provenancesResult);
   const claimResponses = provenance
     ? (await fetchClaimResponsesFromEraProvenances(oystehr, [provenance])).get(eraId) ?? []
     : [];
@@ -334,10 +337,12 @@ async function resolveManualEraBillingProviderAndPayer(
   header: ManualEraHeader
 ): Promise<ManualEraBillingProviderAndPayer> {
   const [resourceType, id] = header.billingProviderRef.split('/') as ['Organization' | 'Practitioner', string];
-  const [payer, provider] = await Promise.all([
+  const [payerResult, providerResult] = await Promise.allSettled([
     resolvePayer(oystehr, header.payerId),
     findById<Organization | Practitioner>(oystehr, resourceType, id),
   ]);
+  const payer = settledValueOrThrow(payerResult);
+  const provider = settledValueOrThrow(providerResult);
   if (!provider || !hasTag(provider, PROVIDER_ROLE_TAG, PROVIDER_ROLE_BILLING)) {
     throw INVALID_INPUT_ERROR('The billing provider was not found');
   }

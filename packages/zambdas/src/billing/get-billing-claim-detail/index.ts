@@ -34,6 +34,7 @@ import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status'
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { isOttehrBillingInvoicingInBillingApp } from '../../shared/invoice-tasks';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
@@ -113,13 +114,13 @@ export async function performEffect(
 ): Promise<ClaimDetailResponse> {
   const { claimId } = params;
   const [
-    { graph, encounterId, otherClaims, paymentsByEncounter, nonInsurancePayer },
-    { claimResponses, paymentReconciliations, paymentReconciliationIdByClaimResponseId },
-    firstSubmittedDate,
-    writeOffResources,
-    invoices,
-    nioPaymentsByClaimId,
-  ] = await Promise.all([
+    graphResult,
+    claimResponsesResult,
+    firstSubmittedDateResult,
+    writeOffResourcesResult,
+    invoicesResult,
+    nioPaymentsByClaimIdResult,
+  ] = await Promise.allSettled([
     (async () => {
       // One shared fetch of the claim + its referenced working copies (also used by the rules engine).
       const graph = await fetchClaimGraph(oystehr, claimId);
@@ -147,6 +148,13 @@ export async function performEffect(
       : Promise.resolve<Invoice[]>([]),
     fetchNioPaymentsByClaimIds(oystehr, [claimId]),
   ]);
+  const { graph, encounterId, otherClaims, paymentsByEncounter, nonInsurancePayer } = settledValueOrThrow(graphResult);
+  const { claimResponses, paymentReconciliations, paymentReconciliationIdByClaimResponseId } =
+    settledValueOrThrow(claimResponsesResult);
+  const firstSubmittedDate = settledValueOrThrow(firstSubmittedDateResult);
+  const writeOffResources = settledValueOrThrow(writeOffResourcesResult);
+  const invoices = settledValueOrThrow(invoicesResult);
+  const nioPaymentsByClaimId = settledValueOrThrow(nioPaymentsByClaimIdResult);
   const {
     claim,
     patient,

@@ -21,6 +21,7 @@ import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { assertDefined } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
@@ -61,14 +62,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(oystehr: Oystehr, params: GetEraDetailParams): Promise<EraDetailResponse> {
-  const [bundle, attachments] = await Promise.all([
+  const [bundleResult, attachmentsResult] = await Promise.allSettled([
     oystehr.fhir.search<PaymentReconciliation>({
       resourceType: 'PaymentReconciliation',
       params: [{ name: '_id', value: params.eraId }],
     }),
     fetchEraAttachments(oystehr, params.eraId),
   ]);
-  const pr = bundle.unbundle().find((r) => r.id === params.eraId);
+  const pr = settledValueOrThrow(bundleResult)
+    .unbundle()
+    .find((r) => r.id === params.eraId);
   if (!pr) throw FHIR_RESOURCE_NOT_FOUND('PaymentReconciliation');
 
   // ClaimResponses linked to this ERA via its era-processing Provenance
@@ -222,6 +225,7 @@ export async function performEffect(oystehr: Oystehr, params: GetEraDetailParams
       ? fetchEraProcessingProvenances(oystehr, [`PaymentReconciliation/${params.eraId}`]).then(([first]) => first)
       : undefined,
   ]);
+  const attachments = settledValueOrThrow(attachmentsResult);
 
   return {
     id: params.eraId,

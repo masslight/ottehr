@@ -66,6 +66,7 @@ import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { truncateForLog } from '../../../shared/logging';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
 import { getEncounterClass, getRelatedResources, getTelemedRequiredAppointmentEncounterExtensions } from '../helpers';
@@ -247,10 +248,7 @@ export async function createAppointment(
 
   console.log('getting questionnaire ID to create blank questionnaire response');
 
-  const [
-    { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient },
-    currentQuestionnaire,
-  ] = await Promise.all([
+  const [patientRelatedRequestsResult, currentQuestionnaireResult] = await Promise.allSettled([
     generatePatientRelatedRequests(user, patient, oystehr),
     // If the resolved questionnaire is a paperwork flow, assemble its constituent forms into a concrete
     // item[] so pre-fill runs against the flattened pages; a non-flow questionnaire is returned as-is.
@@ -258,6 +256,8 @@ export async function createAppointment(
       resolveEffectiveQuestionnaire(canonicalQuestionnaire, oystehr)
     ),
   ]);
+  const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
+    settledValueOrThrow(patientRelatedRequestsResult);
 
   let startTime: string | null; // iso string in UTC
 
@@ -292,6 +292,7 @@ export async function createAppointment(
     ? `Staff ${user?.email}`
     : `${visitType === VisitType.WalkIn ? 'QR - ' : ''}Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
 
+  const currentQuestionnaire = settledValueOrThrow(currentQuestionnaireResult);
   let verifiedFormattedPhoneNumber = verifiedPhoneNumber;
 
   if (!patient.id && !verifiedPhoneNumber) {
@@ -479,7 +480,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const parentEncounterId = followUpOptions?.parentEncounterId;
   const bookedViaGroupId = slot ? getSlotBookedViaGroupId(slot) : undefined;
 
-  const [carriedOverDiagnoses, bookedViaGroup, { documents, accountInfo }] = await Promise.all([
+  const [carriedOverDiagnosesResult, bookedViaGroupResult, relatedResourcesResult] = await Promise.allSettled([
     (async (): Promise<{ condition: Condition; rank?: number }[]> => {
       if (!parentEncounterId) return [];
       // Validation (not part of copy flow): parent must exist and not itself be a follow-up.
@@ -531,6 +532,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       : Promise.resolve(undefined),
     getRelatedResources(oystehr, patient?.id),
   ]);
+  const carriedOverDiagnoses = settledValueOrThrow(carriedOverDiagnosesResult);
 
   if (!patient && !createPatientRequest?.fullUrl) {
     throw new Error('Unexpectedly have no patient and no request to make one');
@@ -720,6 +722,8 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   // groups, the Slot's Schedule.actor is the member PR itself, so
   // scheduleOwner alone can't distinguish "direct PR" from "group via
   // pools-providers" — the extension is the disambiguator.
+  const bookedViaGroup = settledValueOrThrow(bookedViaGroupResult);
+
   let encounterParticipants: Encounter['participant'] | undefined;
 
   if (attendingPractitioner) {
@@ -808,6 +812,8 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       type: buildFollowupEncounterType('scheduled'),
     }),
   };
+
+  const { documents, accountInfo } = settledValueOrThrow(relatedResourcesResult);
 
   const patientToUse = patient ?? (createPatientRequest?.resource as Patient);
 

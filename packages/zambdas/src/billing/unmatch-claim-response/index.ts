@@ -12,6 +12,7 @@ import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/e
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
 import { claimMatchHistoryRequests, matchFieldsPatchOperations, UNMATCH_FIELDS } from '../claim-response-match';
@@ -45,7 +46,7 @@ export async function performEffect(
   oystehr: Oystehr,
   params: Params & { agent: ProvenanceAgent | Promise<ProvenanceAgent> }
 ): Promise<ClaimResponse> {
-  const [claimResponse, agent] = await Promise.all([
+  const [claimResponseResult, agentResult] = await Promise.allSettled([
     oystehr.fhir
       .get<ClaimResponse>({
         resourceType: 'ClaimResponse',
@@ -57,6 +58,8 @@ export async function performEffect(
       }),
     params.agent,
   ]);
+  const agent = settledValueOrThrow(agentResult);
+  const claimResponse = settledValueOrThrow(claimResponseResult);
   const containedClaim = claimResponse.contained?.find((resource) => resource.resourceType === 'Claim');
   const containedPatient = claimResponse.contained?.find((resource) => resource.resourceType === 'Patient');
   const unmatched: ClaimResponse = {

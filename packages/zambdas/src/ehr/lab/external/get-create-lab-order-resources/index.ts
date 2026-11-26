@@ -26,6 +26,7 @@ import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
+import { settledValueOrThrow } from '../../../../shared/settled';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { formatLabListDTOs } from '../../shared/helpers';
 import { accountIsPatientBill, accountIsWorkersComp, sortCoveragesByPriority } from '../../shared/labs';
@@ -87,13 +88,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
   };
 
-  const [
-    { accounts, coverages, labGuids, searchableLabs, orderingLocationDetails, appointmentIsWorkersComp, labLists },
-    labSetLabs,
-  ] = await Promise.all([
+  const [resourcesResult, labSetLabsResult] = await Promise.allSettled([
     getResources(oystehr, patientId, encounterId, testItemSearch, labOrgIdsString),
     searchLabSetOrderableItems(),
   ]);
+  const { accounts, coverages, labGuids, searchableLabs, orderingLocationDetails, appointmentIsWorkersComp, labLists } =
+    settledValueOrThrow(resourcesResult);
 
   console.log('labGuids and labOrgIdString', labGuids, labOrgIdsString);
 
@@ -107,6 +107,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     labs = await searchOrderableItems(testItemSearch, labGuids, searchableLabs, m2mToken);
   }
 
+  const labSetLabs = settledValueOrThrow(labSetLabsResult);
   if (labSetLabs) {
     labs = labSetLabs;
   }

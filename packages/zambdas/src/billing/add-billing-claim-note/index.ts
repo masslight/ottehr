@@ -5,6 +5,7 @@ import { OkResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { commitClaimNote, resolveClaimActor } from '../provenance';
 import { createBillingClient, fetchById } from '../shared';
@@ -46,7 +47,12 @@ export async function performEffect(
   params: AddClaimNoteParams,
   callerAgent: ProvenanceAgent | Promise<ProvenanceAgent>
 ): Promise<OkResponse> {
-  const [claim, agent] = await Promise.all([fetchById<Claim>(oystehr, 'Claim', params.claimId), callerAgent]);
+  const [claimResult, agentResult] = await Promise.allSettled([
+    fetchById<Claim>(oystehr, 'Claim', params.claimId),
+    callerAgent,
+  ]);
+  const agent = settledValueOrThrow(agentResult);
+  const claim = settledValueOrThrow(claimResult);
   await commitClaimNote(oystehr, claim, params.message, agent);
 
   return { ok: true };

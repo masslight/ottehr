@@ -5,6 +5,7 @@ import { AddClaimAttachmentInputSchema } from 'utils/lib/types/data/billing/bill
 import { AddClaimAttachmentResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { attachClaimDocument } from '../claim-attachments';
@@ -32,7 +33,12 @@ export async function performEffect(
   oystehr: Oystehr,
   params: AddClaimAttachmentParams
 ): Promise<AddClaimAttachmentResponse> {
-  const [claim, agent] = await Promise.all([fetchById<Claim>(oystehr, 'Claim', params.claimId), params.agent]);
+  const [claimResult, agentResult] = await Promise.allSettled([
+    fetchById<Claim>(oystehr, 'Claim', params.claimId),
+    params.agent,
+  ]);
+  const agent = settledValueOrThrow(agentResult);
+  const claim = settledValueOrThrow(claimResult);
   return attachClaimDocument({
     oystehr,
     claim,

@@ -7,6 +7,7 @@ import { RenameClaimAttachmentInputSchema } from 'utils/lib/types/data/billing/b
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { renamedAttachmentContent, RETIRED_ATTACHMENT_STATUS } from '../attachments';
@@ -35,10 +36,12 @@ export const index = wrapHandler(
 );
 
 export async function performEffect(oystehr: Oystehr, params: RenameClaimAttachmentParams): Promise<void> {
-  const [documentReference, agent] = await Promise.all([
+  const [documentReferenceResult, agentResult] = await Promise.allSettled([
     fetchById<DocumentReference>(oystehr, 'DocumentReference', params.documentReferenceId),
     params.agent,
   ]);
+  const agent = settledValueOrThrow(agentResult);
+  const documentReference = settledValueOrThrow(documentReferenceResult);
   // a deletion retires the document before removing it, and a rename in between would outlive it
   if (documentReference.status === RETIRED_ATTACHMENT_STATUS) {
     throw INVALID_INPUT_ERROR(`DocumentReference ${documentReference.id} was deleted`);

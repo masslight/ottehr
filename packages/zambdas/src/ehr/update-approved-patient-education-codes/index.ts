@@ -18,6 +18,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import { findConflictingApprovedEducationIcdCodes } from '../shared/approved-patient-education-helpers';
@@ -64,7 +65,7 @@ export const index = wrapHandler(
 const complexValidation = async (validatedInput: ValidatedInput, oystehr: Oystehr): Promise<EffectInput> => {
   const { documentReferenceId, icdCodes } = validatedInput;
 
-  const [target, others] = await Promise.all([
+  const [targetResult, othersResult] = await Promise.allSettled([
     oystehr.fhir.get<DocumentReference>({
       resourceType: 'DocumentReference',
       id: documentReferenceId,
@@ -77,6 +78,7 @@ const complexValidation = async (validatedInput: ValidatedInput, oystehr: Oysteh
       oystehr
     ),
   ]);
+  const target = settledValueOrThrow(targetResult);
 
   const isApproved = (target.type?.coding ?? []).some((c) => c.code === PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE);
   if (!isApproved) {
@@ -85,7 +87,11 @@ const complexValidation = async (validatedInput: ValidatedInput, oystehr: Oysteh
 
   // Reject duplicates against other approved-education DocumentReferences of the same language —
   // English and Spanish PDFs for the same ICD code are allowed to coexist.
-  const conflictingCodes = findConflictingApprovedEducationIcdCodes(target, others, icdCodes);
+  const conflictingCodes = findConflictingApprovedEducationIcdCodes(
+    target,
+    settledValueOrThrow(othersResult),
+    icdCodes
+  );
   if (conflictingCodes.length > 0) {
     throw ALREADY_EXISTS_WITH_MESSAGE(
       `The following ICD codes are already used by other approved PDFs: ${conflictingCodes.join(', ')}`

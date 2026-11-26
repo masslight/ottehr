@@ -45,6 +45,7 @@ import {
 } from '../../../../shared/pdf/labs-results-form-pdf';
 import { getMyPractitionerId } from '../../../../shared/practitioners';
 import { wrapHandler } from '../../../../shared/sentry';
+import { settledValueOrThrow } from '../../../../shared/settled';
 import { createOwnerReference } from '../../../../shared/tasks';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { diagnosticReportSpecificResultType, getExternalLabOrderResourcesViaServiceRequest } from '../../shared/labs';
@@ -546,7 +547,7 @@ const handleSaveCollectionData = async (
     mostRecentSampleCollectionDate = mostRecentCollectionDate;
   }
 
-  const [qrPatchRequest, pstCompletedRequests] = await Promise.all([
+  const [qrPatchRequestResult, pstCompletedRequestsResult] = await Promise.allSettled([
     // if aoe answers (data) are passed, patch the QR & make QR completed
     // not every order will have an AOE
     questionnaireResponse !== undefined && questionnaireResponse.id
@@ -556,12 +557,13 @@ const handleSaveCollectionData = async (
     // and create provenance with activity PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask
     makePstCompletePatchRequests(oystehr, preSubmissionTask, serviceRequest, practitionerIdFromCurrentUser, now),
   ]);
+  const qrPatchRequest = settledValueOrThrow(qrPatchRequestResult);
   if (qrPatchRequest) {
     requests.push(qrPatchRequest);
   }
 
   let presignedLabelPdfUrl: string | undefined = undefined;
-  requests.push(...pstCompletedRequests);
+  requests.push(...settledValueOrThrow(pstCompletedRequestsResult));
 
   // make specimen label
   if (!isPSCOrder(serviceRequest)) {
