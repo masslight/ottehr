@@ -63,7 +63,6 @@ import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { extractPayerIdFromUrl, findOrgMatchingReference } from 'utils/lib/helpers/helpers';
-import { formatWeightKg, formatWeightLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import type { VitalsWeightObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -89,6 +88,7 @@ import { useAppointmentData } from '../../shared/stores/appointment/appointment.
 import { getVisitEmployerDisplay } from '../../shared/visitEmployer';
 import { ChangeStatusDropdown } from './ChangeStatusDropdown';
 import { InternalNotes } from './InternalNotes';
+import { formatHeaderWeight, KeyVitals } from './KeyVitals';
 import { PrintVisitLabelButton } from './PrintVisitLabelButton';
 
 const HeaderWrapper = styled(Box)(({ theme }) => ({
@@ -122,9 +122,6 @@ const PatientInfoWrapper = styled(Box)({
   alignItems: 'center',
   columnGap: '8px',
 });
-
-const formatHeaderWeight = (weightKg: number, unitSystem: VitalsHeaderUnitSystem): string =>
-  unitSystem === 'imperial' ? `${formatWeightLbs(weightKg)}lbs` : `${formatWeightKg(weightKg)}kg`;
 
 const getPatientWeightFallback = (
   weight: string | undefined,
@@ -842,6 +839,7 @@ export const Header = (): JSX.Element => {
                           {reasonForVisit}
                         </PatientMetadata>
                       )}
+                      <KeyVitals vitals={encounterVitals} unitSystem={vitalsHeaderUnitSystem} />
                     </PatientInfoWrapper>
                   </Grid>
                 </PatientInfoWrapper>
