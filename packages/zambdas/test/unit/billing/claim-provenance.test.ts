@@ -8,6 +8,7 @@ import {
   DocumentReference,
   Patient,
   PaymentNotice,
+  PaymentReconciliation,
   Provenance,
   ProvenanceAgent,
 } from 'fhir/r4b';
@@ -717,7 +718,7 @@ describe('diffResources payment notices', () => {
         field: 'status',
         label: 'Status',
         previousValue: null,
-        newValue: 'active',
+        newValue: 'Paid',
       },
     ]);
   });
@@ -730,6 +731,45 @@ describe('diffResources payment notices', () => {
         label: 'Refunded',
         previousValue: null,
         newValue: '$20.00',
+      },
+    ]);
+  });
+
+  it('records a Stripe refund settling as its own status change', () => {
+    const stripeRefund = (outcome: PaymentReconciliation['outcome']): PaymentNotice =>
+      notice({
+        amount: {
+          value: -20,
+          currency: 'USD',
+        },
+        contained: [
+          {
+            resourceType: 'PaymentReconciliation',
+            id: 'contained-reconciliation',
+            status: 'active',
+            created: '2026-10-01T12:00:00Z',
+            outcome,
+            paymentDate: '2026-10-01',
+            paymentAmount: {
+              value: -20,
+              currency: 'USD',
+            },
+          },
+        ],
+      });
+
+    expect(diffResources(undefined, stripeRefund('queued'))).toContainEqual({
+      field: 'status',
+      label: 'Status',
+      previousValue: null,
+      newValue: 'Refund pending',
+    });
+    expect(diffResources(stripeRefund('queued'), stripeRefund('complete'))).toEqual([
+      {
+        field: 'status',
+        label: 'Status',
+        previousValue: 'Refund pending',
+        newValue: 'Refunded',
       },
     ]);
   });
@@ -755,8 +795,8 @@ describe('diffResources payment notices', () => {
       {
         field: 'status',
         label: 'Status',
-        previousValue: 'active',
-        newValue: 'cancelled',
+        previousValue: 'Paid',
+        newValue: 'Cancelled',
       },
       {
         field: 'voidReason',

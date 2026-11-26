@@ -37,12 +37,15 @@ describe('paymentStatusLabel', () => {
         outcome: 'complete',
       })
     ).toBe('Refunded');
+  });
+
+  it("labels a refund whose settlement isn't known as a refund", () => {
     expect(
       paymentStatusLabel({
         status: 'active',
         amount: -20,
       })
-    ).toBe('Refunded');
+    ).toBe('Refund');
   });
 
   it('labels a refund that has not settled, or failed to, as pending', () => {
