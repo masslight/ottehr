@@ -422,7 +422,7 @@ const validateRequestParameters = (input: ZambdaInput): EffectInput & { secrets:
   };
 };
 
-const getFollowUpTypeFromEncounter = (encounter: Encounter): string | undefined => {
+export const getFollowUpTypeFromEncounter = (encounter: Encounter): string | undefined => {
   const typeCoding = encounter.type?.find(
     (t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.type.url && c.code === FOLLOWUP_SYSTEMS.type.code)
   );

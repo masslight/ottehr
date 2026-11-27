@@ -1776,6 +1776,13 @@
       "src": "src/ehr/chart-data/vitals/get-for-list-of-encounters/index",
       "zip": ".dist/zips/get-vitals-for-list-of-encounters.zip"
     },
+    "GET-FLOWSHEET": {
+      "name": "get-flowsheet",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-flowsheet/index",
+      "zip": ".dist/zips/get-flowsheet.zip"
+    },
     "CREATE-UPDATE-IMMUNIZATION_ORDER": {
       "name": "create-update-immunization-order",
       "type": "http_auth",
