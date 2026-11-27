@@ -27,12 +27,13 @@ classDiagram
     category support-chat
     status in-progress=unread, completed=read
     sender RelatedPerson of the message patient | Practitioner | none=bot
-    subject Patient
+    subject Patient; on a visit-prompt: the chosen patient, also without about
     about Task, display = task title
     sent
     payload[0].contentString
-    ext kind greeting | visit-prompt | recap | confirmation | text
+    ext kind greeting | patient-prompt | visit-prompt | recap | confirmation | text
     ext topic
+    ext request-text, text of a free-text request in its prompts
     ext option, one per chip
   }
   class Task {
@@ -41,9 +42,9 @@ classDiagram
     code prescription-refill | school-work-note | medical-record | follow-up
     status ready | in-progress | completed
     description = title
-    location
-    encounter
-    input title, details, patient, appointment-id, encounter-id
+    location?
+    encounter?
+    input title, details, patient, appointment-id?, encounter-id?
   }
   class Patient
   class Appointment
@@ -73,14 +74,15 @@ Solid arrow: a FHIR reference. Dashed arrow: no reference, the `Person` id is st
   - If `P1` has no patients left, its chat is not available, and nobody sees replies on the old tasks in the portal.
 - **The chat is available only when `supportChatEnabled` is on, and only to a logged-in account with at least one patient.** The flag is checked in the portal, the EHR (chat controls on tasks), the patient zambdas and `reply-support-chat`. Other users see the old support dialog.
 - **Bot messages are stored** without `sender`. The history is complete. Old chips stay visible but disabled.
-- **The active prompt is the newest prompt** (greeting or visit prompt) that has no recap or confirmation after it. Staff replies and free text added to a task do not disable the chips. A chip selection or a new request does. There is no separate dialog state.
+- **The active prompt is the newest prompt** (greeting, patient prompt or visit prompt) that has no recap or confirmation after it. Staff replies and free text added to a task do not disable the chips. A chip selection or a new request does. There is no separate dialog state.
 - **Unread** uses `Communication.status`: a new message is `in-progress`, mark-read sets `completed`. Bot messages are stored as `completed`.
 - **Unread dot in the EHR** uses the tag `support-chat-unread` on open tasks. A patient text sets it on all open tasks of the thread, so no request is missed; the text itself is linked to the newest open task. Staff mark-read removes it only from the opened task: other tasks can have other assignees, so their dots stay until each task is opened. The Tasks list and the Tasks tab need no extra data.
-- **Task category** `patient-request`, one code per request type. Title: `{Request Type} for {Patient} {Visit Date}`. Unassigned. Location of the selected visit (also the `task-location` tag). In the Tasks list, the existing Category filter shows "Patient Request", and the Location filter shows the task to the staff of that clinic.
-- **Visits** are all visits of the account patients in any status except `entered-in-error`, newest first. A patient can write about a cancelled or no-show visit too.
-- **Visit prompt** is shown after a topic or after free text that starts a request, only if the account has more than one visit. With one visit, the bot uses it. The selection is echoed as a recap.
-- **Free text with no open task**, or right after a greeting ("+"), creates a `follow-up` task at once. Title: the message text in quotes. Until a visit is selected, the task uses the default visit: the most recent visit of the patient of the last task in the thread, else the most recent visit of the account. A visit selection then updates the task: visit, patient, title, location.
-- **Free text instead of a visit selection after a topic** creates the topic task with the default visit; the text becomes the task details.
+- **Task category** `patient-request`, one code per request type. Title: `{Request Type} for {Patient} {Visit Date}`, or `{Request Type} for {Patient}` without a visit. Assigned to the visit's provider (OTR-3931); without a visit, unassigned. Location: the selected visit's location, else the location of the patient's latest visit (past or future); a patient without visits gives a task without a location (also the `task-location` tag). In the Tasks list, the existing Category filter shows "Patient Request", and the Location filter shows the task to the staff of that clinic.
+- **Visits** are the 5 latest visits of each patient within the last 3 years, in any status except `entered-in-error`, newest first. One search per patient, in parallel. A patient without visits in 3 years counts as new. A patient can write about a cancelled or no-show visit too.
+- **Patient prompt** ("Who is this request for?") is shown after a topic or after free text that starts a request, when the account has more than one patient. Chips: every patient, including patients without visits. The choice is echoed as a recap.
+- **Visit prompt** is shown after the patient is known, when that patient has at least one visit, even only one. Chips: dates of this patient's 5 latest visits + "Not about a specific visit". No visit is linked automatically. A patient without visits goes straight to the confirmation. The selection is echoed as a recap.
+- **Free text with no open task**, or right after a greeting ("+"), creates a `follow-up` task at once without a visit. Title: the message text in quotes. Until a patient is chosen, the task uses the default patient: the patient of the last task in the thread, else the patient of the newest visit. Choosing a patient or a visit then updates the task: patient, visit, title, location. Text typed at its prompts is added to this task, and the chips stay active.
+- **A topic request** creates its task when the dialog ends. Text typed instead of a visit selection means "Not about a specific visit": the task has no visit, and the text becomes the task details. Text typed at the patient prompt is only saved.
 - **Free text with an open task** is added to that task.
 - **Staff messages in the portal** show the task title next to "Support Team". The title is stored in `Communication.about.display`.
 - **Staff** are users with a `Practitioner` profile. A staff user always passes `taskId`; a patient user never does.
@@ -89,16 +91,21 @@ Solid arrow: a FHIR reference. Dashed arrow: no reference, the `Person` id is st
 
 ```mermaid
 flowchart TD
-  T[Topic chip] --> TV{Visits}
-  TV -->|0 or 1| C[Create task]
-  TV -->|more than 1| TP[Visit prompt]
-  TP -->|visit chip| C
-  TP -->|text, default visit| C
-  F[Text, no open task or after +] --> FV{Visits}
-  FV -->|0 or 1| C
-  FV -->|more than 1| FC[Create follow-up task with default visit, then visit prompt]
-  FC -->|visit chip| U[Update the task with the selected visit]
-  FC -->|text| A[Add text to this task]
+  T[Topic chip] --> TP{Patients}
+  TP -->|more than 1| PP[Patient prompt] -->|patient chip| TV
+  TP -->|1| TV{Visits of the patient}
+  TV -->|0| C[Create task without a visit]
+  TV -->|1 or more| VP[Visit prompt]
+  VP -->|visit chip| CV[Create task with the visit]
+  VP -->|not about a visit, or text| C
+  F[Text, no open task or after +] --> FC[Create follow-up task for the default patient, no visit]
+  FC --> FP{Patients}
+  FP -->|more than 1| FPP[Patient prompt] -->|patient chip| U[Update the task]
+  FP -->|1| FV{Visits of the patient}
+  U --> FV
+  FV -->|1 or more| FVP[Visit prompt] -->|visit chip, or not about a visit| U2[Update the task]
+  FPP -->|text| A[Add text to the task]
+  FVP -->|text| A
 ```
 
 ## 4. Zambdas
@@ -109,12 +116,12 @@ All four zambdas are new (`http_auth`). The patient ones are added to the PATIEN
 |---|---|---|---|
 | `get-support-chat` | patient, staff | `taskId?`, `unreadOnly?` | Patient: own thread. Staff: thread of the task. Returns the last 1000 messages, `unreadCount` and `isAvailable`. An empty thread returns a greeting that is not stored. `unreadOnly` reads only unread messages and returns only `unreadCount` and `isAvailable`. |
 | `mark-support-chat-read` | patient, staff | `taskId?` | Sets incoming messages to `completed`. Staff: also removes `support-chat-unread` from the opened task only. |
-| `send-support-chat-message` | patient | `new-request`, `select-topic`, `select-visit`, `text` | Runs the bot step. Creates or updates the task. Returns the thread. |
+| `send-support-chat-message` | patient | `new-request`, `select-topic`, `select-patient`, `select-visit` (appointment id or `no-visit`), `text` | Runs the bot step. Creates or updates the task. Returns the thread. |
 | `reply-support-chat` | staff | `taskId`, `text` | Stores the message (shown to the patient as "Support Team") and notifies the patient. Works also for a completed task. |
 
 ## 5. Patient notification
 
-- Email through the existing Generic Outreach template: subject `You have a new message from {Location}`, link to the portal, clinic phone of the location.
+- Email through the existing Generic Outreach template: subject `You have a new message from {Location}`, link to the portal, clinic phone of the location. A task without a location uses the practice (`Organization` from `ORGANIZATION_ID`): its name and main phone; if it cannot be loaded, the project name and no phone.
 - SMS only when the patient has no email.
 - Errors in notification do not fail the message.
 
@@ -135,7 +142,9 @@ All four zambdas are new (`http_auth`). The patient ones are added to the PATIEN
 | prescription-refill | eRX | eRX of the task visit |
 | school-work-note | Plan | Plan of the task visit |
 | medical-record | Patient Record | patient chart |
-| follow-up | Progress Note | Progress Note of the task visit; no visit → patient chart |
+| follow-up | Progress Note | Progress Note of the task visit |
+
+A task without a visit shows "Patient Record" for every code.
 
 - Tasks tab: orange dot when an open Patient Request task has unread patient messages.
 - `SupportChatModal`: full thread history and a reply field.
@@ -145,7 +154,7 @@ All four zambdas are new (`http_auth`). The patient ones are added to the PATIEN
 
 | Area | New | Reused |
 |---|---|---|
-| FHIR | No new resource types. Tags `support-chat-thread`, `support-chat-unread`. Task category `patient-request`. Communication extensions kind, topic, option. | `Communication` and `Task` with new values. Account resources `Person` → `RelatedPerson` → `Patient` are only read, not changed. |
+| FHIR | No new resource types. Tags `support-chat-thread`, `support-chat-unread`. Task category `patient-request`. Communication extensions kind, topic, option, request-text. | `Communication` and `Task` with new values. Account resources `Person` → `RelatedPerson` → `Patient` are only read, not changed. |
 | Zambdas | 4 zambdas; shared code in `shared/support-chat` | `createTask`; visit search from `get-past-visits` (moved to `shared/visits.ts`); `getPatientsForUser`; Generic Outreach email, `sendSmsForPatient` |
 | Portal | `features/support-chat` | Old "Need help?" dialog |
 | EHR | `features/support-chat`; Tasks tab dot | Tasks list (new category branch); `useCompleteTask` |

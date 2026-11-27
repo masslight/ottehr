@@ -10,7 +10,6 @@ import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/r
 import { SendSupportChatMessageInputSchema, SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { PATIENT_REQUEST_TASK } from 'utils/lib/types/data/tasks/types';
 import { INVALID_INPUT_ERROR, NOT_AUTHORIZED } from 'utils/lib/types/errors';
-import { findActivePromptIndex } from 'utils/lib/utils/support-chat';
 import { checkOrCreateM2MClientToken, getUser, getUserToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
@@ -18,8 +17,10 @@ import { resolveStep } from '../../../shared/support-chat/bot';
 import {
   buildRequestTask,
   canAutoAssign,
+  findLatestVisitLocation,
   findOpenTasks,
   getAttachOperations,
+  getDefaultPatientId,
   getTaskPatientId,
   getVisitProviderOwner,
   getVisits,
@@ -28,11 +29,11 @@ import {
 } from '../../../shared/support-chat/request-task';
 import {
   buildThreadMessage,
+  getLastThreadMessage,
   isAccountReadyForChat,
   isStaffUser,
   searchThread,
   toChatResponse,
-  toThreadMessage,
 } from '../../../shared/support-chat/thread';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
@@ -68,61 +69,78 @@ export const index = wrapHandler(
 
     const openTask = openTasks.at(0);
 
-    const promptIndex = findActivePromptIndex(thread.map((message) => toThreadMessage(message).kind));
-    const lastIndex = promptIndex >= 0 ? promptIndex : thread.length - 1;
-    const lastMessage = lastIndex >= 0 ? thread[lastIndex] : undefined;
+    const last = getLastThreadMessage(thread);
 
     const step = resolveStep({
-      last: lastMessage ? toThreadMessage(lastMessage) : undefined,
-      requestText: lastIndex > 0 ? thread[lastIndex - 1].payload?.[0]?.contentString : undefined,
+      last,
       action,
-      visits: visits.map((visit) => ({ id: visit.appointmentId, label: visit.label })),
+      patients: account.patients.map((patient) => ({
+        id: patient.id!,
+        label: getFullestAvailableName(patient) ?? '',
+      })),
+      visits: visits.map((visit) => ({
+        id: visit.appointmentId,
+        patientId: visit.patient.id!,
+        label: visit.label,
+        date: visit.date,
+      })),
+      defaultPatientId: getDefaultPatientId(thread, visits),
       hasOpenTask: !!openTask,
     });
 
     const requests: BatchInputRequest<Task | Communication>[] = [];
+    const intent = step.task;
     let taskReference: string | undefined;
-    let patientId: string | undefined;
+    let patientId = step.patientId;
 
-    if (step.task?.type === 'create') {
-      const { code, appointmentId, text, details } = step.task;
-      const lastPatientId = thread.findLast((message) => message.subject)?.subject?.reference?.replace('Patient/', '');
-      const lastPatient = account.patients.find((p) => p.id === lastPatientId);
-      const defaultVisit = lastPatient ? visits.find((v) => v.patient.id === lastPatient.id) : visits[0];
-      const visit = appointmentId ? visits.find((v) => v.appointmentId === appointmentId) : defaultVisit;
-      const patient = visit?.patient ?? lastPatient ?? account.patients[0];
+    if (intent?.type === 'create') {
+      const patient = account.patients.find((p) => p.id === intent.patientId);
+      const visit = intent.appointmentId ? visits.find((v) => v.appointmentId === intent.appointmentId) : undefined;
+
+      if (!patient || (intent.appointmentId && !visit)) throw INVALID_INPUT_ERROR('The request cannot be created');
+
       const owner = await getVisitProviderOwner(oystehr, visit);
       taskReference = `urn:uuid:${randomUUID()}`;
-      patientId = patient.id;
 
       requests.push({
         method: 'POST',
         url: '/Task',
         fullUrl: taskReference,
-        resource: buildRequestTask({ code, threadId, patient, visit, owner, text, details }),
+        resource: buildRequestTask({
+          code: intent.code,
+          threadId,
+          patient,
+          visit,
+          location: findLatestVisitLocation(visits, patient.id),
+          owner,
+          text: intent.text,
+          details: intent.details,
+        }),
       });
-    } else if (step.task?.type === 'set-visit') {
-      const { appointmentId, text } = step.task;
-      const visit = visits.find((v) => v.appointmentId === appointmentId);
-      const taskId = lastMessage?.about?.[0]?.reference?.replace('Task/', '');
+    } else if (intent?.type === 'update') {
+      const patient = account.patients.find((p) => p.id === intent.patientId);
+      const visit = intent.appointmentId ? visits.find((v) => v.appointmentId === intent.appointmentId) : undefined;
+      const taskId = last?.taskId;
 
-      if (!visit || !taskId) throw INVALID_INPUT_ERROR('The visit is not available for selection');
+      if (!patient || !taskId || (intent.appointmentId && !visit)) {
+        throw INVALID_INPUT_ERROR('The visit is not available for selection');
+      }
 
       const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId });
       const reassign = canAutoAssign(task, visits);
       const owner = reassign ? await getVisitProviderOwner(oystehr, visit) : undefined;
-
       const next = buildRequestTask({
         code: PATIENT_REQUEST_TASK.code.followUp,
         threadId,
-        patient: visit.patient,
+        patient,
         visit,
+        location: findLatestVisitLocation(visits, patient.id),
         owner,
-        text,
+        text: intent.text,
       });
 
       taskReference = `Task/${taskId}`;
-      patientId = visit.patient.id;
+      patientId = patient.id;
 
       requests.push({
         method: 'PUT',
@@ -130,18 +148,22 @@ export const index = wrapHandler(
         ifMatch: makeOptimisticLockIfMatchHeader(task),
         resource: moveRequestTask(task, next, reassign),
       });
-    } else if (step.task?.type === 'attach' && openTask) {
-      taskReference = `Task/${openTask.id}`;
-      patientId = getTaskPatientId(openTask);
+    } else if (intent?.type === 'attach') {
+      const target = intent.taskId ? openTasks.find((task) => task.id === intent.taskId) : openTask;
 
-      requests.push(
-        getPatchBinary({
-          resourceType: 'Task',
-          resourceId: openTask.id!,
-          patchOperations: getAttachOperations(openTask, step.task.text),
-          ifMatch: makeOptimisticLockIfMatchHeader(openTask),
-        })
-      );
+      if (target) {
+        taskReference = `Task/${target.id}`;
+        patientId = getTaskPatientId(target);
+
+        requests.push(
+          getPatchBinary({
+            resourceType: 'Task',
+            resourceId: target.id!,
+            patchOperations: getAttachOperations(target, intent.text),
+            ifMatch: makeOptimisticLockIfMatchHeader(target),
+          })
+        );
+      }
     }
 
     if (action.action === 'text') {

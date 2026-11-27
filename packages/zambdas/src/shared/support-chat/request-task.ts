@@ -1,9 +1,21 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Location, Patient, Practitioner, Reference, Resource, Schedule, Task } from 'fhir/r4b';
+import {
+  Appointment,
+  Communication,
+  Encounter,
+  Location,
+  Patient,
+  Practitioner,
+  Reference,
+  Resource,
+  Schedule,
+  Task,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TASK_INPUT_SYSTEM, TASK_LOCATION_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
@@ -16,11 +28,13 @@ import { getTaskInputValue, MANUAL_TASK, PATIENT_REQUEST_TASK } from 'utils/lib/
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { getPractitionerRoles } from '../auth';
 import { createOwnerReference, createTask } from '../tasks';
-import { getFhirResources, mapEncountersToAppointmentIds } from '../visits';
+import { mapEncountersToAppointmentIds } from '../visits';
 import { PatientRequestCode } from './bot';
 import { makeThreadTag, threadTagSearchParam } from './thread';
 
 const MAX_QUOTED_TITLE_LENGTH = 100;
+const VISIT_LOOKBACK_YEARS = 3;
+const VISITS_PER_PATIENT = 5;
 const EXCLUDED_VISIT_STATUSES: Appointment['status'][] = ['entered-in-error'];
 
 export interface Visit {
@@ -29,16 +43,14 @@ export interface Visit {
   patient: Patient;
   location?: { id: string; name?: string };
   providerId?: string;
+  date: string;
   label: string;
 }
 
 export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<Visit[]> {
   if (!patients.length) return [];
 
-  const resources = await getFhirResources(
-    oystehr,
-    patients.map((patient) => `Patient/${patient.id}`)
-  );
+  const resources = await searchVisitResources(oystehr, patients);
 
   const encounters = mapEncountersToAppointmentIds(resources);
 
@@ -57,7 +69,9 @@ export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<
       const encounter = encounters[appointment.id!];
       const locationId = encounter.location?.[0]?.location?.reference?.replace('Location/', '');
       const location = resources.find((r): r is Location => r.resourceType === 'Location' && r.id === locationId);
-      const date = DateTime.fromISO(appointment.start!, { zone: getLocationTimezone(locationId, resources) });
+      const date = DateTime.fromISO(appointment.start!, { zone: getLocationTimezone(locationId, resources) }).toFormat(
+        'MM/dd/yyyy'
+      );
 
       return [
         {
@@ -66,10 +80,71 @@ export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<
           patient,
           location: locationId ? { id: locationId, name: location?.name } : undefined,
           providerId: getAttendingPractitionerId(encounter),
-          label: `${getFullestAvailableName(patient)} ${date.toFormat('MM/dd/yyyy')}`,
+          date,
+          label: `${getFullestAvailableName(patient)} ${date}`,
         },
       ];
     });
+}
+
+export const findLatestVisitLocation = (visits: Visit[], patientId: string | undefined): Visit['location'] =>
+  visits.find((visit) => visit.patient.id === patientId)?.location;
+
+export const getDefaultPatientId = (thread: Communication[], visits: Visit[]): string | undefined =>
+  thread.findLast((message) => message.about && message.subject)?.subject?.reference?.replace('Patient/', '') ??
+  visits[0]?.patient.id;
+
+async function searchVisitResources(oystehr: Oystehr, patients: Patient[]): Promise<Resource[]> {
+  const since = DateTime.now().minus({ years: VISIT_LOOKBACK_YEARS }).toISODate();
+
+  const results = await Promise.allSettled(
+    patients.map(async (patient) =>
+      (
+        await oystehr.fhir.search<Appointment | Encounter>({
+          resourceType: 'Appointment',
+          params: [
+            { name: '_tag', value: [OTTEHR_MODULE.TM, OTTEHR_MODULE.IP].join(',') },
+            { name: 'patient', value: `Patient/${patient.id}` },
+            { name: 'date', value: `ge${since}` },
+            { name: 'status:not', value: EXCLUDED_VISIT_STATUSES.join(',') },
+            { name: '_sort', value: '-date' },
+            { name: '_count', value: VISITS_PER_PATIENT },
+            { name: '_revinclude', value: 'Encounter:appointment' },
+          ],
+        })
+      ).unbundle()
+    )
+  );
+
+  const visits = results.flatMap((result, index) => {
+    if (result.status === 'fulfilled') return result.value;
+
+    console.error(`Failed to load the visits of Patient/${patients[index].id}`, result.reason);
+    return [];
+  });
+
+  const locationIds = new Set(
+    visits.flatMap((resource) =>
+      resource.resourceType === 'Encounter'
+        ? (resource.location ?? []).flatMap((item) => item.location?.reference?.replace('Location/', '') ?? [])
+        : []
+    )
+  );
+
+  if (!locationIds.size) return visits;
+
+  const locations = await getAllFhirSearchPages<Location | Schedule>(
+    {
+      resourceType: 'Location',
+      params: [
+        { name: '_id', value: [...locationIds].join(',') },
+        { name: '_revinclude', value: 'Schedule:actor' },
+      ],
+    },
+    oystehr
+  );
+
+  return [...visits, ...locations];
 }
 
 function getLocationTimezone(locationId: string | undefined, resources: Resource[]): string {
@@ -131,7 +206,10 @@ export async function getVisitProviderOwner(
 
     if (roles && !canBeAssignedAsProvider({ roles })) return undefined;
 
-    return createOwnerReference(providerId, getFullestAvailableName(practitioner) ?? '');
+    const name = getFullestAvailableName(practitioner);
+    const owner = createOwnerReference(providerId, name ?? '');
+
+    return name ? owner : { ...owner, display: undefined };
   } catch (error) {
     console.warn(`Could not resolve provider ${providerId} of visit ${visit.appointmentId}; leaving unassigned`, error);
     return undefined;
@@ -174,11 +252,12 @@ export function buildRequestTask(input: {
   threadId: string;
   patient: Patient;
   visit?: Visit;
+  location?: Visit['location'];
   owner?: Reference;
   text?: string;
   details?: string;
 }): Task {
-  const { code, threadId, patient, visit, owner, text, details } = input;
+  const { code, threadId, patient, visit, location, owner, text, details } = input;
   const patientName = getFullestAvailableName(patient) ?? '';
   const title = buildRequestTitle(code, visit?.label ?? patientName, text);
 
@@ -187,7 +266,7 @@ export function buildRequestTask(input: {
     title,
     code: { system: PATIENT_REQUEST_TASK.system, code },
     encounterId: visit?.encounterId,
-    location: visit?.location,
+    location: visit ? visit.location : location,
     input: [
       { type: MANUAL_TASK.input.title, valueString: title },
       { type: MANUAL_TASK.input.details, valueString: details },

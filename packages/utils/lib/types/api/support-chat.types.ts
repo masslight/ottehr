@@ -13,7 +13,7 @@ export const SUPPORT_CHAT_TOPIC_LABEL: Record<SupportChatTopic, string> = {
   [SupportChatTopic.medicalRecord]: 'Medical Record',
 };
 
-export type SupportChatMessageKind = 'greeting' | 'visit-prompt' | 'recap' | 'confirmation' | 'text';
+export type SupportChatMessageKind = 'greeting' | 'patient-prompt' | 'visit-prompt' | 'recap' | 'confirmation' | 'text';
 export type SupportChatAuthor = 'patient' | 'staff' | 'bot';
 
 export interface SupportChatOption {
@@ -53,10 +53,16 @@ export type GetSupportChatInput = z.infer<typeof GetSupportChatInputSchema>;
 
 const MessageTextSchema = z.string().trim().min(1).max(4000);
 
+export const SUPPORT_CHAT_NO_VISIT_OPTION_ID = 'no-visit';
+
 export const SendSupportChatMessageInputSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('new-request') }),
   z.object({ action: z.literal('select-topic'), topic: z.nativeEnum(SupportChatTopic) }),
-  z.object({ action: z.literal('select-visit'), appointmentId: z.string().uuid() }),
+  z.object({ action: z.literal('select-patient'), patientId: z.string().uuid() }),
+  z.object({
+    action: z.literal('select-visit'),
+    appointmentId: z.union([z.string().uuid(), z.literal(SUPPORT_CHAT_NO_VISIT_OPTION_ID)]),
+  }),
   z.object({ action: z.literal('text'), text: MessageTextSchema }),
 ]);
 
@@ -75,6 +81,7 @@ export const SUPPORT_CHAT_CATEGORY = { system: ottehrCodeSystemUrl('communicatio
 export const SUPPORT_CHAT_MESSAGE_KIND_EXTENSION_URL = ottehrExtensionUrl('support-chat-message-kind');
 export const SUPPORT_CHAT_TOPIC_EXTENSION_URL = ottehrExtensionUrl('support-chat-topic');
 export const SUPPORT_CHAT_OPTION_EXTENSION_URL = ottehrExtensionUrl('support-chat-option');
+export const SUPPORT_CHAT_REQUEST_TEXT_EXTENSION_URL = ottehrExtensionUrl('support-chat-request-text');
 
 export const SUPPORT_CHAT_BOT_NAME = 'Support Automated Message';
 export const SUPPORT_CHAT_STAFF_NAME = 'Support Team';

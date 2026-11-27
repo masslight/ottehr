@@ -1,6 +1,6 @@
 import { SupportChatMessageKind } from '../types/api/support-chat.types';
 
-const PROMPT_KINDS: SupportChatMessageKind[] = ['greeting', 'visit-prompt'];
+const PROMPT_KINDS: SupportChatMessageKind[] = ['greeting', 'patient-prompt', 'visit-prompt'];
 const ANSWER_KINDS: SupportChatMessageKind[] = ['recap', 'confirmation'];
 
 export function findActivePromptIndex(kinds: SupportChatMessageKind[]): number {
