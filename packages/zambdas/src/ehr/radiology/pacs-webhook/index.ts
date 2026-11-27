@@ -26,6 +26,7 @@ import {
 } from 'utils/lib/fhir/radiology';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { RADIOLOGY_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { buildPreliminaryReportSnapshot, isFinalizedRadiologyReport } from '../../../shared/radiology';
@@ -551,8 +552,8 @@ const updateServiceRequestToCompletedInAdvaPacs = async (accessionNumber: string
       throw new Error(`Expected response to be Bundle but got ${maybeAdvaPACSSr.resourceType}`);
     }
 
-    if (maybeAdvaPACSSr.entry.length === 0) {
-      throw new Error(`No service request found in AdvaPACS for accession number ${accessionNumber}`);
+    if (!maybeAdvaPACSSr.entry?.length) {
+      throw RADIOLOGY_ERROR(`No service request found in AdvaPACS for accession number ${accessionNumber}`);
     }
     if (maybeAdvaPACSSr.entry.length > 1) {
       throw new Error(
@@ -588,6 +589,6 @@ const updateServiceRequestToCompletedInAdvaPacs = async (accessionNumber: string
     }
   } catch (error) {
     console.error('Error updating service request to complete in AdvaPacs:', error);
-    throw new Error('Failed to update service request to complete in AdvaPacs');
+    throw error;
   }
 };
