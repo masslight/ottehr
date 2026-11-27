@@ -20,6 +20,7 @@ import {
   canAutoAssign,
   findOpenTasks,
   getAttachOperations,
+  getLinkedProviderId,
   getTaskPatientId,
   getVisitProviderOwner,
   getVisits,
@@ -62,7 +63,7 @@ export const index = wrapHandler(
 
     const [thread, visits, openTasks] = await Promise.all([
       searchThread(oystehr, threadId),
-      getVisits(oystehr, account.patients),
+      getVisits(oystehr, account.patients, action.action === 'select-visit' ? action.appointmentId : undefined),
       findOpenTasks(oystehr, threadId),
     ]);
 
@@ -109,7 +110,7 @@ export const index = wrapHandler(
       if (!visit || !taskId) throw INVALID_INPUT_ERROR('The visit is not available for selection');
 
       const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId });
-      const reassign = canAutoAssign(task, visits);
+      const reassign = canAutoAssign(task, await getLinkedProviderId(oystehr, task, visits));
       const owner = reassign ? await getVisitProviderOwner(oystehr, visit) : undefined;
 
       const next = buildRequestTask({

@@ -1,9 +1,15 @@
 import Oystehr from '@oystehr/sdk';
-import { Patient, Practitioner, Reference, Task } from 'fhir/r4b';
-import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL, TASK_LOCATION_SYSTEM } from 'utils/lib/fhir/constants';
+import { Appointment, Encounter, Location, Patient, Practitioner, Reference, Resource, Schedule, Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import {
+  TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
+  TASK_LOCATION_SYSTEM,
+  TIMEZONE_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
 import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
 import { SupportChatTopic } from 'utils/lib/types/api/support-chat.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { PATIENT_REQUEST_TASK } from 'utils/lib/types/data/tasks/types';
 import { findActivePromptIndex } from 'utils/lib/utils/support-chat';
 import { describe, expect, it, vi } from 'vitest';
@@ -12,7 +18,9 @@ import {
   buildRequestTask,
   buildRequestTitle,
   canAutoAssign,
+  getLinkedProviderId,
   getVisitProviderOwner,
+  getVisits,
   moveRequestTask,
   Visit,
 } from '../../src/shared/support-chat/request-task';
@@ -281,6 +289,14 @@ describe('patient request assignment', () => {
       expect(result?.extension?.[0]).toMatchObject({ url: TASK_ASSIGNED_DATE_TIME_EXTENSION_URL });
     });
 
+    it('omits the display for a provider without a name', async () => {
+      const { oystehr } = makeOystehr([RoleType.Provider], async () => ({ ...practitioner, name: undefined }));
+      const result = await getVisitProviderOwner(oystehr, visit);
+
+      expect(result?.reference).toBe('Practitioner/practitioner-1');
+      expect(result?.display).toBeUndefined();
+    });
+
     it('resolves a provider whose roles cannot be resolved', async () => {
       const { oystehr } = makeOystehr(undefined);
       expect(await getVisitProviderOwner(oystehr, visit)).toMatchObject({ reference: 'Practitioner/practitioner-1' });
@@ -327,26 +343,77 @@ describe('patient request assignment', () => {
   });
 
   describe('canAutoAssign', () => {
-    const visits = [visit, otherVisit];
-
     it('allows an unassigned task', () => {
-      expect(canAutoAssign(build(), visits)).toBe(true);
+      expect(canAutoAssign(build(), undefined)).toBe(true);
     });
 
     it("allows a task still assigned to its linked visit's provider", () => {
-      expect(canAutoAssign(build({ owner: owner('practitioner-1') }), visits)).toBe(true);
+      expect(canAutoAssign(build({ owner: owner('practitioner-1') }), 'practitioner-1')).toBe(true);
     });
 
     it('keeps a task staff reassigned to someone else', () => {
-      expect(canAutoAssign(build({ owner: owner('practitioner-9') }), visits)).toBe(false);
+      expect(canAutoAssign(build({ owner: owner('practitioner-9') }), 'practitioner-1')).toBe(false);
     });
 
-    it('keeps a task whose linked visit is unknown', () => {
-      expect(canAutoAssign(build({ owner: owner('practitioner-1') }), [otherVisit])).toBe(false);
+    it('keeps a task whose linked provider is unknown', () => {
+      expect(canAutoAssign(build({ owner: owner('practitioner-1') }), undefined)).toBe(false);
     });
 
     it('keeps a completed task', () => {
-      expect(canAutoAssign({ ...build(), status: 'completed' }, visits)).toBe(false);
+      expect(canAutoAssign({ ...build(), status: 'completed' }, undefined)).toBe(false);
+    });
+  });
+
+  describe('getLinkedProviderId', () => {
+    const encounterOf = (providerId: string): Encounter => ({
+      resourceType: 'Encounter',
+      id: 'encounter-1',
+      status: 'finished',
+      class: { code: 'ACUTE' },
+      participant: [
+        {
+          type: [{ coding: PRACTITIONER_CODINGS.Attender }],
+          individual: { reference: `Practitioner/${providerId}` },
+        },
+      ],
+    });
+    const oystehrWith = (get: () => Promise<Encounter>): { oystehr: Oystehr; get: ReturnType<typeof vi.fn> } => {
+      const fn = vi.fn(get);
+      return { oystehr: { fhir: { get: fn } } as unknown as Oystehr, get: fn };
+    };
+
+    it('takes the provider of a loaded visit without a request', async () => {
+      const { oystehr, get } = oystehrWith(async () => encounterOf('practitioner-9'));
+
+      expect(await getLinkedProviderId(oystehr, build({ owner: owner('practitioner-1') }), [visit])).toBe(
+        'practitioner-1'
+      );
+      expect(get).not.toHaveBeenCalled();
+    });
+
+    it('reads the linked encounter when its visit is outside the loaded visits', async () => {
+      const { oystehr, get } = oystehrWith(async () => encounterOf('practitioner-1'));
+
+      expect(await getLinkedProviderId(oystehr, build({ owner: owner('practitioner-1') }), [otherVisit])).toBe(
+        'practitioner-1'
+      );
+      expect(get).toHaveBeenCalledWith({ resourceType: 'Encounter', id: 'encounter-1' });
+    });
+
+    it('needs no provider for an unassigned task', async () => {
+      const { oystehr, get } = oystehrWith(async () => encounterOf('practitioner-1'));
+
+      expect(await getLinkedProviderId(oystehr, build(), [])).toBeUndefined();
+      expect(get).not.toHaveBeenCalled();
+    });
+
+    it('keeps the assignee when the encounter cannot be read', async () => {
+      const { oystehr } = oystehrWith(async () => {
+        throw new Error('gone');
+      });
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      expect(await getLinkedProviderId(oystehr, build({ owner: owner('practitioner-1') }), [])).toBeUndefined();
     });
   });
 
@@ -403,5 +470,144 @@ describe('patient request assignment', () => {
       });
       expect(moved.meta?.tag).toContainEqual(notifiedTag);
     });
+  });
+});
+
+describe('getVisits', () => {
+  const patient: Patient = { resourceType: 'Patient', id: 'patient-1', name: [{ given: ['Sarah'], family: 'Black' }] };
+  const appointment: Appointment = {
+    resourceType: 'Appointment',
+    id: 'appointment-1',
+    status: 'fulfilled',
+    start: '2026-07-12T02:00:00.000Z',
+    participant: [{ actor: { reference: 'Patient/patient-1' }, status: 'accepted' }],
+  };
+  const encounter: Encounter = {
+    resourceType: 'Encounter',
+    id: 'encounter-1',
+    status: 'finished',
+    class: { code: 'ACUTE' },
+    appointment: [{ reference: 'Appointment/appointment-1' }],
+    location: [{ location: { reference: 'Location/location-1' } }],
+  };
+  const location: Location = { resourceType: 'Location', id: 'location-1', name: 'Clinic' };
+  const schedule: Schedule = {
+    resourceType: 'Schedule',
+    id: 'schedule-1',
+    actor: [{ reference: 'Location/location-1' }],
+    extension: [{ url: TIMEZONE_EXTENSION_URL, valueString: 'America/Los_Angeles' }],
+  };
+
+  type SearchInput = { resourceType: string; params: { name: string; value: string | number }[] };
+
+  const makeOystehr = (visitResources: Resource[]): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
+    const search = vi.fn(async ({ resourceType }: SearchInput) => {
+      const resources = resourceType === 'Appointment' ? visitResources : [location, schedule];
+      const matches = resources.filter((resource) => resource.resourceType === resourceType);
+      return {
+        total: matches.length,
+        entry: resources.map((resource) => ({
+          resource,
+          search: { mode: resource.resourceType === resourceType ? 'match' : 'include' },
+        })),
+        unbundle: () => resources,
+      };
+    });
+    return { oystehr: { fhir: { search } } as unknown as Oystehr, search };
+  };
+
+  const paramsOf = (search: ReturnType<typeof vi.fn>, call: number): Record<string, string | number> =>
+    Object.fromEntries((search.mock.calls[call][0] as SearchInput).params.map((param) => [param.name, param.value]));
+
+  it("loads each patient's five latest visits of the last three years with their encounters", async () => {
+    const { oystehr, search } = makeOystehr([appointment, encounter]);
+    await getVisits(oystehr, [patient]);
+
+    const params = paramsOf(search, 0);
+    const since = DateTime.fromISO(String(params.date).replace('ge', ''));
+
+    expect(String(params.date).startsWith('ge')).toBe(true);
+    expect(Math.round(DateTime.now().diff(since, 'years').years)).toBe(3);
+    expect(params).toMatchObject({
+      patient: 'Patient/patient-1',
+      'status:not': 'entered-in-error',
+      _sort: '-date',
+      _count: 5,
+      _revinclude: 'Encounter:appointment',
+    });
+    expect(params._include).toBeUndefined();
+  });
+
+  it('fails when the visits of a patient cannot be loaded', async () => {
+    const { oystehr, search } = makeOystehr([appointment, encounter]);
+    search.mockRejectedValueOnce(new Error('timeout'));
+
+    await expect(getVisits(oystehr, [{ ...patient, id: 'patient-2' }, patient])).rejects.toThrow('timeout');
+  });
+
+  it('loads a selected visit that is no longer among the latest ones', async () => {
+    const { oystehr, search } = makeOystehr([appointment, encounter]);
+    search.mockResolvedValueOnce({ total: 0, entry: [], unbundle: () => [] });
+
+    const visits = await getVisits(oystehr, [patient], 'appointment-1');
+
+    expect(paramsOf(search, 1)).toMatchObject({
+      _id: 'appointment-1',
+      patient: 'Patient/patient-1',
+      'status:not': 'entered-in-error',
+    });
+    expect(visits.map((visit) => visit.appointmentId)).toEqual(['appointment-1']);
+  });
+
+  it('does not search again when the selected visit is among the latest ones', async () => {
+    const { oystehr, search } = makeOystehr([appointment, encounter]);
+    await getVisits(oystehr, [patient], 'appointment-1');
+
+    expect(search.mock.calls.filter(([input]) => (input as SearchInput).resourceType === 'Appointment')).toHaveLength(
+      1
+    );
+  });
+
+  it('searches the visits of every patient separately', async () => {
+    const { oystehr, search } = makeOystehr([]);
+    await getVisits(oystehr, [patient, { ...patient, id: 'patient-2' }]);
+
+    expect(search).toHaveBeenCalledTimes(2);
+    expect([paramsOf(search, 0).patient, paramsOf(search, 1).patient]).toEqual([
+      'Patient/patient-1',
+      'Patient/patient-2',
+    ]);
+  });
+
+  it("labels a visit with the date in its location's timezone", async () => {
+    const { oystehr, search } = makeOystehr([appointment, encounter]);
+    const visits = await getVisits(oystehr, [patient]);
+
+    expect(paramsOf(search, 1)).toMatchObject({ _id: 'location-1', _revinclude: 'Schedule:actor' });
+    expect(visits).toEqual([
+      {
+        appointmentId: 'appointment-1',
+        encounterId: 'encounter-1',
+        patient,
+        location: { id: 'location-1', name: 'Clinic' },
+        providerId: undefined,
+        label: 'Sarah Black 07/11/2026',
+      },
+    ]);
+  });
+
+  it('skips the location lookup when no visit has a location', async () => {
+    const { oystehr, search } = makeOystehr([appointment, { ...encounter, location: undefined } as Encounter]);
+    const visits = await getVisits(oystehr, [patient]);
+
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(visits[0].location).toBeUndefined();
+  });
+
+  it('does not search without patients', async () => {
+    const { oystehr, search } = makeOystehr([]);
+
+    expect(await getVisits(oystehr, [])).toEqual([]);
+    expect(search).not.toHaveBeenCalled();
   });
 });

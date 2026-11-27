@@ -1,9 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Location, Patient, Practitioner, Reference, Resource, Schedule, Task } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient, Practitioner, Reference, Resource, Schedule, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TASK_INPUT_SYSTEM, TASK_LOCATION_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
@@ -16,11 +17,13 @@ import { getTaskInputValue, MANUAL_TASK, PATIENT_REQUEST_TASK } from 'utils/lib/
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { getPractitionerRoles } from '../auth';
 import { createOwnerReference, createTask } from '../tasks';
-import { getFhirResources, mapEncountersToAppointmentIds } from '../visits';
+import { mapEncountersToAppointmentIds } from '../visits';
 import { PatientRequestCode } from './bot';
 import { makeThreadTag, threadTagSearchParam } from './thread';
 
 const MAX_QUOTED_TITLE_LENGTH = 100;
+const VISIT_LOOKBACK_YEARS = 3;
+const VISITS_PER_PATIENT = 5;
 const EXCLUDED_VISIT_STATUSES: Appointment['status'][] = ['entered-in-error'];
 
 export interface Visit {
@@ -32,13 +35,14 @@ export interface Visit {
   label: string;
 }
 
-export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<Visit[]> {
+export async function getVisits(
+  oystehr: Oystehr,
+  patients: Patient[],
+  selectedAppointmentId?: string
+): Promise<Visit[]> {
   if (!patients.length) return [];
 
-  const resources = await getFhirResources(
-    oystehr,
-    patients.map((patient) => `Patient/${patient.id}`)
-  );
+  const resources = await searchVisitResources(oystehr, patients, selectedAppointmentId);
 
   const encounters = mapEncountersToAppointmentIds(resources);
 
@@ -70,6 +74,80 @@ export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<
         },
       ];
     });
+}
+
+async function searchVisitResources(
+  oystehr: Oystehr,
+  patients: Patient[],
+  selectedAppointmentId?: string
+): Promise<Resource[]> {
+  const since = DateTime.now().minus({ years: VISIT_LOOKBACK_YEARS }).toISODate();
+
+  const tags = [OTTEHR_MODULE.TM, OTTEHR_MODULE.IP].join(',');
+  const excludedStatuses = EXCLUDED_VISIT_STATUSES.join(',');
+
+  const latest = await Promise.all(
+    patients.map(async (patient) =>
+      (
+        await oystehr.fhir.search<Appointment | Encounter>({
+          resourceType: 'Appointment',
+          params: [
+            { name: '_tag', value: tags },
+            { name: 'patient', value: `Patient/${patient.id}` },
+            { name: 'date', value: `ge${since}` },
+            { name: 'status:not', value: excludedStatuses },
+            { name: '_sort', value: '-date' },
+            { name: '_count', value: VISITS_PER_PATIENT },
+            { name: '_revinclude', value: 'Encounter:appointment' },
+          ],
+        })
+      ).unbundle()
+    )
+  );
+
+  const visits = latest.flat();
+
+  const isSelectedLoaded =
+    !selectedAppointmentId ||
+    visits.some((resource) => resource.resourceType === 'Appointment' && resource.id === selectedAppointmentId);
+
+  if (!isSelectedLoaded) {
+    const selected = await oystehr.fhir.search<Appointment | Encounter>({
+      resourceType: 'Appointment',
+      params: [
+        { name: '_id', value: selectedAppointmentId },
+        { name: '_tag', value: tags },
+        { name: 'patient', value: patients.map((patient) => `Patient/${patient.id}`).join(',') },
+        { name: 'status:not', value: excludedStatuses },
+        { name: '_revinclude', value: 'Encounter:appointment' },
+      ],
+    });
+
+    visits.push(...selected.unbundle());
+  }
+
+  const locationIds = new Set(
+    visits.flatMap((resource) =>
+      resource.resourceType === 'Encounter'
+        ? (resource.location ?? []).flatMap((item) => item.location?.reference?.replace('Location/', '') ?? [])
+        : []
+    )
+  );
+
+  if (!locationIds.size) return visits;
+
+  const locations = await getAllFhirSearchPages<Location | Schedule>(
+    {
+      resourceType: 'Location',
+      params: [
+        { name: '_id', value: [...locationIds].join(',') },
+        { name: '_revinclude', value: 'Schedule:actor' },
+      ],
+    },
+    oystehr
+  );
+
+  return [...visits, ...locations];
 }
 
 function getLocationTimezone(locationId: string | undefined, resources: Resource[]): string {
@@ -131,20 +209,40 @@ export async function getVisitProviderOwner(
 
     if (roles && !canBeAssignedAsProvider({ roles })) return undefined;
 
-    return createOwnerReference(providerId, getFullestAvailableName(practitioner) ?? '');
+    const name = getFullestAvailableName(practitioner);
+    const owner = createOwnerReference(providerId, name ?? '');
+
+    return name ? owner : { ...owner, display: undefined };
   } catch (error) {
     console.warn(`Could not resolve provider ${providerId} of visit ${visit.appointmentId}; leaving unassigned`, error);
     return undefined;
   }
 }
 
-export function canAutoAssign(task: Task, visits: Visit[]): boolean {
+export function canAutoAssign(task: Task, linkedProviderId: string | undefined): boolean {
   if (task.status !== 'ready' && task.status !== 'in-progress') return false;
   if (!task.owner) return true;
 
-  const linkedVisit = visits.find((visit) => task.encounter?.reference === `Encounter/${visit.encounterId}`);
+  return !!linkedProviderId && task.owner.reference === `Practitioner/${linkedProviderId}`;
+}
 
-  return !!linkedVisit?.providerId && task.owner.reference === `Practitioner/${linkedVisit.providerId}`;
+export async function getLinkedProviderId(oystehr: Oystehr, task: Task, visits: Visit[]): Promise<string | undefined> {
+  const encounterId = task.encounter?.reference?.replace('Encounter/', '');
+
+  if (!task.owner || !encounterId) return undefined;
+
+  const loaded = visits.find((visit) => visit.encounterId === encounterId);
+
+  if (loaded) return loaded.providerId;
+
+  try {
+    return getAttendingPractitionerId(
+      await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId })
+    );
+  } catch (error) {
+    console.warn(`Could not read Encounter/${encounterId} of task ${task.id}; keeping its assignee`, error);
+    return undefined;
+  }
 }
 
 export function moveRequestTask(task: Task, next: Task, reassign: boolean): Task {
