@@ -27,6 +27,7 @@ export function CardSelect<T extends FieldValues>({
   loading,
   error,
   emptyMessage,
+  disabled = false,
 }: {
   control: Control<T>;
   name: Path<T>;
@@ -34,6 +35,7 @@ export function CardSelect<T extends FieldValues>({
   loading: boolean;
   error: string;
   emptyMessage: string;
+  disabled?: boolean;
 }): ReactElement {
   if (loading) {
     return (
@@ -61,7 +63,7 @@ export function CardSelect<T extends FieldValues>({
         required: 'Select a card',
       }}
       render={({ field, fieldState: { error: fieldError } }) => (
-        <FormControl size="small" fullWidth error={!!fieldError}>
+        <FormControl size="small" fullWidth error={!!fieldError} disabled={disabled}>
           <InputLabel id="payment-card-label">Card *</InputLabel>
           <Select
             labelId="payment-card-label"

@@ -23,10 +23,10 @@ import { CLAIM_STATUS_FIELDS_BY_KEY, getActiveStatusGroup } from 'utils/lib/type
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingInvoice } from '../api/api';
 import { ClaimStatusValueChip } from '../components/ClaimStatusValueChip';
-import { CollectInvoiceCardPaymentDialog } from '../components/CollectInvoiceCardPaymentDialog';
+import { CardChargeAttempt, CollectInvoiceCardPaymentDialog } from '../components/CollectInvoiceCardPaymentDialog';
 import { InvoiceStatusChip } from '../components/InvoiceStatusChip';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
-import { RecordInvoicePaymentDialog } from '../components/RecordInvoicePaymentDialog';
+import { ManualPaymentAttempt, RecordInvoicePaymentDialog } from '../components/RecordInvoicePaymentDialog';
 import { Row } from '../components/Row';
 import { VoidInvoiceDialog } from '../components/VoidInvoiceDialog';
 import { invoicePaymentMethodLabel } from '../constants/invoice';
@@ -38,6 +38,9 @@ interface DownloadableFile {
   fileName: string;
   url: string;
 }
+
+const UNRESOLVED_CARD_PAYMENT = 'A card payment may have gone through. Try it again before recording another payment.';
+const UNRESOLVED_MANUAL_PAYMENT = 'A payment may have been recorded. Try it again before charging a card.';
 
 const formatPaymentLine = ({ method, reference, amount }: BillingInvoicePayment): string =>
   `${invoicePaymentMethodLabel(method)}${reference ? ` #${reference}` : ''} - ${formatCurrency(amount)}`;
@@ -174,6 +177,9 @@ export default function InvoiceDetail(): ReactElement {
   const [recordingPayment, setRecordingPayment] = useState(false);
   const [collectingCardPayment, setCollectingCardPayment] = useState(false);
   const [voiding, setVoiding] = useState(false);
+  // outlive each opening, so reopening after an unknown outcome can't pay twice
+  const [unresolvedManualPayment, setUnresolvedManualPayment] = useState<ManualPaymentAttempt | null>(null);
+  const [unresolvedCardAttempt, setUnresolvedCardAttempt] = useState<CardChargeAttempt | null>(null);
 
   const invoice = useQuery({
     queryKey: ['billing-invoice', invoiceId],
@@ -187,11 +193,8 @@ export default function InvoiceDetail(): ReactElement {
       }),
   });
 
-  const isLocked = !(
-    invoice.data?.status === 'issued' &&
-    invoice.data.amount > 0 &&
-    invoice.data.balance === invoice.data.amount
-  );
+  const takesPayment = invoice.data?.status === 'issued' && (invoice.data.balance ?? 0) > 0;
+  const voidable = takesPayment && invoice.data?.balance === invoice.data?.amount;
   const isVoid = invoice.data?.status === 'cancelled';
 
   const download = async ({
@@ -272,13 +275,29 @@ export default function InvoiceDetail(): ReactElement {
             flexGrow: 1,
           }}
         />
-        <Button variant="contained" disabled={isLocked} onClick={() => setRecordingPayment(true)}>
-          Record payment
-        </Button>
-        <Button variant="outlined" disabled={isLocked} onClick={() => setCollectingCardPayment(true)}>
-          Collect card payment
-        </Button>
-        <Button variant="outlined" color="error" disabled={isLocked} onClick={() => setVoiding(true)}>
+        <Tooltip title={unresolvedCardAttempt ? UNRESOLVED_CARD_PAYMENT : ''}>
+          <span>
+            <Button
+              variant="contained"
+              disabled={!takesPayment || unresolvedCardAttempt !== null}
+              onClick={() => setRecordingPayment(true)}
+            >
+              Record payment
+            </Button>
+          </span>
+        </Tooltip>
+        <Tooltip title={unresolvedManualPayment ? UNRESOLVED_MANUAL_PAYMENT : ''}>
+          <span>
+            <Button
+              variant="outlined"
+              disabled={!takesPayment || unresolvedManualPayment !== null}
+              onClick={() => setCollectingCardPayment(true)}
+            >
+              Collect card payment
+            </Button>
+          </span>
+        </Tooltip>
+        <Button variant="outlined" color="error" disabled={!voidable} onClick={() => setVoiding(true)}>
           Void invoice
         </Button>
         <Tooltip title={isVoid ? 'This invoice is void, so its PDF is no longer available' : ''}>
@@ -328,18 +347,27 @@ export default function InvoiceDetail(): ReactElement {
       )}
       {invoice.data && (
         <>
-          <RecordInvoicePaymentDialog
-            open={recordingPayment}
-            onClose={() => setRecordingPayment(false)}
-            onRecorded={() => invoice.refetch()}
-            invoice={invoice.data}
-          />
-          <CollectInvoiceCardPaymentDialog
-            open={collectingCardPayment}
-            onClose={() => setCollectingCardPayment(false)}
-            onPaid={() => invoice.refetch()}
-            invoice={invoice.data}
-          />
+          {/* mounted only while open, so each opening starts fresh */}
+          {recordingPayment && (
+            <RecordInvoicePaymentDialog
+              open
+              onClose={() => setRecordingPayment(false)}
+              onRecorded={() => invoice.refetch()}
+              invoice={invoice.data}
+              unresolvedAttempt={unresolvedManualPayment}
+              onUnresolvedAttemptChange={setUnresolvedManualPayment}
+            />
+          )}
+          {collectingCardPayment && (
+            <CollectInvoiceCardPaymentDialog
+              open
+              onClose={() => setCollectingCardPayment(false)}
+              onPaid={() => invoice.refetch()}
+              invoice={invoice.data}
+              unresolvedAttempt={unresolvedCardAttempt}
+              onUnresolvedAttemptChange={setUnresolvedCardAttempt}
+            />
+          )}
           <VoidInvoiceDialog
             open={voiding}
             onClose={() => setVoiding(false)}

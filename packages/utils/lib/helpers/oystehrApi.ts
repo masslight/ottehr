@@ -92,6 +92,8 @@ export const getApiError = ({ error, defaultError }: { error: any; defaultError:
   return defaultError;
 };
 
+export const getApiErrorCode = (error: any): unknown => error?.output?.code ?? error?.code;
+
 export function NotFoundAppointmentErrorHandler(error: any): void {
   if (error.message === 'Appointment is not found') {
     throw error;

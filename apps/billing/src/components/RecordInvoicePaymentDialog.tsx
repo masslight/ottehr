@@ -12,16 +12,15 @@ import {
   FormControlLabel,
   FormLabel,
   IconButton,
-  InputAdornment,
   Radio,
   RadioGroup,
   TextField,
   Typography,
 } from '@mui/material';
 import { DateTime } from 'luxon';
-import { ReactElement, useEffect, useRef, useState } from 'react';
+import { ReactElement, useRef, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { getApiError, getApiErrorCode } from 'utils/lib/helpers/oystehrApi';
 import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { FUTURE_PAYMENT_DATE_ERROR, isFuturePaymentDay, practiceToday } from 'utils/lib/helpers/rcm/payment-day';
 import { TIMEZONES } from 'utils/lib/types/constants';
@@ -31,6 +30,7 @@ import {
 } from 'utils/lib/types/data/billing/billing.constants';
 import { RecordBillingNioInvoicePaymentInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingInvoiceDetail } from 'utils/lib/types/data/billing/billing.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { presignBillingInvoicePaymentAttachment, recordBillingNioInvoicePayment } from '../api/api';
 import { invoicePaymentMethodLabel } from '../constants/invoice';
@@ -38,10 +38,12 @@ import { useApiClients } from '../hooks/useAppClients';
 import { MAX_ATTACHMENT_BYTES } from './attachments/AttachmentsSection';
 import { DateInput } from './DateInput';
 import { DropzoneField } from './DropzoneField';
+import { PaymentAmountField, toAmountInCents } from './PaymentAmountField';
 
 type InvoicePaymentMethod = (typeof BILLING_INVOICE_PAYMENT_METHODS)[number];
 
 interface InvoicePaymentForm {
+  amount: string;
   paymentDate: string;
   paymentMethod: InvoicePaymentMethod;
   reference: string;
@@ -53,115 +55,136 @@ const ATTACHMENT_ACCEPT = {
   'application/pdf': ['.pdf'],
 };
 
-const defaultValues = (): InvoicePaymentForm => ({
-  paymentDate: practiceToday(DateTime.now()),
-  paymentMethod: 'check',
-  reference: '',
-  file: null,
-});
+export interface ManualPaymentAttempt {
+  payment: RecordBillingNioInvoicePaymentInput;
+  file: File | null;
+}
+
+const defaultValues = (balance: number, attempt: ManualPaymentAttempt | null): InvoicePaymentForm =>
+  attempt
+    ? {
+        amount: (attempt.payment.amountInCents / 100).toFixed(2),
+        paymentDate: attempt.payment.paymentDate,
+        paymentMethod: attempt.payment.paymentMethod,
+        reference: attempt.payment.reference ?? '',
+        file: attempt.file,
+      }
+    : {
+        amount: balance.toFixed(2),
+        paymentDate: practiceToday(DateTime.now()),
+        paymentMethod: 'check',
+        reference: '',
+        file: null,
+      };
+
+const isRefusedPayment = (error: unknown): boolean => getApiErrorCode(error) === APIErrorCode.INVALID_INPUT;
 
 export function RecordInvoicePaymentDialog({
   open,
   onClose,
   onRecorded,
   invoice,
+  unresolvedAttempt,
+  onUnresolvedAttemptChange,
 }: {
   open: boolean;
   onClose: () => void;
   onRecorded: () => Promise<unknown> | void;
   invoice: Pick<BillingInvoiceDetail, 'id' | 'balance'>;
+  // a payment that may have been recorded; reopening resends it
+  unresolvedAttempt: ManualPaymentAttempt | null;
+  onUnresolvedAttemptChange: (attempt: ManualPaymentAttempt | null) => void;
 }): ReactElement {
   const { oystehrZambda } = useApiClients();
+  // fixed at opening, so a refetch can't block a retry
+  const [openedBalance] = useState(invoice.balance ?? 0);
   const methods = useForm<InvoicePaymentForm>({
-    defaultValues: defaultValues(),
+    defaultValues: defaultValues(openedBalance, unresolvedAttempt),
   });
-  const { control, handleSubmit, reset } = methods;
+  const { control, handleSubmit } = methods;
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const balance = invoice.balance ?? 0;
+  const retryOnly = unresolvedAttempt !== null;
+  const locked = submitting || retryOnly;
 
-  // A resent payment reuses its key, invoice, amount and uploaded file, so it's recorded once even
-  // after a refetch drops the balance it paid.
-  const lastAttempt = useRef<{
-    idempotencyKey: string;
-    signature: string;
-    invoiceId: string;
-    amountInCents: number;
-    attachment?: RecordBillingNioInvoicePaymentInput['attachment'];
+  const upload = useRef<{
+    file: File;
+    attachment: RecordBillingNioInvoicePaymentInput['attachment'];
   } | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      reset(defaultValues());
-      setSubmitError('');
-      lastAttempt.current = null;
-    }
-  }, [open, reset]);
+  const showError = (err: unknown): void =>
+    setSubmitError(
+      getApiError({
+        error: err,
+        defaultError: 'Failed to record the payment',
+      })
+    );
 
-  const submit = async (form: InvoicePaymentForm): Promise<void> => {
+  const record = async (attempt: ManualPaymentAttempt): Promise<void> => {
     if (!oystehrZambda) return;
-    const reference = form.reference.trim() || undefined;
-    const signature = JSON.stringify([
-      form.paymentDate,
-      form.paymentMethod,
-      reference,
-      form.file?.name,
-      form.file?.size,
-      form.file?.lastModified,
-    ]);
-    if (lastAttempt.current?.signature !== signature) {
-      lastAttempt.current = {
-        idempotencyKey: crypto.randomUUID(),
-        signature,
-        invoiceId: invoice.id,
-        amountInCents: Math.round(balance * 100),
-      };
-    }
-    const attempt = lastAttempt.current;
-    const { idempotencyKey, invoiceId, amountInCents } = attempt;
-
     setSubmitting(true);
     setSubmitError('');
     try {
-      if (form.file && !attempt.attachment) {
-        const { uploadUrl, path } = await presignBillingInvoicePaymentAttachment(oystehrZambda, {
-          invoiceId,
-          fileName: form.file.name,
-        });
-        await uploadObjectToZ3(form.file, uploadUrl, form.file.type);
-        attempt.attachment = {
-          path,
-          fileName: form.file.name,
-          ...(form.file.type
-            ? {
-                mimeType: form.file.type,
-              }
-            : {}),
-        };
-      }
-      const { attachment } = attempt;
-      await recordBillingNioInvoicePayment(oystehrZambda, {
-        invoiceId,
-        amountInCents,
-        paymentMethod: form.paymentMethod,
-        paymentDate: form.paymentDate,
-        reference,
-        attachment,
-        idempotencyKey,
-      });
+      await recordBillingNioInvoicePayment(oystehrZambda, attempt.payment);
     } catch (err) {
-      setSubmitError(
-        getApiError({
-          error: err,
-          defaultError: 'Failed to record the payment',
-        })
-      );
+      showError(err);
+      onUnresolvedAttemptChange(isRefusedPayment(err) ? null : attempt);
       setSubmitting(false);
       return;
     }
+    onUnresolvedAttemptChange(null);
     setSubmitting(false);
     onClose();
     await onRecorded();
+  };
+
+  const uploadAttachment = async (file: File): Promise<RecordBillingNioInvoicePaymentInput['attachment']> => {
+    if (upload.current?.file === file) return upload.current.attachment;
+    const { uploadUrl, path } = await presignBillingInvoicePaymentAttachment(oystehrZambda!, {
+      invoiceId: invoice.id,
+      fileName: file.name,
+    });
+    await uploadObjectToZ3(file, uploadUrl, file.type);
+    const attachment = {
+      path,
+      fileName: file.name,
+      ...(file.type
+        ? {
+            mimeType: file.type,
+          }
+        : {}),
+    };
+    upload.current = {
+      file,
+      attachment,
+    };
+    return attachment;
+  };
+
+  const submit = async (form: InvoicePaymentForm): Promise<void> => {
+    if (!oystehrZambda) return;
+    setSubmitting(true);
+    setSubmitError('');
+    let attachment: RecordBillingNioInvoicePaymentInput['attachment'];
+    try {
+      attachment = form.file ? await uploadAttachment(form.file) : undefined;
+    } catch (err) {
+      showError(err);
+      setSubmitting(false);
+      return;
+    }
+    await record({
+      payment: {
+        invoiceId: invoice.id,
+        amountInCents: toAmountInCents(form.amount),
+        paymentMethod: form.paymentMethod,
+        paymentDate: form.paymentDate,
+        reference: form.reference.trim() || undefined,
+        attachment,
+        idempotencyKey: crypto.randomUUID(),
+      },
+      file: form.file,
+    });
   };
 
   const closeIfIdle = (): void => {
@@ -219,28 +242,24 @@ export function RecordInvoicePaymentDialog({
                     timezone={TIMEZONES[0]}
                     value={field.value}
                     onChange={(value) => field.onChange(value)}
+                    disabled={locked}
                     error={!!error}
                     helperText={error?.message}
                   />
                 )}
               />
-              <TextField
-                label="Amount"
-                size="small"
-                fullWidth
-                disabled
-                value={balance.toFixed(2)}
-                helperText="The full balance"
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                }}
+              <PaymentAmountField
+                control={control}
+                name="amount"
+                maxInCents={Math.round(openedBalance * 100)}
+                disabled={locked}
               />
             </Box>
             <Controller
               name="paymentMethod"
               control={control}
               render={({ field }) => (
-                <FormControl>
+                <FormControl disabled={locked}>
                   <FormLabel id="invoice-payment-method-label">Payment method *</FormLabel>
                   <RadioGroup
                     row
@@ -276,6 +295,7 @@ export function RecordInvoicePaymentDialog({
                   fullWidth
                   value={field.value}
                   onChange={(e) => field.onChange(e.target.value)}
+                  disabled={locked}
                   error={!!error}
                   helperText={error?.message}
                 />
@@ -287,6 +307,7 @@ export function RecordInvoicePaymentDialog({
               accept={ATTACHMENT_ACCEPT}
               maxSize={MAX_ATTACHMENT_BYTES}
               ariaLabel="Upload attachment"
+              disabled={locked}
             />
           </Box>
         </FormProvider>
@@ -304,10 +325,10 @@ export function RecordInvoicePaymentDialog({
         <Button
           variant="contained"
           startIcon={submitting ? <CircularProgress size={14} /> : <SaveIcon fontSize="small" />}
-          onClick={handleSubmit(submit)}
+          onClick={unresolvedAttempt ? () => void record(unresolvedAttempt) : handleSubmit(submit)}
           disabled={submitting}
         >
-          Record payment
+          {retryOnly ? 'Try again' : 'Record payment'}
         </Button>
       </DialogActions>
     </Dialog>
