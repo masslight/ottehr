@@ -238,6 +238,34 @@ describe('buildVitalsFlowsheet readings', () => {
   });
 });
 
+const LOS_ANGELES = {
+  resourceType: 'Location' as const,
+  id: 'l-la',
+  extension: [{ url: TIMEZONE_EXTENSION_URL, valueString: 'America/Los_Angeles' }],
+};
+const freeFormInLosAngeles = encounter('ff', undefined, {
+  type: buildFollowupEncounterType('free-form'),
+  location: [{ location: { reference: 'Location/l-la' } }],
+});
+
+describe('buildVitalsFlowsheet in the clinic time zone', () => {
+  test('a BMI taken on the eve of the second birthday at the clinic is dropped', () => {
+    const bmi = vital(VitalFieldNames.VitalBMI, 'ff', '2026-03-14T05:30:00.000Z', { valueQuantity: { value: 16.2 } });
+    const weight = vital(VitalFieldNames.VitalWeight, 'ff', '2026-03-14T05:30:00.000Z', {
+      valueQuantity: { value: 12 },
+    });
+    const visits = build({
+      birthDate: '2024-03-14',
+      observations: [bmi, weight],
+      locations: [LOS_ANGELES],
+      encounters: [...encounters, freeFormInLosAngeles],
+    });
+    expect(visits.find((v) => v.encounterId === 'ff')?.values).toEqual({
+      [VitalFieldNames.VitalWeight]: [{ time: '2026-03-14T05:30:00.000Z', values: [12], flag: undefined }],
+    });
+  });
+});
+
 describe('buildVitalsFlowsheet columns', () => {
   test('a visit without vitals still gets its column', () => {
     const visits = build({ observations: [] });
@@ -414,6 +442,15 @@ describe('describeVisit', () => {
       primaryDiagnosis: '',
       provider: '',
     });
+  });
+
+  test("a visit without an appointment takes its time zone from the encounter's location", () => {
+    const resources: VisitResources = {
+      ...baseResources,
+      locations: [LOS_ANGELES],
+      encounters: [...encounters, freeFormInLosAngeles],
+    };
+    expect(describeVisit('ff', resources).timezone).toBe('America/Los_Angeles');
   });
 
   test('a free-form encounter, which has no original visit, still reads its own type and reason', () => {

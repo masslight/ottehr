@@ -4,7 +4,12 @@ import { DateTime } from 'luxon';
 import { appointmentTypeForAppointment, getReasonForVisitFromAppointment } from 'utils/lib/fhir/appointments';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
-import { FOLLOWUP_SYSTEMS, getEncounterVisitType, getFollowupSubtype } from 'utils/lib/fhir/encounter';
+import {
+  FOLLOWUP_SYSTEMS,
+  getEncounterLocationId,
+  getEncounterVisitType,
+  getFollowupSubtype,
+} from 'utils/lib/fhir/encounter';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
@@ -55,7 +60,7 @@ const primaryConditionIdOf = (encounter: Encounter | undefined): string | undefi
 
 export const fetchVisits = async (oystehr: Oystehr, patientId: string): Promise<VisitResources> => {
   const patient = `Patient/${patientId}`;
-  const [visitResources, followUps] = await Promise.all([
+  const [visitResources, followUpResources] = await Promise.all([
     getAllFhirSearchPages<Appointment | Encounter | Location>(
       {
         resourceType: 'Appointment',
@@ -64,16 +69,18 @@ export const fetchVisits = async (oystehr: Oystehr, patientId: string): Promise<
           { name: '_tag', value: `${OTTEHR_MODULE.IP},${OTTEHR_MODULE.TM}` },
           { name: '_revinclude', value: 'Encounter:appointment' },
           { name: '_include', value: 'Appointment:location' },
+          { name: '_include:iterate', value: 'Encounter:location' },
         ],
       },
       oystehr
     ),
-    getAllFhirSearchPages<Encounter>(
+    getAllFhirSearchPages<Encounter | Location>(
       {
         resourceType: 'Encounter',
         params: [
           { name: 'subject', value: patient },
           { name: 'type', value: `${FOLLOWUP_SYSTEMS.type.url}|${FOLLOWUP_SYSTEMS.type.code}` },
+          { name: '_include', value: 'Encounter:location' },
         ],
       },
       oystehr
@@ -81,8 +88,11 @@ export const fetchVisits = async (oystehr: Oystehr, patientId: string): Promise<
   ]);
   const appointments = visitResources.filter((r): r is Appointment => r.resourceType === 'Appointment');
   const linked = visitResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
+  const followUps = followUpResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
   const encounters = [...linked, ...followUps.filter((f) => !linked.some((e) => e.id === f.id))];
-  const locations = visitResources.filter((r): r is Location => r.resourceType === 'Location');
+  const locations = [...visitResources, ...followUpResources]
+    .filter((r): r is Location => r.resourceType === 'Location')
+    .filter((location, index, all) => all.findIndex((l) => l.id === location.id) === index);
 
   const [conditions, practitioners] = await Promise.all([
     searchByIds<Condition>(oystehr, 'Condition', encounters.map(primaryConditionIdOf)),
@@ -113,10 +123,11 @@ export const describeVisit = (encounterId: string, resources: VisitResources): V
   const coding = resources.conditions.find((c) => c.id === primaryConditionIdOf(encounter))?.code?.coding?.[0];
   const attendingId = encounter && getAttendingPractitionerId(encounter);
   const attending = resources.practitioners.find((p) => p.id === attendingId);
-  const locationId = getIdFromReference(
-    appointment?.participant.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor?.reference,
-    'Location'
-  );
+  const locationId =
+    getIdFromReference(
+      appointment?.participant.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor?.reference,
+      'Location'
+    ) ?? getEncounterLocationId(encounter);
   const location = resources.locations.find((l) => l.id === locationId);
   const followUpRow =
     encounter && original
