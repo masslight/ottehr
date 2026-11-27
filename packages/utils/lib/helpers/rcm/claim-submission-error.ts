@@ -296,6 +296,17 @@ function fieldLabel(segment: PathSegment, parent: PathSegment | undefined, claim
   );
 }
 
+// "identifier[type=(http://terminology.hl7.org/CodeSystem/v2-0203,NIIP)]" (or XV): a payer ID the 837
+// builder names without saying whose it is.
+function isBarePayerIdentifier(segments: PathSegment[]): boolean {
+  if (segments.length !== 1) return false;
+  const [segment] = segments;
+  const type = /^type=\(http:\/\/terminology\.hl7\.org\/CodeSystem\/v2-0203,(\w+)\)$/.exec(
+    segment.selectors[0] ?? ''
+  )?.[1];
+  return segment.name === 'identifier' && segment.selectors.length === 1 && (type === 'NIIP' || type === 'XV');
+}
+
 // Claim.supportingInfo paths carry long category/code selectors (and an "&& [code=...]" suffix);
 // describe them by what they are for.
 function describeSupportingInfo(path: string): string {
@@ -320,8 +331,9 @@ function describeSupportingInfo(path: string): string {
  * The billing-app description of the value at a claim-service validation path, e.g.
  * "Claim.insurance[sequence=1].coverage.subscriberId" -> "Primary insurance: Member ID".
  * `claim` (the claim as submitted) resolves entry selectors to the labels the billing app shows.
- * `allowRootless` accepts a path that starts below the Claim (the 837 builder reports some payer
- * identifiers that way).
+ * `allowRootless` also accepts a bare payer identifier path, which is how the 837 builder reports a
+ * prior payer's missing ID (`identifier[type=(<v2-0203>,NIIP)] or identifier[type=(<v2-0203>,XV)]`).
+ * Nothing else without a Claim root is described, so unrelated errors pass through untouched.
  */
 function describePath(path: string, claim: Claim | undefined, allowRootless = false): string | undefined {
   if (LITERAL_LABELS[path]) return LITERAL_LABELS[path];
@@ -338,7 +350,7 @@ function describePath(path: string, claim: Claim | undefined, allowRootless = fa
     segments = parsed.slice(1);
     context = 'Prior payer response';
     isPriorPayerResponse = true;
-  } else if (allowRootless) {
+  } else if (allowRootless && isBarePayerIdentifier(parsed)) {
     segments = parsed;
   } else {
     return undefined;

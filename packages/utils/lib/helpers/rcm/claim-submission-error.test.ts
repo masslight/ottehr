@@ -284,6 +284,18 @@ describe('describeClaimSubmissionError', () => {
     expect(describeClaimSubmissionError(undefinedAt('Claim.diagnosis[0]'))).toBe('Diagnosis at position 1 is missing');
   });
 
+  it('leaves "<x> or <y> must be present" errors alone unless they name claim or payer-ID paths', () => {
+    for (const message of [
+      'username or password must be present',
+      'Authorization or apiKey must be present',
+      `identifier[type=(${ID_TYPE},NPI)] or identifier[type=(${ID_TYPE},XV)] must be present`,
+      'identifier[type=(http://example.com/other,NIIP)] or identifier[type=(http://example.com/other,XV)] must be present',
+      `Patient.identifier[type=(${ID_TYPE},NIIP)] or Patient.identifier[type=(${ID_TYPE},XV)] must be present`,
+    ]) {
+      expect(describeClaimSubmissionError(message, CLAIM)).toBe(message);
+    }
+  });
+
   it('returns other messages unchanged', () => {
     expect(describeWithClaim('Duplicate diagnosis code J06.9')).toBe('Duplicate diagnosis code J06.9');
     expect(describeWithClaim(undefinedAt('Patient.name'))).toBe(undefinedAt('Patient.name'));
