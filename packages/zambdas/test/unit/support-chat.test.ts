@@ -9,6 +9,7 @@ import {
 import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
 import { SupportChatTopic } from 'utils/lib/types/api/support-chat.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { PATIENT_REQUEST_TASK } from 'utils/lib/types/data/tasks/types';
 import { findActivePromptIndex } from 'utils/lib/utils/support-chat';
 import { describe, expect, it, vi } from 'vitest';
@@ -17,6 +18,7 @@ import {
   buildRequestTask,
   buildRequestTitle,
   canAutoAssign,
+  getLinkedProviderId,
   getVisitProviderOwner,
   getVisits,
   moveRequestTask,
@@ -341,26 +343,77 @@ describe('patient request assignment', () => {
   });
 
   describe('canAutoAssign', () => {
-    const visits = [visit, otherVisit];
-
     it('allows an unassigned task', () => {
-      expect(canAutoAssign(build(), visits)).toBe(true);
+      expect(canAutoAssign(build(), undefined)).toBe(true);
     });
 
     it("allows a task still assigned to its linked visit's provider", () => {
-      expect(canAutoAssign(build({ owner: owner('practitioner-1') }), visits)).toBe(true);
+      expect(canAutoAssign(build({ owner: owner('practitioner-1') }), 'practitioner-1')).toBe(true);
     });
 
     it('keeps a task staff reassigned to someone else', () => {
-      expect(canAutoAssign(build({ owner: owner('practitioner-9') }), visits)).toBe(false);
+      expect(canAutoAssign(build({ owner: owner('practitioner-9') }), 'practitioner-1')).toBe(false);
     });
 
-    it('keeps a task whose linked visit is unknown', () => {
-      expect(canAutoAssign(build({ owner: owner('practitioner-1') }), [otherVisit])).toBe(false);
+    it('keeps a task whose linked provider is unknown', () => {
+      expect(canAutoAssign(build({ owner: owner('practitioner-1') }), undefined)).toBe(false);
     });
 
     it('keeps a completed task', () => {
-      expect(canAutoAssign({ ...build(), status: 'completed' }, visits)).toBe(false);
+      expect(canAutoAssign({ ...build(), status: 'completed' }, undefined)).toBe(false);
+    });
+  });
+
+  describe('getLinkedProviderId', () => {
+    const encounterOf = (providerId: string): Encounter => ({
+      resourceType: 'Encounter',
+      id: 'encounter-1',
+      status: 'finished',
+      class: { code: 'ACUTE' },
+      participant: [
+        {
+          type: [{ coding: PRACTITIONER_CODINGS.Attender }],
+          individual: { reference: `Practitioner/${providerId}` },
+        },
+      ],
+    });
+    const oystehrWith = (get: () => Promise<Encounter>): { oystehr: Oystehr; get: ReturnType<typeof vi.fn> } => {
+      const fn = vi.fn(get);
+      return { oystehr: { fhir: { get: fn } } as unknown as Oystehr, get: fn };
+    };
+
+    it('takes the provider of a loaded visit without a request', async () => {
+      const { oystehr, get } = oystehrWith(async () => encounterOf('practitioner-9'));
+
+      expect(await getLinkedProviderId(oystehr, build({ owner: owner('practitioner-1') }), [visit])).toBe(
+        'practitioner-1'
+      );
+      expect(get).not.toHaveBeenCalled();
+    });
+
+    it('reads the linked encounter when its visit is outside the loaded visits', async () => {
+      const { oystehr, get } = oystehrWith(async () => encounterOf('practitioner-1'));
+
+      expect(await getLinkedProviderId(oystehr, build({ owner: owner('practitioner-1') }), [otherVisit])).toBe(
+        'practitioner-1'
+      );
+      expect(get).toHaveBeenCalledWith({ resourceType: 'Encounter', id: 'encounter-1' });
+    });
+
+    it('needs no provider for an unassigned task', async () => {
+      const { oystehr, get } = oystehrWith(async () => encounterOf('practitioner-1'));
+
+      expect(await getLinkedProviderId(oystehr, build(), [])).toBeUndefined();
+      expect(get).not.toHaveBeenCalled();
+    });
+
+    it('keeps the assignee when the encounter cannot be read', async () => {
+      const { oystehr } = oystehrWith(async () => {
+        throw new Error('gone');
+      });
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      expect(await getLinkedProviderId(oystehr, build({ owner: owner('practitioner-1') }), [])).toBeUndefined();
     });
   });
 

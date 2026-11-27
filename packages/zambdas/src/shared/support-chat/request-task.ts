@@ -219,13 +219,30 @@ export async function getVisitProviderOwner(
   }
 }
 
-export function canAutoAssign(task: Task, visits: Visit[]): boolean {
+export function canAutoAssign(task: Task, linkedProviderId: string | undefined): boolean {
   if (task.status !== 'ready' && task.status !== 'in-progress') return false;
   if (!task.owner) return true;
 
-  const linkedVisit = visits.find((visit) => task.encounter?.reference === `Encounter/${visit.encounterId}`);
+  return !!linkedProviderId && task.owner.reference === `Practitioner/${linkedProviderId}`;
+}
 
-  return !!linkedVisit?.providerId && task.owner.reference === `Practitioner/${linkedVisit.providerId}`;
+export async function getLinkedProviderId(oystehr: Oystehr, task: Task, visits: Visit[]): Promise<string | undefined> {
+  const encounterId = task.encounter?.reference?.replace('Encounter/', '');
+
+  if (!task.owner || !encounterId) return undefined;
+
+  const loaded = visits.find((visit) => visit.encounterId === encounterId);
+
+  if (loaded) return loaded.providerId;
+
+  try {
+    return getAttendingPractitionerId(
+      await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId })
+    );
+  } catch (error) {
+    console.warn(`Could not read Encounter/${encounterId} of task ${task.id}; keeping its assignee`, error);
+    return undefined;
+  }
 }
 
 export function moveRequestTask(task: Task, next: Task, reassign: boolean): Task {
