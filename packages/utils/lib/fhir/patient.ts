@@ -248,9 +248,7 @@ export async function getRelatedPersonsForPhoneNumber(
 
 export type VerifiedPhoneResolution =
   | { status: 'verified'; phone: string }
-  // no login RelatedPerson/Person links the patient, so a visit's contact would be "not provided"
   | { status: 'no-account' }
-  // the linked accounts disagree (several verified phones), so booking cannot pick one
   | { status: 'ambiguous'; phones: string[] };
 
 export function resolveVerifiedPhone(resources: (Patient | Person | RelatedPerson)[]): VerifiedPhoneResolution {

@@ -11,7 +11,6 @@ interface PatientCandidateRadioGroupProps {
   value: string;
   onChange: (patientId: string) => void;
   getOptionState?: (patient: AddVisitPatientInfo) => { disabled?: boolean; note?: string };
-  // Optional per-candidate action shown beside the option (e.g. a link to the patient's profile).
   renderAction?: (patient: AddVisitPatientInfo) => ReactNode;
 }
 

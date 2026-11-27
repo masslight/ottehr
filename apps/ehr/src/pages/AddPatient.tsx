@@ -228,7 +228,6 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
   const [duplicatePatients, setDuplicatePatients] = useState<DuplicatePatientCandidate[]>([]);
   const [selectedDuplicateId, setSelectedDuplicateId] = useState<string>('');
   const selectedDuplicate = duplicatePatients.find((c) => c.patientId === selectedDuplicateId);
-  // Add Visit books against the linked account's verified phone, so candidates without one are not selectable.
   const getCandidateBlock = (candidate: DuplicatePatientCandidate): string | undefined =>
     patientOnly ? undefined : getCandidateBlockedReason(candidate);
   const candidateToPatientInfo = (candidate: DuplicatePatientCandidate): AddVisitPatientInfo => ({
@@ -239,7 +238,6 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
     lastName: candidate.lastName,
     dateOfBirth: candidate.dateOfBirth,
     sex: candidate.sex as AddVisitPatientInfo['sex'],
-    // Show and reuse the number booking would use (the linked account's verified phone), not Patient.telecom.
     phoneNumber: candidate.phone?.status === 'verified' ? getPhoneNumberDigits(candidate.phone.phone) : undefined,
   });
   const [showFields, setShowFields] = useState<AddVisitFormState>(
@@ -538,9 +536,6 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
 
   // handle functions
 
-  // Every detail the submission sends (raw, not normalized): an edit to any of them while the lookup runs
-  // must invalidate it, because the submit carries the values captured when it started. That covers the
-  // visit as well as the patient: the slot, location, service category, visit type and reason fields.
   const getIdentityKey = (info: AddVisitPatientInfo | undefined, dob: DateTime | null): string =>
     JSON.stringify([
       info?.id ?? null,
@@ -568,10 +563,8 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
   const latestIdentityKeyRef = useRef('');
   latestIdentityKeyRef.current = getIdentityKey(patientInfo, birthDate);
   const [duplicateCheckedKey, setDuplicateCheckedKey] = useState('');
-  // A lookup that errors must not silently let a possible duplicate through: staff retry or knowingly continue.
   const [duplicateLookupFailed, setDuplicateLookupFailed] = useState(false);
   const lookupInFlightRef = useRef(false);
-  // Cancel or navigating away unmounts the page; a lookup that resolves afterwards must not carry on submitting.
   const isMountedRef = useRef(true);
   useEffect(() => {
     isMountedRef.current = true;
@@ -586,14 +579,12 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
       return true;
     }
     const checkedKey = getIdentityKey(patientInfo, birthDate);
-    // One lookup at a time, so a second submit can't race past the check.
     if (lookupInFlightRef.current) return false;
     lookupInFlightRef.current = true;
     setLoading(true);
     let matches: DuplicatePatientCandidate[] = [];
     let lookupFailed = false;
     try {
-      // Opening a record needs no account; booking a visit does.
       ({ candidates: matches } = await checkDuplicatePatients(oystehrZambda, {
         firstName: patientInfo.firstName,
         lastName: patientInfo.lastName,
@@ -608,7 +599,6 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
       setLoading(false);
     }
     if (!isMountedRef.current) return false;
-    // Whether the lookup succeeded or failed, never carry on with details that no longer match the form.
     if (latestIdentityKeyRef.current !== checkedKey) {
       enqueueSnackbar('Details changed while checking for duplicates. Please review and submit again.', {
         variant: 'warning',
@@ -1226,7 +1216,6 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                   variant="outlined"
                   onClick={() => {
                     setDuplicatePatients([]);
-                    // Only skip the check for the identity that was actually checked.
                     void submitForm(latestIdentityKeyRef.current === duplicateCheckedKey);
                   }}
                   sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 100 }}
@@ -1267,7 +1256,6 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                   variant="outlined"
                   onClick={() => {
                     setDuplicateLookupFailed(false);
-                    // Only skip the check for the details that were attempted.
                     void submitForm(latestIdentityKeyRef.current === duplicateCheckedKey);
                   }}
                   sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 100 }}

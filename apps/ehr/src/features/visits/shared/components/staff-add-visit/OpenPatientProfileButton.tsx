@@ -3,7 +3,6 @@ import { IconButton, Tooltip } from '@mui/material';
 import { FC } from 'react';
 import { useHref } from 'react-router-dom';
 
-// Opens the patient's profile in a new tab, so the form being filled in is not lost.
 export const OpenPatientProfileButton: FC<{ patientId: string | undefined }> = ({ patientId }) => {
   const href = useHref(`/patient/${patientId ?? ''}`);
   if (!patientId) return null;

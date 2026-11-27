@@ -22,7 +22,6 @@ let m2mToken = '';
 export const CheckDuplicatePatientsInputSchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required'),
   lastName: z.string().trim().min(1, 'Last name is required'),
-  // A partial date (e.g. "2000") would make the FHIR birthdate search match a whole range of patients.
   dateOfBirth: z.string().refine(isFullFhirDateString, 'must be a full date (YYYY-MM-DD)'),
   includeAccountPhone: z.boolean().optional(),
 });
@@ -43,8 +42,6 @@ export async function performEffect(
 ): Promise<CheckDuplicatePatientsResponse> {
   const { firstName, lastName, dateOfBirth, includeAccountPhone } = input;
 
-  // Name search is a prefix match, so a prefix-only match can crowd out an exact one. Read every page
-  // before narrowing to exact matches, or an exact duplicate on a later page would be missed.
   const sameBirthDatePatients = await getAllFhirSearchPages<Patient>(
     {
       resourceType: 'Patient',
