@@ -519,12 +519,15 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     }
 
     if (includeDemographics) {
-      // The visit details face sheet's composers, fed the way visit-details-to-pdf feeds them: the PCP is the
-      // active contained Practitioner and the pharmacy the contained Organization with the pharmacy id.
+      // The visit details face sheet's composers: the PCP is the contained Practitioner Patient.generalPractitioner
+      // references, as visit-details-to-pdf finds it, unless it is `active === false`; the pharmacy is the
+      // contained Organization with the pharmacy id.
       const details = composePatientDetailsData({ patient });
 
+      const pcpReference = patient.generalPractitioner?.[0]?.reference;
       const pcpPractitioner = patient.contained?.find(
-        (resource): resource is Practitioner => resource.resourceType === 'Practitioner' && resource.active === true
+        (resource): resource is Practitioner =>
+          resource.resourceType === 'Practitioner' && `#${resource.id}` === pcpReference && resource.active !== false
       );
 
       const pcp = composePrimaryCarePhysicianData({ physician: pcpPractitioner });

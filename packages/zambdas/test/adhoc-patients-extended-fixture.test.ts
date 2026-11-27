@@ -89,6 +89,7 @@ const returningPatient: Patient = {
     { url: PREFERRED_COMMUNICATION_METHOD_EXTENSION_URL, valueString: 'Cell Phone' },
     { url: PATIENT_HAS_MEDICAID_URL, valueBoolean: true },
   ],
+  generalPractitioner: [{ reference: '#primary-care-physician' }],
   contained: [
     {
       resourceType: 'Practitioner',
@@ -896,6 +897,54 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
       middleName: '',
       addressLine1: '',
     });
+  });
+
+  it('demographics: a PCP stored without an active flag is on file, as the face sheet reads it', async () => {
+    const pcp = returningPatient.contained?.[0] as Practitioner;
+    delete pcp.active;
+    try {
+      const rows = await fetchAdHocPatientRows(fakeOystehr, { dateRange, includeDemographics: true });
+      expect(rows.find((r) => r.patientId === 'pat-1')).toMatchObject({
+        hasPcp: true,
+        pcpName: 'Care',
+        pcpPracticeName: 'Family Practice',
+      });
+    } finally {
+      pcp.active = true;
+    }
+  });
+
+  it('demographics: an unrelated Practitioner placed before the PCP is ignored', async () => {
+    const contained = returningPatient.contained;
+    const unrelated: Practitioner = { resourceType: 'Practitioner', id: 'attending', name: [{ family: 'Other' }] };
+    returningPatient.contained = [unrelated, ...(contained ?? [])];
+    try {
+      const rows = await fetchAdHocPatientRows(fakeOystehr, { dateRange, includeDemographics: true });
+      expect(rows.find((r) => r.patientId === 'pat-1')).toMatchObject({
+        hasPcp: true,
+        pcpName: 'Care',
+        pcpPracticeName: 'Family Practice',
+      });
+    } finally {
+      returningPatient.contained = contained;
+    }
+  });
+
+  it('demographics: an unrelated Practitioner is not reported when the PCP is a confirmed no-PCP', async () => {
+    const contained = returningPatient.contained;
+    const unrelated: Practitioner = { resourceType: 'Practitioner', id: 'attending', name: [{ family: 'Other' }] };
+    const noPcpConfirmed: Practitioner = { resourceType: 'Practitioner', id: 'primary-care-physician', active: false };
+    returningPatient.contained = [unrelated, noPcpConfirmed, ...(contained ?? []).slice(1)];
+    try {
+      const rows = await fetchAdHocPatientRows(fakeOystehr, { dateRange, includeDemographics: true });
+      expect(rows.find((r) => r.patientId === 'pat-1')).toMatchObject({
+        hasPcp: false,
+        pcpName: '',
+        pcpPracticeName: '',
+      });
+    } finally {
+      returningPatient.contained = contained;
+    }
   });
 
   it("notes: the patient page's notes, newest first, with the edited marker", async () => {

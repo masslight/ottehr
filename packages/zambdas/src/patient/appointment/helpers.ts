@@ -125,8 +125,10 @@ export async function getRelatedResources(
       getAccountAndCoverageResourcesForPatient(patientId, oystehr),
     ]);
 
+    const pcpReference = insuranceResponse.patient?.generalPractitioner?.[0]?.reference;
     const primaryCarePhysician = insuranceResponse.patient?.contained?.find(
-      (resource) => resource.resourceType === 'Practitioner' && resource.active === true
+      (resource) =>
+        resource.resourceType === 'Practitioner' && `#${resource.id}` === pcpReference && resource.active !== false
     ) as Practitioner;
     const pharmacy = insuranceResponse.patient?.contained?.find(
       (resource) => resource.resourceType === 'Organization' && resource.id === PATIENT_CONTAINED_PHARMACY_ID
