@@ -2,7 +2,7 @@ import type { ResolvedConsentFormConfig } from 'config-types/config/consent-form
 import type { QuestionnaireConfigType } from 'config-types/config/form-fields';
 import type { PaperworkConfig, PaperworkFormFields } from 'config-types/config/intake-paperwork';
 import { PaperworkConfigSchema } from 'config-types/config/intake-paperwork';
-import type { QuestionnaireBase } from 'config-types/config/questionnaire';
+import type { FormFieldTrigger, QuestionnaireBase } from 'config-types/config/questionnaire';
 import type { ValueSetsConfig } from 'config-types/config/value-sets';
 import { Questionnaire } from 'fhir/r4b';
 import { camelCase } from 'lodash-es';
@@ -25,7 +25,7 @@ import {
 
 // Canonical identifiers — see intake-paperwork/index.ts for rationale.
 export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
-export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.12';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.13';
 export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
   url: VIRTUAL_INTAKE_PAPERWORK_URL,
   version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
@@ -36,6 +36,11 @@ const hiddenFormSections: string[] = [
   'allergies-page',
   'medical-history-page',
   'surgical-history-page',
+];
+
+const PcpFieldNoPcpTriggers: FormFieldTrigger[] = [
+  { targetQuestionLinkId: 'pcp-none', effect: ['enable'], operator: '!=', answerBoolean: true },
+  { targetQuestionLinkId: 'pcp-none', effect: ['filter'], operator: '=', answerBoolean: true },
 ];
 
 const questionnaireBaseDefaults = {
@@ -317,12 +322,19 @@ function buildFormFields(
       linkId: 'primary-care-physician-page',
       title: 'Primary Care Physician',
       items: {
+        noPcp: {
+          key: 'pcp-none',
+          label: 'I do not have a Primary Care Physician',
+          type: 'boolean',
+        },
         firstName: {
           key: 'pcp-first',
           label: 'Provider first name',
           type: 'string',
           inputWidth: 'm',
           autocomplete: 'section-pcp shipping given-name',
+          triggers: PcpFieldNoPcpTriggers,
+          disabledDisplay: 'hidden',
         },
         lastName: {
           key: 'pcp-last',
@@ -330,11 +342,15 @@ function buildFormFields(
           type: 'string',
           inputWidth: 'm',
           autocomplete: 'section-pcp shipping family-name',
+          triggers: PcpFieldNoPcpTriggers,
+          disabledDisplay: 'hidden',
         },
         practiceName: {
           key: 'pcp-practice',
           label: 'Practice name',
           type: 'string',
+          triggers: PcpFieldNoPcpTriggers,
+          disabledDisplay: 'hidden',
         },
         address: {
           key: 'pcp-address',
@@ -342,6 +358,8 @@ function buildFormFields(
           type: 'string',
           placeholder: 'Street address, City, State, ZIP',
           autocomplete: 'section-pcp shipping street-address',
+          triggers: PcpFieldNoPcpTriggers,
+          disabledDisplay: 'hidden',
         },
         phoneNumber: {
           key: 'pcp-number',
@@ -349,6 +367,8 @@ function buildFormFields(
           type: 'string',
           dataType: 'Phone Number',
           autocomplete: 'section-pcp shipping tel',
+          triggers: PcpFieldNoPcpTriggers,
+          disabledDisplay: 'hidden',
         },
       },
       hiddenFields: [],

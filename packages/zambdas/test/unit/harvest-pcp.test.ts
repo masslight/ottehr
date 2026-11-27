@@ -1,4 +1,7 @@
 import { Patient, Practitioner, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
+import { mapQuestionnaireAndValueSetsToItemsList } from 'utils/lib/helpers/paperwork/paperwork';
+import { recursiveGroupTransform } from 'utils/lib/helpers/paperwork/validation';
+import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork';
 import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
 import { describe, expect, it } from 'vitest';
 import { createMasterRecordPatchOperations, getPCPPatchOps } from '../../src/ehr/shared/harvest';
@@ -226,5 +229,59 @@ describe('getPCPPatchOps PCP states', () => {
       name: [{ given: ['Olivia'] }],
       active: true,
     });
+  });
+});
+
+describe('patient paperwork "I do not have a Primary Care Physician"', () => {
+  const questionnaire = IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
+  const pageLinkId = 'primary-care-physician-page';
+  const pageItems = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []).find(
+    (page) => page.linkId === pageLinkId
+  )?.item;
+  if (!pageItems) throw new Error(`expected the ${pageLinkId} page in the intake paperwork`);
+
+  const harvestPage = (submitted: QuestionnaireResponseItem[], patient: Patient): ReturnType<typeof getPCPPatchOps> =>
+    createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: [{ linkId: pageLinkId, item: recursiveGroupTransform(pageItems, submitted) }],
+        sourceQuestionnaire: questionnaire,
+        options: { filterByEnableWhen: true, includeSections: [pageLinkId] },
+      },
+      patient
+    ).patient.patchOpsForDirectUpdate.filter((op) => op.path === '/contained' || op.path === '/generalPractitioner');
+
+  const noPcp = (value: boolean): QuestionnaireResponseItem => ({
+    linkId: 'pcp-none',
+    answer: [{ valueBoolean: value }],
+  });
+
+  const prefilledPcp = [
+    answered('pcp-first', 'Olivia'),
+    answered('pcp-last', 'Green'),
+    answered('pcp-address', '1 Main St, New York, NY'),
+    answered('pcp-number', '(212) 555-9999'),
+  ];
+
+  it('confirms no PCP and drops the filled-in details and the stored fax', () => {
+    expect(harvestPage([noPcp(true), ...prefilledPcp], patientWithPcp())).toEqual([
+      { op: 'replace', path: '/contained', value: [NO_PCP_CONFIRMED] },
+    ]);
+  });
+
+  it.each([
+    ['a confirmed no-PCP', patientWithNoPcpConfirmed],
+    ['unknown PCP information', patientWithUnknownPcp],
+  ])('leaves %s alone when the page is skipped', (_label, patient) => {
+    expect(harvestPage([], patient())).toEqual([]);
+  });
+
+  it('keeps a confirmed no-PCP when the patient comes back, unticks the box and leaves the details empty', () => {
+    expect(harvestPage([noPcp(false)], patientWithNoPcpConfirmed())).toEqual([]);
+  });
+
+  it('keeps an active PCP when the box is ticked and unticked before continuing', () => {
+    const updated = containedFromOps(harvestPage([noPcp(false), ...prefilledPcp], patientWithPcp()));
+
+    expect(updated).toMatchObject({ active: true, name: [{ family: 'Green', given: ['Olivia'] }] });
   });
 });

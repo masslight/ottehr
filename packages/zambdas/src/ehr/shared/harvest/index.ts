@@ -861,6 +861,13 @@ export function createMasterRecordPatchOperations(
 
     const isAnswerEmpty = value === undefined || value === '';
 
+    if (item.linkId === 'pcp-none') {
+      if (item.answer?.[0]?.valueBoolean === true) {
+        pcpItems.push({ linkId: 'pcp-active', answer: [{ valueBoolean: false }] });
+      }
+      return;
+    }
+
     if (PCP_FIELDS.includes(item.linkId)) {
       pcpItems.push(item);
       return;
