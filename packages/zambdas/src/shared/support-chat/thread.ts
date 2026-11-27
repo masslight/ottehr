@@ -11,6 +11,7 @@ import {
   SUPPORT_CHAT_CATEGORY,
   SUPPORT_CHAT_MESSAGE_KIND_EXTENSION_URL,
   SUPPORT_CHAT_OPTION_EXTENSION_URL,
+  SUPPORT_CHAT_REQUEST_TEXT_EXTENSION_URL,
   SUPPORT_CHAT_STAFF_NAME,
   SUPPORT_CHAT_THREAD_SYSTEM,
   SUPPORT_CHAT_TOPIC_EXTENSION_URL,
@@ -21,6 +22,7 @@ import {
   SupportChatTopic,
 } from 'utils/lib/types/api/support-chat.types';
 import { INVALID_INPUT_ERROR, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { findActivePromptIndex } from 'utils/lib/utils/support-chat';
 import { checkIsEHRUser } from '../auth';
 
 export type SupportChatViewer = 'patient' | 'staff';
@@ -28,6 +30,9 @@ export type SupportChatViewer = 'patient' | 'staff';
 export interface ThreadMessage {
   kind: SupportChatMessageKind;
   topic?: SupportChatTopic;
+  requestText?: string;
+  patientId?: string;
+  taskId?: string;
   options: SupportChatOption[];
 }
 
@@ -41,6 +46,7 @@ export interface NewThreadMessage {
   taskReference?: string;
   taskTitle?: string;
   topic?: SupportChatTopic;
+  requestText?: string;
   options?: SupportChatOption[];
 }
 
@@ -125,6 +131,10 @@ export function buildThreadMessage(message: NewThreadMessage): Communication {
     extension.push({ url: SUPPORT_CHAT_TOPIC_EXTENSION_URL, valueCode: message.topic });
   }
 
+  if (message.requestText) {
+    extension.push({ url: SUPPORT_CHAT_REQUEST_TEXT_EXTENSION_URL, valueString: message.requestText });
+  }
+
   message.options?.forEach((option) =>
     extension.push({ url: SUPPORT_CHAT_OPTION_EXTENSION_URL, valueCoding: { code: option.id, display: option.label } })
   );
@@ -147,8 +157,25 @@ export function toThreadMessage(communication: Communication): ThreadMessage {
   return {
     kind: getExtension(communication, SUPPORT_CHAT_MESSAGE_KIND_EXTENSION_URL)?.valueCode as SupportChatMessageKind,
     topic: getExtension(communication, SUPPORT_CHAT_TOPIC_EXTENSION_URL)?.valueCode as SupportChatTopic | undefined,
+    requestText: getExtension(communication, SUPPORT_CHAT_REQUEST_TEXT_EXTENSION_URL)?.valueString,
+    patientId: communication.subject?.reference?.replace('Patient/', ''),
+    taskId: communication.about?.[0]?.reference?.replace('Task/', ''),
     options: getOptions(communication),
   };
+}
+
+export function getLastThreadMessage(thread: Communication[]): ThreadMessage | undefined {
+  const promptIndex = findActivePromptIndex(thread.map((message) => toThreadMessage(message).kind));
+  const lastIndex = promptIndex >= 0 ? promptIndex : thread.length - 1;
+
+  if (lastIndex < 0) return undefined;
+
+  const last = toThreadMessage(thread[lastIndex]);
+  const isLegacyFreeTextPrompt = last.kind === 'visit-prompt' && !last.topic && !last.requestText;
+
+  return isLegacyFreeTextPrompt && lastIndex > 0
+    ? { ...last, requestText: thread[lastIndex - 1].payload?.[0]?.contentString }
+    : last;
 }
 
 export function toMessageDto(communication: Communication, viewer: SupportChatViewer): SupportChatMessageDto {

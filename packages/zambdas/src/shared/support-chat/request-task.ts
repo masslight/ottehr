@@ -1,6 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, Location, Patient, Practitioner, Reference, Resource, Schedule, Task } from 'fhir/r4b';
+import {
+  Appointment,
+  Communication,
+  Encounter,
+  Location,
+  Patient,
+  Practitioner,
+  Reference,
+  Resource,
+  Schedule,
+  Task,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TASK_INPUT_SYSTEM, TASK_LOCATION_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
@@ -32,6 +43,7 @@ export interface Visit {
   patient: Patient;
   location?: { id: string; name?: string };
   providerId?: string;
+  date: string;
   label: string;
 }
 
@@ -57,7 +69,9 @@ export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<
       const encounter = encounters[appointment.id!];
       const locationId = encounter.location?.[0]?.location?.reference?.replace('Location/', '');
       const location = resources.find((r): r is Location => r.resourceType === 'Location' && r.id === locationId);
-      const date = DateTime.fromISO(appointment.start!, { zone: getLocationTimezone(locationId, resources) });
+      const date = DateTime.fromISO(appointment.start!, { zone: getLocationTimezone(locationId, resources) }).toFormat(
+        'MM/dd/yyyy'
+      );
 
       return [
         {
@@ -66,11 +80,19 @@ export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<
           patient,
           location: locationId ? { id: locationId, name: location?.name } : undefined,
           providerId: getAttendingPractitionerId(encounter),
-          label: `${getFullestAvailableName(patient)} ${date.toFormat('MM/dd/yyyy')}`,
+          date,
+          label: `${getFullestAvailableName(patient)} ${date}`,
         },
       ];
     });
 }
+
+export const findLatestVisitLocation = (visits: Visit[], patientId: string | undefined): Visit['location'] =>
+  visits.find((visit) => visit.patient.id === patientId)?.location;
+
+export const getDefaultPatientId = (thread: Communication[], visits: Visit[]): string | undefined =>
+  thread.findLast((message) => message.about && message.subject)?.subject?.reference?.replace('Patient/', '') ??
+  visits[0]?.patient.id;
 
 async function searchVisitResources(oystehr: Oystehr, patients: Patient[]): Promise<Resource[]> {
   const visits = await getAllFhirSearchPages<Appointment | Encounter>(
@@ -216,11 +238,12 @@ export function buildRequestTask(input: {
   threadId: string;
   patient: Patient;
   visit?: Visit;
+  location?: Visit['location'];
   owner?: Reference;
   text?: string;
   details?: string;
 }): Task {
-  const { code, threadId, patient, visit, owner, text, details } = input;
+  const { code, threadId, patient, visit, location, owner, text, details } = input;
   const patientName = getFullestAvailableName(patient) ?? '';
   const title = buildRequestTitle(code, visit?.label ?? patientName, text);
 
@@ -229,7 +252,7 @@ export function buildRequestTask(input: {
     title,
     code: { system: PATIENT_REQUEST_TASK.system, code },
     encounterId: visit?.encounterId,
-    location: visit?.location,
+    location: visit ? visit.location : location,
     input: [
       { type: MANUAL_TASK.input.title, valueString: title },
       { type: MANUAL_TASK.input.details, valueString: details },

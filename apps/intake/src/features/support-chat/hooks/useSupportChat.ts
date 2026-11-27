@@ -50,6 +50,7 @@ export const useSupportChat = (): UseSupportChat => {
     const message = messages.find((m) => m.id === messageId);
 
     if (message?.kind === 'greeting') send({ action: 'select-topic', topic: optionId as SupportChatTopic });
+    if (message?.kind === 'patient-prompt') send({ action: 'select-patient', patientId: optionId });
     if (message?.kind === 'visit-prompt') send({ action: 'select-visit', appointmentId: optionId });
   };
 
