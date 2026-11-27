@@ -1,11 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { List } from 'fhir/r4b';
 import { CUSTOM_FOLDER_KIND_SYSTEM, CUSTOM_FOLDERS_CATALOG_IDENTIFIER } from 'utils/lib/fhir/list';
-import { FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
+import { CUSTOM_FOLDERS_CATALOG_BUSY_ERROR, FHIR_RESOURCE_NOT_FOUND_CUSTOM } from 'utils/lib/types/errors';
+import { isFhirVersionConflictError } from './errors';
 
 const CATALOG_CODE = 'custom-folders-catalog';
 const CATALOG_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/r4/identifier';
-const MAX_CATALOG_WRITE_RETRIES = 3;
+export const MAX_CATALOG_WRITE_ATTEMPTS = 6;
+const CATALOG_RETRY_BASE_DELAY_MS = 100;
+
+const waitBeforeCatalogRetry = (attempt: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, Math.random() * CATALOG_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)));
 
 export async function loadCustomFoldersCatalog(oystehr: Oystehr, opts: { required: true }): Promise<List>;
 export async function loadCustomFoldersCatalog(
@@ -58,7 +63,7 @@ export const writeCustomFoldersCatalog = async ({
   let attempt = 0;
   let currentCatalog = initialCatalog;
 
-  while (attempt < MAX_CATALOG_WRITE_RETRIES) {
+  while (attempt < MAX_CATALOG_WRITE_ATTEMPTS) {
     attempt++;
     try {
       if (!currentCatalog) {
@@ -76,18 +81,24 @@ export const writeCustomFoldersCatalog = async ({
       console.log(`${tag}: catalog updated on attempt ${attempt}`);
       return updated;
     } catch (err: any) {
-      if (err?.statusCode === 412 && attempt < MAX_CATALOG_WRITE_RETRIES) {
-        console.warn(`${tag}: optimistic-lock conflict on attempt ${attempt} — refetching and retrying`);
-        currentCatalog = await loadCustomFoldersCatalog(oystehr);
-        if (currentCatalog && onConflictRefetched?.(currentCatalog)) {
-          console.log(`${tag}: refetch indicates work already done — treating as success`);
-          return currentCatalog;
-        }
-      } else {
-        console.error(`${tag}: catalog write failed on attempt ${attempt}:`, err?.statusCode, err?.message ?? err);
+      if (!isFhirVersionConflictError(err)) {
+        console.error(
+          `${tag}: catalog write failed on attempt ${attempt}:`,
+          err?.statusCode ?? err?.code,
+          err?.message ?? err
+        );
         throw err;
+      }
+      if (attempt === MAX_CATALOG_WRITE_ATTEMPTS) break;
+      console.warn(`${tag}: optimistic-lock conflict on attempt ${attempt} — refetching and retrying`);
+      await waitBeforeCatalogRetry(attempt);
+      currentCatalog = await loadCustomFoldersCatalog(oystehr);
+      if (currentCatalog && onConflictRefetched?.(currentCatalog)) {
+        console.log(`${tag}: refetch indicates work already done — treating as success`);
+        return currentCatalog;
       }
     }
   }
-  throw new Error(`${tag}: exhausted ${MAX_CATALOG_WRITE_RETRIES} retries without resolution`);
+  console.error(`${tag}: optimistic-lock conflict on all ${MAX_CATALOG_WRITE_ATTEMPTS} attempts`);
+  throw CUSTOM_FOLDERS_CATALOG_BUSY_ERROR;
 };

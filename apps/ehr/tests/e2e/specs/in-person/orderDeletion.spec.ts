@@ -56,6 +56,8 @@ const PROCEDURE_CPT_DISPLAY = formatProcedureCptCode({ code: PROCEDURE_CPT_CODE,
 // Optional — instances without registered in-house medications skip the
 // in-house medication deletion test rather than failing the whole spec at module init.
 let MEDICATION_NAME: string | undefined;
+// Zambda integration tests create and delete "IT Med …" / "IT Medication …" in the same environment while e2e runs.
+const INTEGRATION_TEST_MEDICATION_PREFIX = 'IT Med';
 const MEDICATION_DOSE = '2'; // Test value
 const MEDICATION_UNITS = IN_HOUSE_MEDICATION_UNIT_OPTIONS[0].label;
 const MEDICATION_ROUTE = medicationApplianceRoutes.ORAL.display || 'Oral route';
@@ -73,11 +75,19 @@ test.beforeAll(async () => {
   const medications = (
     await oystehr.fhir.search<Medication>({
       resourceType: 'Medication',
-      params: [{ name: 'identifier', value: INVENTORY_MEDICATION_TYPE_CODE }],
+      params: [
+        { name: 'identifier', value: INVENTORY_MEDICATION_TYPE_CODE },
+        { name: '_count', value: '1000' },
+      ],
     })
   ).unbundle();
 
-  const firstMed = medications[0];
+  const firstMed = medications.find(
+    (medication) =>
+      !medication.identifier
+        ?.find((id) => id.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)
+        ?.value?.startsWith(INTEGRATION_TEST_MEDICATION_PREFIX)
+  );
   if (!firstMed) {
     console.warn('No in-house medications registered in FHIR; the in-house medication deletion test will be skipped.');
   } else {
