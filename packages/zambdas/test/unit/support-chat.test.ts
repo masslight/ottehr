@@ -445,7 +445,7 @@ describe('getVisits', () => {
     extension: [{ url: TIMEZONE_EXTENSION_URL, valueString: 'America/Los_Angeles' }],
   };
 
-  type SearchInput = { resourceType: string; params: { name: string; value: string }[] };
+  type SearchInput = { resourceType: string; params: { name: string; value: string | number }[] };
 
   const makeOystehr = (visitResources: Resource[]): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
     const search = vi.fn(async ({ resourceType }: SearchInput) => {
@@ -463,22 +463,45 @@ describe('getVisits', () => {
     return { oystehr: { fhir: { search } } as unknown as Oystehr, search };
   };
 
-  const paramsOf = (search: ReturnType<typeof vi.fn>, call: number): Record<string, string> =>
+  const paramsOf = (search: ReturnType<typeof vi.fn>, call: number): Record<string, string | number> =>
     Object.fromEntries((search.mock.calls[call][0] as SearchInput).params.map((param) => [param.name, param.value]));
 
-  it('loads only the last three years of visits with their encounters', async () => {
+  it("loads each patient's five latest visits of the last three years with their encounters", async () => {
     const { oystehr, search } = makeOystehr([appointment, encounter]);
     await getVisits(oystehr, [patient]);
 
     const params = paramsOf(search, 0);
-    const since = DateTime.fromISO(params.date.replace('ge', ''));
+    const since = DateTime.fromISO(String(params.date).replace('ge', ''));
 
-    expect(params.date.startsWith('ge')).toBe(true);
+    expect(String(params.date).startsWith('ge')).toBe(true);
     expect(Math.round(DateTime.now().diff(since, 'years').years)).toBe(3);
-    expect(params.patient).toBe('Patient/patient-1');
-    expect(params._revinclude).toBe('Encounter:appointment');
+    expect(params).toMatchObject({
+      patient: 'Patient/patient-1',
+      'status:not': 'entered-in-error',
+      _sort: '-date',
+      _count: 5,
+      _revinclude: 'Encounter:appointment',
+    });
     expect(params._include).toBeUndefined();
-    expect(params._count).toBe('200');
+  });
+
+  it('keeps the visits of the other patients when one search fails', async () => {
+    const { oystehr, search } = makeOystehr([appointment, encounter]);
+    search.mockRejectedValueOnce(new Error('timeout'));
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const visits = await getVisits(oystehr, [{ ...patient, id: 'patient-2' }, patient]);
+    expect(visits.map((visit) => visit.appointmentId)).toEqual(['appointment-1']);
+  });
+
+  it('searches the visits of every patient separately', async () => {
+    const { oystehr, search } = makeOystehr([]);
+    await getVisits(oystehr, [patient, { ...patient, id: 'patient-2' }]);
+
+    expect(search).toHaveBeenCalledTimes(2);
+    expect([paramsOf(search, 0).patient, paramsOf(search, 1).patient]).toEqual([
+      'Patient/patient-1',
+      'Patient/patient-2',
+    ]);
   });
 
   it("labels a visit with the date in its location's timezone", async () => {

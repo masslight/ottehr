@@ -23,7 +23,7 @@ import { makeThreadTag, threadTagSearchParam } from './thread';
 
 const MAX_QUOTED_TITLE_LENGTH = 100;
 const VISIT_LOOKBACK_YEARS = 3;
-const VISIT_PAGE_SIZE = 200;
+const VISITS_PER_PATIENT = 5;
 const EXCLUDED_VISIT_STATUSES: Appointment['status'][] = ['entered-in-error'];
 
 export interface Visit {
@@ -73,19 +73,33 @@ export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<
 }
 
 async function searchVisitResources(oystehr: Oystehr, patients: Patient[]): Promise<Resource[]> {
-  const visits = await getAllFhirSearchPages<Appointment | Encounter>(
-    {
-      resourceType: 'Appointment',
-      params: [
-        { name: '_tag', value: [OTTEHR_MODULE.TM, OTTEHR_MODULE.IP].join(',') },
-        { name: 'patient', value: patients.map((patient) => `Patient/${patient.id}`).join(',') },
-        { name: 'date', value: `ge${DateTime.now().minus({ years: VISIT_LOOKBACK_YEARS }).toISODate()}` },
-        { name: '_revinclude', value: 'Encounter:appointment' },
-      ],
-    },
-    oystehr,
-    VISIT_PAGE_SIZE
+  const since = DateTime.now().minus({ years: VISIT_LOOKBACK_YEARS }).toISODate();
+
+  const results = await Promise.allSettled(
+    patients.map(async (patient) =>
+      (
+        await oystehr.fhir.search<Appointment | Encounter>({
+          resourceType: 'Appointment',
+          params: [
+            { name: '_tag', value: [OTTEHR_MODULE.TM, OTTEHR_MODULE.IP].join(',') },
+            { name: 'patient', value: `Patient/${patient.id}` },
+            { name: 'date', value: `ge${since}` },
+            { name: 'status:not', value: EXCLUDED_VISIT_STATUSES.join(',') },
+            { name: '_sort', value: '-date' },
+            { name: '_count', value: VISITS_PER_PATIENT },
+            { name: '_revinclude', value: 'Encounter:appointment' },
+          ],
+        })
+      ).unbundle()
+    )
   );
+
+  const visits = results.flatMap((result, index) => {
+    if (result.status === 'fulfilled') return result.value;
+
+    console.error(`Failed to load the visits of Patient/${patients[index].id}`, result.reason);
+    return [];
+  });
 
   const locationIds = new Set(
     visits.flatMap((resource) =>
