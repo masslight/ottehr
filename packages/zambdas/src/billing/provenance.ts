@@ -54,6 +54,7 @@ import {
   CLAIM_PROVENANCE_TRANSMIT_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_IDENTIFIER,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
+  CLAIM_SUBMISSION_ERROR_FIELD,
   CLAIM_SYSTEM_DEVICE_IDENTIFIER,
   CLAIM_SYSTEM_DEVICE_NAME,
   ClaimAcknowledgmentEvent,
@@ -1254,7 +1255,7 @@ export async function addErrorProvenanceForClaimSubmission(
     claimReference,
     extraChanges: [
       {
-        field: 'error',
+        field: CLAIM_SUBMISSION_ERROR_FIELD,
         label: 'Error',
         previousValue: null,
         newValue: error.message,

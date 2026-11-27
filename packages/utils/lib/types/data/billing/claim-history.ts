@@ -49,6 +49,9 @@ export const CLAIM_PROVENANCE_AGENT_TYPE: Record<'human' | 'system', Coding> = {
 export const CLAIM_PROVENANCE_DIFF_EXTENSION_URL = ottehrExtensionUrl('claim-history-change-set');
 
 export const CLAIM_PROVENANCE_NOTE_EXTENSION_URL = ottehrExtensionUrl('claim-history-note');
+
+// ClaimFieldChange.field of the change recording a failed claim submission's error message.
+export const CLAIM_SUBMISSION_ERROR_FIELD = 'error';
 export const CLAIM_NOTE_MAX_LENGTH = 2000;
 
 // Extension on the Provenance whose valueString holds a JSON-serialized ClaimAcknowledgmentEvent.
@@ -99,6 +102,9 @@ export interface ClaimFieldChange {
   // never stored.
   previousLink?: ClaimHistoryLink | null;
   newLink?: ClaimHistoryLink | null;
+  // The stored text behind a newValue the read API rewrote for billers (e.g. a raw claim-submission
+  // error) — populated by the read API only, never stored.
+  detail?: string;
 }
 
 export interface ClaimHistoryRuleRef {

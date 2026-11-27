@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { ClaimHistoryEntry } from 'utils/lib/types/data/billing/claim-history';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -137,6 +138,41 @@ describe('ClaimHistory', () => {
     const ruleLink = within(row).getByRole('link', { name: 'Normalize tags' });
     expect(ruleLink).toHaveAttribute('href', '/rules/claim-submission/rule-1');
     expect(within(row).getByText(/via/)).toBeInTheDocument();
+  });
+
+  it('shows a described submission error with the original text behind a tooltip', async () => {
+    const raw = '"Claim.insurance[sequence=2].coverage" is undefined';
+    getBillingClaimHistoryMock.mockResolvedValue({
+      entries: [
+        {
+          ...changeEntry,
+          activity: 'Submit Claim',
+          changes: [
+            {
+              field: 'error',
+              label: 'Error',
+              previousValue: null,
+              newValue: 'Secondary insurance: Coverage is missing',
+              detail: raw,
+            },
+          ],
+        },
+      ],
+    });
+    renderHistory();
+
+    const row = (await screen.findByText('Submit Claim')).closest('tr')!;
+    const error = within(row).getByText('Secondary insurance: Coverage is missing').closest('[tabindex="0"]')!;
+    expect(error).toBeInTheDocument();
+    // The original text is a description, not a replacement for the friendly text.
+    expect(error).not.toHaveAttribute('aria-label');
+    expect(screen.queryByText(raw)).not.toBeInTheDocument();
+
+    // Keyboard users reach it and the tooltip opens with the original text as the description.
+    await userEvent.setup().tab();
+    expect(error).toHaveFocus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(raw);
+    expect(error).toHaveAccessibleDescription(raw);
   });
 
   it('renders no rule link when the stored attribution is missing a field', async () => {

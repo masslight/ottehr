@@ -9,6 +9,7 @@ import {
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
+  CLAIM_SUBMISSION_ERROR_FIELD,
   ClaimFieldChange,
   ClaimHistoryRuleRef,
 } from 'utils/lib/types/data/billing/claim-history';
@@ -57,7 +58,11 @@ const pagedBundle = (matches: Resource[], includes: Resource[] = []): unknown =>
   unbundle: () => [...matches, ...includes],
 });
 
-const makeOystehr = (handlers: Record<string, (params?: unknown) => unknown>): Oystehr => {
+const makeOystehr = (
+  handlers: Record<string, (params?: unknown) => unknown>,
+  history: (params: { resourceType: string; id: string; versionId: string }) => Promise<unknown> = () =>
+    Promise.reject(new Error('unexpected history read'))
+): Oystehr => {
   const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
     const handler = handlers[resourceType];
     if (!handler) return Promise.resolve({ entry: [], total: 0, unbundle: () => [] });
@@ -66,7 +71,10 @@ const makeOystehr = (handlers: Record<string, (params?: unknown) => unknown>): O
   const getPayerByUrl = vi
     .fn()
     .mockResolvedValue({ resourceType: 'Organization', id: 'pay1', name: 'Acme Health' } as Organization);
-  return { fhir: { search }, rcm: { getPayerByUrl } } as unknown as Oystehr;
+  return {
+    fhir: { search, history: vi.fn().mockImplementation(history) },
+    rcm: { getPayerByUrl },
+  } as unknown as Oystehr;
 };
 
 describe('get-billing-claim-history performEffect', () => {
@@ -140,6 +148,127 @@ describe('get-billing-claim-history performEffect', () => {
     const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
 
     expect(entries[0].message).toBeUndefined();
+  });
+
+  describe('claim-submission errors', () => {
+    const raw =
+      '"Claim.insurance[sequence=2].coverage.extension[https://extensions.fhir.oystehr.com/rcm-claim-insurance-type]" is undefined';
+    const errorProvenance: Provenance = {
+      ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
+      activity: { coding: [CLAIM_PROVENANCE_ACTIVITY.submit] },
+      entity: [{ role: 'revision', what: { reference: 'Claim/c1/_history/3' } }],
+      extension: [
+        diffExtension([
+          { field: CLAIM_SUBMISSION_ERROR_FIELD, label: 'Error', previousValue: null, newValue: raw },
+          { field: CLAIM_SUBMISSION_ERROR_FIELD, label: 'Error', previousValue: null, newValue: 'Duplicate code' },
+          { field: 'memberId', label: 'Member ID', previousValue: null, newValue: '"Claim.x" is undefined' },
+        ]),
+      ],
+    };
+    // The claim as submitted: its focal (primary) coverage carries sequence 2.
+    const submittedClaim = {
+      resourceType: 'Claim',
+      id: 'c1',
+      insurance: [
+        { sequence: 1, focal: false, coverage: { reference: 'Coverage/secondary' } },
+        { sequence: 2, focal: true, coverage: { reference: 'Coverage/primary' } },
+      ],
+    };
+
+    it('describes a stored error against the claim version it was recorded on and keeps the raw text', async () => {
+      const history = vi.fn().mockResolvedValue(submittedClaim);
+      const oystehr = makeOystehr({ Provenance: () => pagedBundle([errorProvenance], []) }, history);
+
+      const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
+
+      expect(history).toHaveBeenCalledWith({ resourceType: 'Claim', id: 'c1', versionId: '3' });
+      expect(entries[0].changes).toEqual([
+        {
+          field: CLAIM_SUBMISSION_ERROR_FIELD,
+          label: 'Error',
+          previousValue: null,
+          newValue: 'Primary insurance: Plan Type is missing',
+          detail: raw,
+        },
+        // Text the mapping doesn't recognize, and non-error fields, pass through untouched.
+        { field: CLAIM_SUBMISSION_ERROR_FIELD, label: 'Error', previousValue: null, newValue: 'Duplicate code' },
+        { field: 'memberId', label: 'Member ID', previousValue: null, newValue: '"Claim.x" is undefined' },
+      ]);
+    });
+
+    it('falls back to the raw sequence and reports it when the claim version cannot be read', async () => {
+      const oystehr = makeOystehr({ Provenance: () => pagedBundle([errorProvenance], []) });
+
+      const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
+
+      expect(entries[0].changes[0]).toMatchObject({
+        newValue: 'Insurance with sequence 2: Plan Type is missing',
+        detail: raw,
+      });
+      expect(captureExceptionMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads no claim version when the history has no submission errors', async () => {
+      const history = vi.fn();
+      const provenance: Provenance = {
+        ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
+        entity: [{ role: 'revision', what: { reference: 'Claim/c1/_history/3' } }],
+        extension: [diffExtension([{ field: 'memberId', label: 'Member ID', previousValue: 'A', newValue: 'B' }])],
+      };
+      const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], []) }, history);
+
+      await performEffect(oystehr, { claimId: 'c1', secrets: {} });
+
+      expect(history).not.toHaveBeenCalled();
+    });
+
+    // A submission-error provenance recorded on claim version `version`.
+    const errorAt = (version: number, message: string): Provenance => ({
+      ...provenanceBase(`prov${version}`, '2026-06-01T10:00:00Z'),
+      activity: { coding: [CLAIM_PROVENANCE_ACTIVITY.submit] },
+      entity: [{ role: 'revision', what: { reference: `Claim/c1/_history/${version}` } }],
+      extension: [
+        diffExtension([
+          { field: CLAIM_SUBMISSION_ERROR_FIELD, label: 'Error', previousValue: null, newValue: message },
+        ]),
+      ],
+    });
+
+    it('reads no claim version for errors whose description does not depend on the claim', async () => {
+      const history = vi.fn();
+      const provenances = [
+        errorAt(1, 'Duplicate diagnosis code'),
+        errorAt(2, 'Rule "Submit" failed: payer is on hold'),
+        errorAt(3, '"Claim.patient.birthDate" is undefined'),
+      ];
+      const oystehr = makeOystehr({ Provenance: () => pagedBundle(provenances, []) }, history);
+
+      const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
+
+      expect(history).not.toHaveBeenCalled();
+      expect(entries.find((entry) => entry.id === 'prov3')?.changes[0].newValue).toBe(
+        'Patient: Date of Birth is missing'
+      );
+    });
+
+    it('reads only a few claim versions at a time', async () => {
+      let inFlight = 0;
+      let maxInFlight = 0;
+      const history = vi.fn(async () => {
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        inFlight--;
+        return submittedClaim;
+      });
+      const provenances = Array.from({ length: 20 }, (_, i) => errorAt(i + 1, raw));
+      const oystehr = makeOystehr({ Provenance: () => pagedBundle(provenances, []) }, history);
+
+      await performEffect(oystehr, { claimId: 'c1', secrets: {} });
+
+      expect(history).toHaveBeenCalledTimes(20);
+      expect(maxInFlight).toBeLessThanOrEqual(5);
+    });
   });
 
   it('passes a stored rule attribution through to the entry verbatim', async () => {
