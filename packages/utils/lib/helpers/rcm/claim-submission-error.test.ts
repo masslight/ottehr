@@ -20,7 +20,11 @@ const CLAIM: Claim = {
   created: '2026-01-01',
   provider: {},
   priority: {},
-  insurance: [1, 2, 3, 4].map((sequence) => ({ sequence, focal: sequence === 1, coverage: {} })),
+  insurance: [1, 2, 3, 4].map((sequence) => ({
+    sequence,
+    focal: sequence === 1,
+    coverage: { reference: `Coverage/cov${sequence}` },
+  })),
   item: [1, 2, 3].map((sequence) => ({ sequence, productOrService: {} })),
   diagnosis: [{ sequence: 1, diagnosisCodeableConcept: { coding: [{ code: 'J06.9' }] } }],
 };
@@ -231,8 +235,8 @@ describe('describeClaimSubmissionError', () => {
       const claim: Claim = {
         ...CLAIM,
         insurance: [
-          { sequence: 1, focal: false, coverage: {} },
-          { sequence: 2, focal: true, coverage: {} },
+          { sequence: 1, focal: false, coverage: { reference: 'Coverage/b' } },
+          { sequence: 2, focal: true, coverage: { reference: 'Coverage/a' } },
         ],
       };
       expect(describeClaimSubmissionError(undefinedAt('Claim.insurance[sequence=2].coverage'), claim)).toBe(
@@ -241,6 +245,25 @@ describe('describeClaimSubmissionError', () => {
       expect(describeClaimSubmissionError(undefinedAt('Claim.insurance[0].coverage'), claim)).toBe(
         'Secondary insurance: Coverage is missing'
       );
+    });
+
+    it('ranks insurances among the entries the claim screen shows', () => {
+      // The focal entry has no Coverage reference, so the screen shows sequence 2 as the primary insurance.
+      const claim: Claim = {
+        ...CLAIM,
+        insurance: [
+          { sequence: 1, focal: true, coverage: { identifier: { system: 'no-coverage' } } },
+          { sequence: 2, focal: false, coverage: { reference: 'Coverage/b' } },
+        ],
+      };
+      const plan = (selector: string): string =>
+        undefinedAt(`Claim.insurance[${selector}].coverage.extension[${EXT}/rcm-claim-insurance-type]`);
+      expect(describeClaimSubmissionError(plan('sequence=2'), claim)).toBe('Primary insurance: Plan Type is missing');
+      // An entry the screen doesn't show keeps its raw selector.
+      expect(describeClaimSubmissionError(plan('sequence=1'), claim)).toBe(
+        'Insurance with sequence 1: Plan Type is missing'
+      );
+      expect(describeClaimSubmissionError(plan('0'), claim)).toBe('Insurance at position 1: Plan Type is missing');
     });
 
     it('numbers service lines by their sequence, as the claim screens do', () => {

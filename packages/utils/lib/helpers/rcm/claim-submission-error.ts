@@ -191,14 +191,17 @@ function unresolvedLabel(noun: string, at: EntrySelector | undefined): string {
   return 'sequence' in at ? `${noun} with sequence ${at.sequence}` : `${noun} at position ${at.index + 1}`;
 }
 
-// The claim detail screen lists coverages focal-first; the focal entry is the primary insurance.
+// The claim detail screen shows the entries that reference a Coverage (not, e.g., the self-pay stub),
+// focal-first and then by sequence (fetchClaimGraph), and names them in that order: the first one is
+// the primary insurance. An entry the screen doesn't show keeps its raw selector.
 function insuranceLabel(at: EntrySelector | undefined, claim: Claim | undefined): string {
   const entry = at && findEntry(claim?.insurance, at);
   if (!claim || !entry) return unresolvedLabel('Insurance', at);
-  const ordered = [...(claim.insurance ?? [])].sort(
-    (a, b) => Number(!!b.focal) - Number(!!a.focal) || a.sequence - b.sequence
-  );
-  const rank = ordered.indexOf(entry);
+  const displayed = (claim.insurance ?? [])
+    .filter((insurance) => insurance.coverage?.reference?.startsWith('Coverage/'))
+    .sort((a, b) => Number(!!b.focal) - Number(!!a.focal) || a.sequence - b.sequence);
+  const rank = displayed.indexOf(entry);
+  if (rank < 0) return unresolvedLabel('Insurance', at);
   return rank < INSURANCE_ORDINALS.length ? `${INSURANCE_ORDINALS[rank]} insurance` : `Insurance ${rank + 1}`;
 }
 
