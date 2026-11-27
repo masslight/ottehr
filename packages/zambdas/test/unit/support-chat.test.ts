@@ -485,12 +485,34 @@ describe('getVisits', () => {
     expect(params._include).toBeUndefined();
   });
 
-  it('keeps the visits of the other patients when one search fails', async () => {
+  it('fails when the visits of a patient cannot be loaded', async () => {
     const { oystehr, search } = makeOystehr([appointment, encounter]);
     search.mockRejectedValueOnce(new Error('timeout'));
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const visits = await getVisits(oystehr, [{ ...patient, id: 'patient-2' }, patient]);
+
+    await expect(getVisits(oystehr, [{ ...patient, id: 'patient-2' }, patient])).rejects.toThrow('timeout');
+  });
+
+  it('loads a selected visit that is no longer among the latest ones', async () => {
+    const { oystehr, search } = makeOystehr([appointment, encounter]);
+    search.mockResolvedValueOnce({ total: 0, entry: [], unbundle: () => [] });
+
+    const visits = await getVisits(oystehr, [patient], 'appointment-1');
+
+    expect(paramsOf(search, 1)).toMatchObject({
+      _id: 'appointment-1',
+      patient: 'Patient/patient-1',
+      'status:not': 'entered-in-error',
+    });
     expect(visits.map((visit) => visit.appointmentId)).toEqual(['appointment-1']);
+  });
+
+  it('does not search again when the selected visit is among the latest ones', async () => {
+    const { oystehr, search } = makeOystehr([appointment, encounter]);
+    await getVisits(oystehr, [patient], 'appointment-1');
+
+    expect(search.mock.calls.filter(([input]) => (input as SearchInput).resourceType === 'Appointment')).toHaveLength(
+      1
+    );
   });
 
   it('searches the visits of every patient separately', async () => {

@@ -35,10 +35,14 @@ export interface Visit {
   label: string;
 }
 
-export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<Visit[]> {
+export async function getVisits(
+  oystehr: Oystehr,
+  patients: Patient[],
+  selectedAppointmentId?: string
+): Promise<Visit[]> {
   if (!patients.length) return [];
 
-  const resources = await searchVisitResources(oystehr, patients);
+  const resources = await searchVisitResources(oystehr, patients, selectedAppointmentId);
 
   const encounters = mapEncountersToAppointmentIds(resources);
 
@@ -72,19 +76,26 @@ export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<
     });
 }
 
-async function searchVisitResources(oystehr: Oystehr, patients: Patient[]): Promise<Resource[]> {
+async function searchVisitResources(
+  oystehr: Oystehr,
+  patients: Patient[],
+  selectedAppointmentId?: string
+): Promise<Resource[]> {
   const since = DateTime.now().minus({ years: VISIT_LOOKBACK_YEARS }).toISODate();
 
-  const results = await Promise.allSettled(
+  const tags = [OTTEHR_MODULE.TM, OTTEHR_MODULE.IP].join(',');
+  const excludedStatuses = EXCLUDED_VISIT_STATUSES.join(',');
+
+  const latest = await Promise.all(
     patients.map(async (patient) =>
       (
         await oystehr.fhir.search<Appointment | Encounter>({
           resourceType: 'Appointment',
           params: [
-            { name: '_tag', value: [OTTEHR_MODULE.TM, OTTEHR_MODULE.IP].join(',') },
+            { name: '_tag', value: tags },
             { name: 'patient', value: `Patient/${patient.id}` },
             { name: 'date', value: `ge${since}` },
-            { name: 'status:not', value: EXCLUDED_VISIT_STATUSES.join(',') },
+            { name: 'status:not', value: excludedStatuses },
             { name: '_sort', value: '-date' },
             { name: '_count', value: VISITS_PER_PATIENT },
             { name: '_revinclude', value: 'Encounter:appointment' },
@@ -94,12 +105,26 @@ async function searchVisitResources(oystehr: Oystehr, patients: Patient[]): Prom
     )
   );
 
-  const visits = results.flatMap((result, index) => {
-    if (result.status === 'fulfilled') return result.value;
+  const visits = latest.flat();
 
-    console.error(`Failed to load the visits of Patient/${patients[index].id}`, result.reason);
-    return [];
-  });
+  const isSelectedLoaded =
+    !selectedAppointmentId ||
+    visits.some((resource) => resource.resourceType === 'Appointment' && resource.id === selectedAppointmentId);
+
+  if (!isSelectedLoaded) {
+    const selected = await oystehr.fhir.search<Appointment | Encounter>({
+      resourceType: 'Appointment',
+      params: [
+        { name: '_id', value: selectedAppointmentId },
+        { name: '_tag', value: tags },
+        { name: 'patient', value: patients.map((patient) => `Patient/${patient.id}`).join(',') },
+        { name: 'status:not', value: excludedStatuses },
+        { name: '_revinclude', value: 'Encounter:appointment' },
+      ],
+    });
+
+    visits.push(...selected.unbundle());
+  }
 
   const locationIds = new Set(
     visits.flatMap((resource) =>

@@ -62,7 +62,7 @@ export const index = wrapHandler(
 
     const [thread, visits, openTasks] = await Promise.all([
       searchThread(oystehr, threadId),
-      getVisits(oystehr, account.patients),
+      getVisits(oystehr, account.patients, action.action === 'select-visit' ? action.appointmentId : undefined),
       findOpenTasks(oystehr, threadId),
     ]);
 
