@@ -17,6 +17,8 @@ import {
   SYNTHETIC_FOLDER_ID_PREFIX,
 } from 'utils/lib/types/data/custom-folder.types';
 import { APIErrorCode } from 'utils/lib/types/errors';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { writeCustomFoldersCatalog } from '../../src/shared/custom-folders';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
 // These tests cover the three folder catalog zambdas plus the lazy-create path of
@@ -70,7 +72,9 @@ describe('custom folders zambdas integration tests', () => {
   // Hard-remove our tracked catalog entries. Soft-deleted entries still occupy a slot
   // (entry.flag tombstone), so we strip them regardless of state. Runs after every test
   // so the catalog doesn't grow unbounded during the suite — once it gets large enough
-  // the trailing fhir.update silently fails and the entries leak to the env.
+  // the trailing update silently fails and the entries leak to the env.
+  // The EHR e2e suite edits the same catalog while this suite runs, so the write goes through
+  // the zambdas' version-checked writer: a plain update would drop folders it added meanwhile.
   const pruneTrackedCatalogEntries = async (): Promise<void> => {
     if (!createdInternalNames.size) return;
     try {
@@ -80,10 +84,17 @@ describe('custom folders zambdas integration tests', () => {
       });
       const catalog = results.unbundle()[0];
       if (catalog) {
-        const remainingEntries = (catalog.entry ?? []).filter(
-          (entry) => !createdInternalNames.has(entry.item?.identifier?.value ?? '')
-        );
-        await oystehrAdmin.fhir.update<List>({ ...catalog, entry: remainingEntries });
+        await writeCustomFoldersCatalog({
+          oystehr: oystehrAdmin,
+          initialCatalog: catalog,
+          mutate: (current) => ({
+            ...current,
+            entry: (current.entry ?? []).filter(
+              (entry) => !createdInternalNames.has(entry.item?.identifier?.value ?? '')
+            ),
+          }),
+          tag: 'custom-folders.test.ts cleanup',
+        });
       }
       createdInternalNames.clear();
     } catch (err) {
