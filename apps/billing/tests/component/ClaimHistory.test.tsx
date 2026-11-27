@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { ClaimHistoryEntry } from 'utils/lib/types/data/billing/claim-history';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -161,9 +162,17 @@ describe('ClaimHistory', () => {
     renderHistory();
 
     const row = (await screen.findByText('Submit Claim')).closest('tr')!;
-    expect(within(row).getByText('Secondary insurance: Coverage is missing')).toBeInTheDocument();
-    expect(within(row).getByLabelText(raw)).toBeInTheDocument();
-    expect(within(row).queryByText(raw)).not.toBeInTheDocument();
+    const error = within(row).getByText('Secondary insurance: Coverage is missing').closest('[tabindex="0"]')!;
+    expect(error).toBeInTheDocument();
+    // The original text is a description, not a replacement for the friendly text.
+    expect(error).not.toHaveAttribute('aria-label');
+    expect(screen.queryByText(raw)).not.toBeInTheDocument();
+
+    // Keyboard users reach it and the tooltip opens with the original text as the description.
+    await userEvent.setup().tab();
+    expect(error).toHaveFocus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(raw);
+    expect(error).toHaveAccessibleDescription(raw);
   });
 
   it('renders no rule link when the stored attribution is missing a field', async () => {

@@ -158,8 +158,8 @@ function HistoryDetail({ entry }: { entry: ClaimHistoryEntry }): ReactElement {
           )}
           {change.detail ? (
             // The read API rewrote the stored text for billers; keep the original reachable for support.
-            <Tooltip title={change.detail}>
-              <Box component="span" sx={{ textDecoration: 'underline dotted', cursor: 'help' }}>
+            <Tooltip title={change.detail} describeChild>
+              <Box component="span" tabIndex={0} sx={{ textDecoration: 'underline dotted', cursor: 'help' }}>
                 <HistoryValue value={change.newValue} />
               </Box>
             </Tooltip>
