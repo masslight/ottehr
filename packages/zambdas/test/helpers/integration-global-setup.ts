@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Basic, Patient, Practitioner } from 'fhir/r4b';
+import { Basic, Patient, Person, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { Server } from 'http';
 import type { AddressInfo } from 'net';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
@@ -33,6 +33,8 @@ interface ProvisionedClient {
   profileResourceType: 'Practitioner' | 'Patient';
   profileId: string;
   token: string;
+  personId?: string;
+  relatedPersonId?: string;
 }
 
 /**
@@ -54,6 +56,8 @@ async function provisionSharedClient(
   const existing = (await oystehrAdmin.m2m.listV2({ name })).data;
   let m2mId: string;
   let profile: string;
+  let patientPersonId: string | undefined;
+  let patientRelatedPersonId: string | undefined;
 
   if (existing.length > 0) {
     const found = await oystehrAdmin.m2m.get({ id: existing[0].id });
@@ -83,6 +87,30 @@ async function provisionSharedClient(
       });
       m2mId = created.id;
       profile = created.profile;
+
+      // Build the Person→RelatedPerson→Patient chain so that getPatientsForUser(user, oystehr)
+      // (which searches for a Person with the caller's phone number and follows links to Patients)
+      // returns this run's Patient when the M2M patient token is used. Without this chain the
+      // search may find a leaked Person from a prior run linked to a different Patient, causing
+      // the patientID auth check in patient-scoped zambdas to throw NO_READ_ACCESS_TO_PATIENT.
+      const relatedPerson = await oystehrAdmin.fhir.create<RelatedPerson>(
+        addRunTagToResource(
+          { resourceType: 'RelatedPerson', patient: { reference: `Patient/${patient.id}` } } as RelatedPerson,
+          runId
+        ) as RelatedPerson
+      );
+      const person = await oystehrAdmin.fhir.create<Person>(
+        addRunTagToResource(
+          {
+            resourceType: 'Person',
+            telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
+            link: [{ target: { reference: `RelatedPerson/${relatedPerson.id}` } }],
+          } as Person,
+          runId
+        ) as Person
+      );
+      patientPersonId = person.id;
+      patientRelatedPersonId = relatedPerson.id;
     } else {
       // The shared provider client stands in for a fully-privileged staff user
       // so it can exercise both provider endpoints and the admin/manager/
@@ -131,7 +159,15 @@ async function provisionSharedClient(
   });
 
   const [profileResourceType, profileId] = profile.split('/') as ['Practitioner' | 'Patient', string];
-  return { m2mId, profile, profileResourceType, profileId, token };
+  return {
+    m2mId,
+    profile,
+    profileResourceType,
+    profileId,
+    token,
+    personId: patientPersonId,
+    relatedPersonId: patientRelatedPersonId,
+  };
 }
 
 // for testing
@@ -284,6 +320,20 @@ export default async function setup(project: TestProject): Promise<() => Promise
   // then stop the server.
   return async () => {
     for (const c of [provider, patient]) {
+      if (c.personId) {
+        try {
+          await oystehrAdmin.fhir.delete({ resourceType: 'Person', id: c.personId });
+        } catch {
+          // best-effort
+        }
+      }
+      if (c.relatedPersonId) {
+        try {
+          await oystehrAdmin.fhir.delete({ resourceType: 'RelatedPerson', id: c.relatedPersonId });
+        } catch {
+          // best-effort
+        }
+      }
       try {
         await oystehrAdmin.m2m.delete({ id: c.m2mId });
       } catch {
