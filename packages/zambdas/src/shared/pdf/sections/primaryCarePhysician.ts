@@ -18,9 +18,10 @@ export const composePrimaryCarePhysicianData: DataComposer<PrimaryCarePhysicianI
   physician,
 }) => {
   // Same rule as EHR's `prePopulation` for `pcp-active`: a contained Practitioner
-  // with `active === true` means the patient has a PCP; absent or `active === false`
-  // means they explicitly indicated they don't.
+  // means the patient has a PCP unless it is `active === false`, which means they
+  // explicitly indicated they don't, and no Practitioner means nothing is known.
   const hasPcp = !!physician && physician.active !== false;
+  const noPcpConfirmed = physician?.active === false;
   const pcpName = physician
     ? [getFirstName(physician), getMiddleName(physician), getLastName(physician)].filter(Boolean).join(' ')
     : '';
@@ -37,6 +38,7 @@ export const composePrimaryCarePhysicianData: DataComposer<PrimaryCarePhysicianI
 
   return {
     hasPcp,
+    noPcpConfirmed,
     pcpName,
     pcpPracticeName,
     pcpAddress,
@@ -53,11 +55,11 @@ export const createPrimaryCarePhysicianSection = <TData extends { pcp?: PrimaryC
     title: 'Primary care physician',
     dataSelector: (data) => data.pcp,
     render: (client, details, styles) => {
-      // No-PCP state: skip the empty field rows and print the same explanatory
+      // Confirmed no-PCP state: skip the empty field rows and print the same explanatory
       // line the EHR's `pcp-active` checkbox uses. Gated by `shouldShow('pcp-active')`
       // so customer overrides via `hiddenFields` are honored (just like the EHR
       // hides the checkbox when its key is in hiddenFields).
-      if (!details.hasPcp) {
+      if (details.noPcpConfirmed) {
         if (shouldShow('pcp-active') && NO_PCP_LABEL) {
           client.drawText(NO_PCP_LABEL, { ...styles.textStyles.regular, spacing: 16 });
         }

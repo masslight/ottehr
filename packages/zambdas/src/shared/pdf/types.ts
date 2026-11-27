@@ -668,12 +668,13 @@ export interface PatientDetails extends PdfData {
 export interface PrimaryCarePhysician extends PdfData {
   /**
    * Mirrors `pcp-active` in `PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items`:
-   * `false` when the patient has explicitly indicated they do not have a PCP
-   * (no contained Practitioner, or `Practitioner.active === false`). When `false`
-   * the section renders the explanatory line instead of the field list — same as
-   * EHR's `PrimaryCareContainer`.
+   * `hasPcp` is `true` when an active PCP is on file; `noPcpConfirmed` is `true` when the
+   * patient has explicitly indicated they do not have a PCP (`Practitioner.active === false`).
+   * When `noPcpConfirmed` is `true` the section renders the explanatory line instead of the
+   * field list — same as EHR's `PrimaryCareContainer`.
    */
   hasPcp: boolean;
+  noPcpConfirmed: boolean;
   pcpName: string;
   pcpPracticeName: string;
   pcpAddress: string;
