@@ -545,6 +545,13 @@ describe('extract-insurance-card helpers', () => {
     expect(EXTRACTION_PROMPT).toContain('Sponsor Name');
   });
 
+  it('EXTRACTION_PROMPT covers branded TRICARE cards: DoD Benefits Number label, DoD Identification Number exclusion, group number', () => {
+    expect(EXTRACTION_PROMPT).toContain('DoD Benefits Number');
+    expect(EXTRACTION_PROMPT).toContain('DoD Identification Number');
+    expect(EXTRACTION_PROMPT).toContain('Group Number');
+    expect(EXTRACTION_PROMPT).toContain('01 JAN 2025');
+  });
+
   describe('TRICARE memberId normalization', () => {
     const tricareBack = (memberId: string | null): string =>
       JSON.stringify({
@@ -559,6 +566,24 @@ describe('extract-insurance-card helpers', () => {
     it('strips the hyphen from an 11-digit Benefits Number', () => {
       expect(parseModelResponse(tricareBack('123456789-02')).fields?.memberId).toBe('12345678902');
       expect(parseModelResponse(tricareBack('12345678902')).fields?.memberId).toBe('12345678902');
+    });
+
+    it('keeps a plain 11-digit DoD Benefits Number from a branded TRICARE card with a TRICARE Select plan', () => {
+      const result = parseModelResponse(
+        JSON.stringify({
+          isInsuranceCard: true,
+          payer: 'TRICARE',
+          insuranceType: 'TRICARE Select',
+          memberId: '98765432101',
+          groupNumber: 'T0001',
+          effectiveDate: '2025-01-01',
+        })
+      );
+      expect(result.fields).toMatchObject({
+        memberId: '98765432101',
+        groupNumber: 'T0001',
+        effectiveDate: '2025-01-01',
+      });
     });
 
     it('drops a 10-digit DoD ID so it cannot override the back-of-card Benefits Number', () => {
