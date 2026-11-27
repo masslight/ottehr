@@ -29,9 +29,12 @@ import {
   Tooltip,
 } from 'chart.js';
 import { DateTime } from 'luxon';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import pLimit from 'p-limit';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bar, Line } from 'react-chartjs-2';
 import { useNavigate } from 'react-router-dom';
+import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils/lib/helpers/reports';
+import { mergeVisitsOverviewReports } from 'utils/lib/helpers/visits-overview-report';
 import type { VisitsOverviewReportZambdaOutput } from 'utils/lib/types/api/visits-overview-report.types';
 import { getVisitsOverviewReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -39,6 +42,8 @@ import PageContainer from '../../layout/PageContainer';
 
 // Register ChartJS components
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
+
+const MAX_CONCURRENT_BATCH_REQUESTS = 10;
 
 export default function VisitsOverview(): React.ReactElement {
   const navigate = useNavigate();
@@ -50,6 +55,7 @@ export default function VisitsOverview(): React.ReactElement {
   const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
   const [customStartDate, setCustomStartDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
   const [customEndDate, setCustomEndDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
+  const latestRequestId = useRef(0);
 
   const handleBack = (): void => {
     navigate('/reports');
@@ -110,9 +116,12 @@ export default function VisitsOverview(): React.ReactElement {
 
   const fetchReport = useCallback(
     async (filter: string): Promise<void> => {
+      const requestId = ++latestRequestId.current;
       setLoading(true);
       setError(null);
       setReportData(null);
+
+      const limit = pLimit(MAX_CONCURRENT_BATCH_REQUESTS);
 
       try {
         const { start, end } = getDateRange(filter, customDate);
@@ -120,16 +129,28 @@ export default function VisitsOverview(): React.ReactElement {
           throw new Error('Oystehr client not available');
         }
 
-        const response = await getVisitsOverviewReport(oystehrZambda, {
-          dateRange: { start, end },
-        });
+        const splitBatches = splitDateRangeIntoBatches(start, end, DEFAULT_BATCH_DAYS);
+        const batches = splitBatches.length > 0 ? splitBatches : [{ start, end }];
 
-        setReportData(response);
+        if (batches.length > 1) {
+          console.log(`Splitting date range into ${batches.length} batches of up to ${DEFAULT_BATCH_DAYS} days each`);
+        }
+
+        const batchResponses = await Promise.all(
+          batches.map((batch) => limit(() => getVisitsOverviewReport(oystehrZambda, { dateRange: batch })))
+        );
+
+        if (requestId !== latestRequestId.current) return;
+        setReportData(mergeVisitsOverviewReports(batchResponses, { start, end }));
       } catch (err) {
+        limit.clearQueue();
+        if (requestId !== latestRequestId.current) return;
         console.error('Error fetching visits overview report:', err);
         setError('Failed to load visits overview report. Please try again.');
       } finally {
-        setLoading(false);
+        if (requestId === latestRequestId.current) {
+          setLoading(false);
+        }
       }
     },
     [getDateRange, oystehrZambda, customDate]
