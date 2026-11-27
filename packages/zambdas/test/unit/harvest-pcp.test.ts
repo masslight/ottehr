@@ -105,3 +105,41 @@ describe('createMasterRecordPatchOperations PCP page', () => {
     expect(updated.telecom).toEqual([{ system: 'fax', value: '+12125551234' }]);
   });
 });
+
+const patientWithUnknownPcp = (): Patient => ({ resourceType: 'Patient', id: 'patient-1' });
+
+const pcpActive = (value?: boolean): QuestionnaireResponseItem =>
+  value === undefined ? { linkId: 'pcp-active' } : { linkId: 'pcp-active', answer: [{ valueBoolean: value }] };
+
+const EHR_PCP_DETAIL_LINK_IDS = ['pcp-practice', 'pcp-first', 'pcp-last', 'pcp-address', 'pcp-number', 'pcp-fax'];
+
+const untouchedEmptyEhrPcpFields = EHR_PCP_DETAIL_LINK_IDS.map((linkId) => answered(linkId));
+
+const clearedEhrPcpFields = EHR_PCP_DETAIL_LINK_IDS.map((linkId) => ({ linkId, answer: [] }));
+
+describe('getPCPPatchOps PCP states', () => {
+  it.each([
+    ['first name', 'pcp-first', { given: ['Sam'] }],
+    ['last name', 'pcp-last', { family: 'Sam' }],
+  ])('records a PCP when staff enter only a %s', (_label, linkId, expectedName) => {
+    const details = untouchedEmptyEhrPcpFields.map((item) => (item.linkId === linkId ? answered(linkId, 'Sam') : item));
+
+    expect(containedFromOps(getPCPPatchOps([pcpActive(true), ...details], patientWithUnknownPcp()))).toEqual({
+      resourceType: 'Practitioner',
+      id: 'primary-care-physician',
+      name: [expectedName],
+      active: true,
+    });
+  });
+
+  it('keeps an active PCP when staff clear every detail except the first name', () => {
+    const details = clearedEhrPcpFields.map((item) =>
+      item.linkId === 'pcp-first' ? answered('pcp-first', 'Olivia') : item
+    );
+
+    expect(containedFromOps(getPCPPatchOps([pcpActive(true), ...details], patientWithPcp()))).toMatchObject({
+      name: [{ given: ['Olivia'] }],
+      active: true,
+    });
+  });
+});

@@ -1280,7 +1280,7 @@ export const getPCPPatchOps = (
   const pcpActiveFieldExists = flattenedItems.some((field) => field.linkId === 'pcp-active');
   const shouldDeactivate = isActive === false || (pcpActiveFieldExists && isActive === undefined);
 
-  const hasSomeValue = (firstName && lastName) || practiceName || pcpAddress || phone || fax;
+  const hasSomeValue = firstName || lastName || practiceName || pcpAddress || phone || fax;
 
   const hasAnyPCPFields = flattenedItems.some((field) => PCP_FIELDS.includes(field.linkId));
   const shouldClearAllData = hasAnyPCPFields && !hasSomeValue;
@@ -1339,8 +1339,11 @@ export const getPCPPatchOps = (
     const pcpPhone = isInForm('pcp-number') ? formatPhoneNumber(phone) : stored.phone;
     const pcpFax = isInForm('pcp-fax') ? formatPhoneNumber(fax) : stored.fax;
 
-    if (pcpLastName) {
-      name = [{ family: pcpLastName }];
+    if (pcpLastName || pcpFirstName) {
+      name = [{}];
+      if (pcpLastName) {
+        name[0].family = pcpLastName;
+      }
       if (pcpFirstName) {
         name[0].given = [pcpFirstName];
       }

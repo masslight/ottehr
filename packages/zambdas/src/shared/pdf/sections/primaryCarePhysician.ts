@@ -1,4 +1,4 @@
-import { getFullName } from 'utils/lib/fhir/patient';
+import { getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { PRACTICE_NAME_URL } from 'utils/lib/types/constants';
@@ -21,7 +21,9 @@ export const composePrimaryCarePhysicianData: DataComposer<PrimaryCarePhysicianI
   // with `active === true` means the patient has a PCP; absent or `active === false`
   // means they explicitly indicated they don't.
   const hasPcp = !!physician && physician.active !== false;
-  const pcpName = physician ? getFullName(physician) : '';
+  const pcpName = physician
+    ? [getFirstName(physician), getMiddleName(physician), getLastName(physician)].filter(Boolean).join(' ')
+    : '';
   const pcpPracticeName =
     physician?.extension?.find((e: { url: string }) => e.url === PRACTICE_NAME_URL)?.valueString ?? '';
   const pcpAddress = physician?.address?.[0]?.text ?? '';
