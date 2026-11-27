@@ -2,6 +2,7 @@ import { DmeOrderCreatePage } from 'src/features/dme/pages/DmeOrderCreatePage';
 import { DmeOrderDetailsPage } from 'src/features/dme/pages/DmeOrderDetailsPage';
 import { DmeOrderEditPage } from 'src/features/dme/pages/DmeOrderEditPage';
 import { DmeOrdersPage } from 'src/features/dme/pages/DmeOrdersPage';
+import { VisitFlowsheets } from 'src/features/flowsheets/pages/VisitFlowsheets';
 import { Immunization } from 'src/features/immunization/pages/Immunization';
 import { InHouseLabOrderCreatePage } from 'src/features/in-house-labs/pages/InHouseLabOrderCreatePage';
 import { InHouseLabTestDetailsPage } from 'src/features/in-house-labs/pages/InHouseLabOrderDetailsPage';
@@ -50,6 +51,7 @@ import { VisitDocuments } from '../pages/VisitDocuments';
 
 export enum ROUTER_PATH {
   CC_AND_INTAKE_NOTES = 'cc-and-intake-notes',
+  FLOWSHEETS = 'flowsheets',
   REVIEW_AND_SIGN = 'review-and-sign',
   FOLLOW_UP_NOTE = 'follow-up-note',
   SCREENING = 'screening-questions',
@@ -122,6 +124,15 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     element: <ChiefComplaintAndIntakeNotes />,
     text: 'Chief Complaint',
     iconKey: 'Chief Complaint',
+    groupLabel: 'Intake',
+  },
+  [ROUTER_PATH.FLOWSHEETS]: {
+    path: ROUTER_PATH.FLOWSHEETS,
+    taskSection: null,
+    modes: ['main', 'readonly'],
+    element: <VisitFlowsheets />,
+    text: 'Flowsheets',
+    iconKey: 'Flowsheets',
     groupLabel: 'Intake',
   },
   [ROUTER_PATH.SCREENING]: {
