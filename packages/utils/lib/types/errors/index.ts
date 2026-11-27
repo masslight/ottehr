@@ -60,6 +60,7 @@ export enum APIErrorCode {
   CLAIM_SEARCH_TOO_BROAD = 4344,
   VERSION_HISTORY_UNAVAILABLE = 4345,
   PATIENT_SEARCH_TOO_BROAD = 4346,
+  CUSTOM_FOLDERS_CATALOG_BUSY = 4347,
   // 44xx
   EXTERNAL_LAB_GENERAL = 4400,
   MISSING_NLM_API_KEY_ERROR = 4401,
@@ -371,6 +372,12 @@ export const VERSION_HISTORY_UNAVAILABLE_ERROR: APIError = {
   code: APIErrorCode.VERSION_HISTORY_UNAVAILABLE,
   statusCode: 503,
   message: 'The version history is temporarily unavailable. Please try again in a few seconds.',
+};
+
+export const CUSTOM_FOLDERS_CATALOG_BUSY_ERROR: APIError = {
+  code: APIErrorCode.CUSTOM_FOLDERS_CATALOG_BUSY,
+  statusCode: 409,
+  message: 'The folder list was being changed by someone else at the same time. Please try again.',
 };
 
 export const APPOINTMENT_CANT_BE_IN_PAST_ERROR = {
