@@ -92,4 +92,39 @@ describe('structureQuestionnaireResponse', () => {
       },
     ]);
   });
+
+  it('sends a cleared PCP detail as an explicit clear and an untouched empty one without an answer', () => {
+    const pcpQuestionnaire = {
+      ...questionnaire,
+      item: [
+        {
+          linkId: 'primary-care-physician-section',
+          type: 'group',
+          item: [
+            { linkId: 'pcp-active', type: 'boolean' },
+            { linkId: 'pcp-first', type: 'string' },
+            { linkId: 'pcp-last', type: 'string' },
+          ],
+        },
+      ],
+    };
+
+    const qr = structureQuestionnaireResponse(
+      pcpQuestionnaire,
+      { 'pcp-active': true, 'pcp-first': '', 'pcp-last': '' },
+      'patient-1',
+      { 'pcp-first': true }
+    );
+
+    expect(qr.item).toEqual([
+      {
+        linkId: 'primary-care-physician-section',
+        item: [
+          { linkId: 'pcp-active', answer: [{ valueBoolean: true }] },
+          { linkId: 'pcp-first', answer: [] },
+          { linkId: 'pcp-last' },
+        ],
+      },
+    ]);
+  });
 });

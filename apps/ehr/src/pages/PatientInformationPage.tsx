@@ -8,6 +8,7 @@ import {
   QuestionnaireResponseItem,
   Reference,
 } from 'fhir/r4b';
+import _ from 'lodash';
 import { enqueueSnackbar } from 'notistack';
 import { FC, ReactElement, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -75,6 +76,9 @@ const ANSWER_TYPES: ('String' | 'Boolean' | 'Reference' | 'Attachment')[] = [
 ];
 
 const questionnaire = PATIENT_RECORD_QUESTIONNAIRE();
+const PCP_FIELD_KEYS = Object.values(PATIENT_RECORD_CONFIG.FormFields.primaryCarePhysician.items).map(
+  (item) => item.key
+);
 
 const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
   for (let i = 0; i < ANSWER_TYPES.length; i++) {
@@ -550,6 +554,10 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
           return;
         }
       }
+    }
+
+    if (!PCP_FIELD_KEYS.some((key) => dirtyFields[key])) {
+      qrValues = _.omit(qrValues, PCP_FIELD_KEYS);
     }
 
     // Pass dirtyFields to track explicitly cleared fields

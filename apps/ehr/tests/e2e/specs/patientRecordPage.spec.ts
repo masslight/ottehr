@@ -1039,7 +1039,7 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
         await patientInformationPage.verifyFieldIsHidden(patientDetails.otherLanguage.key);
       });
 
-      await test.step('Check all fields from Primary Care Physician block are visible and required when checkbox is unchecked', async () => {
+      await test.step('Check all fields from Primary Care Physician block are visible and optional when checkbox is unchecked', async () => {
         test.skip(PCPHidden, 'PCP section is hidden');
         await patientInformationPage.verifyBooleanFieldHasExpectedValue(primaryCarePhysician.active.key, false);
 

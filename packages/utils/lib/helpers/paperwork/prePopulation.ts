@@ -792,7 +792,7 @@ const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): Questionna
       }
     }
     if (linkId === 'pcp-active') {
-      answer = makeAnswer(!!physician && !physician.active === false, 'Boolean');
+      answer = makeAnswer(physician?.active !== false, 'Boolean');
     }
     return {
       linkId,

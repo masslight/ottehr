@@ -806,11 +806,28 @@
     "text": "Primary Care Physician",
     "item": [
       {
+        "linkId": "pcp-none",
+        "type": "boolean",
+        "text": "I do not have a Primary Care Physician",
+        "required": false
+      },
+      {
         "linkId": "pcp-first",
         "type": "string",
         "text": "Provider first name",
         "required": false,
+        "enableWhen": [
+          {
+            "question": "pcp-none",
+            "operator": "!=",
+            "answerBoolean": true
+          }
+        ],
         "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
             "valueString": "m"
@@ -818,6 +835,23 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
             "valueString": "section-pcp shipping given-name"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "pcp-none"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueBoolean": true
+              }
+            ]
           }
         ]
       },
@@ -826,7 +860,18 @@
         "type": "string",
         "text": "Provider last name",
         "required": false,
+        "enableWhen": [
+          {
+            "question": "pcp-none",
+            "operator": "!=",
+            "answerBoolean": true
+          }
+        ],
         "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
             "valueString": "m"
@@ -834,6 +879,23 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
             "valueString": "section-pcp shipping family-name"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "pcp-none"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueBoolean": true
+              }
+            ]
           }
         ]
       },
@@ -841,14 +903,55 @@
         "linkId": "pcp-practice",
         "type": "string",
         "text": "Practice name",
-        "required": false
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "pcp-none",
+            "operator": "!=",
+            "answerBoolean": true
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "pcp-none"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueBoolean": true
+              }
+            ]
+          }
+        ]
       },
       {
         "linkId": "pcp-address",
         "type": "string",
         "text": "Address",
         "required": false,
+        "enableWhen": [
+          {
+            "question": "pcp-none",
+            "operator": "!=",
+            "answerBoolean": true
+          }
+        ],
         "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          },
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/placeholder",
             "valueString": "Street address, City, State, ZIP"
@@ -856,6 +959,23 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
             "valueString": "section-pcp shipping street-address"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "pcp-none"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueBoolean": true
+              }
+            ]
           }
         ]
       },
@@ -864,14 +984,42 @@
         "type": "string",
         "text": "Phone number",
         "required": false,
+        "enableWhen": [
+          {
+            "question": "pcp-none",
+            "operator": "!=",
+            "answerBoolean": true
+          }
+        ],
         "extension": [
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
             "valueString": "Phone Number"
           },
           {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          },
+          {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
             "valueString": "section-pcp shipping tel"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
+                "valueString": "pcp-none"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
+                "valueBoolean": true
+              }
+            ]
           }
         ]
       }

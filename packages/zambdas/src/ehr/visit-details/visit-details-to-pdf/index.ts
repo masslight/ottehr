@@ -125,8 +125,9 @@ export const performEffect = async (
           return undefined;
         })
     : Promise.resolve([]);
+  const pcpReference = accountResources.patient?.generalPractitioner?.[0]?.reference;
   const primaryCarePhysician = accountResources.patient?.contained?.find(
-    (resource) => resource.resourceType === 'Practitioner' && resource.active === true
+    (resource) => resource.resourceType === 'Practitioner' && `#${resource.id}` === pcpReference
   ) as Practitioner;
   const loadPayments = async (): Promise<PatientPaymentDTO[]> => {
     if (!encounter.id || !account) return [];

@@ -603,9 +603,7 @@ const FormFields: PatientRecordFormFields = {
         key: 'pcp-practice',
         type: 'string',
         label: 'Practice name',
-        triggers: [
-          { targetQuestionLinkId: 'pcp-active', effect: ['require', 'enable'], operator: '=', answerBoolean: true },
-        ],
+        triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['enable'], operator: '=', answerBoolean: true }],
         disabledDisplay: 'hidden',
       },
       firstName: {
@@ -1121,7 +1119,7 @@ const hiddenFormSections: string[] = [];
 const questionnaireBaseDefaults = {
   resourceType: 'Questionnaire',
   url: 'http://example.org/fhir/Questionnaire/patient-record',
-  version: '1.1.1',
+  version: '1.1.2',
   name: 'PatientRecordQuestionnaire',
   title: 'Patient Record Questionnaire',
   status: 'active',
