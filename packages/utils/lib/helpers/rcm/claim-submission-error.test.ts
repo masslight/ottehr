@@ -1,6 +1,6 @@
 import { Claim } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { describeClaimSubmissionError } from './claim-submission-error';
+import { claimSubmissionErrorNeedsClaim, describeClaimSubmissionError } from './claim-submission-error';
 
 // Messages and paths as the Oystehr 837 builder produces them
 // (zapehr project-api/src/functions/rcm/x12-fhir, validateDefined in project-api/src/lib/common.ts).
@@ -340,5 +340,28 @@ describe('describeClaimSubmissionError', () => {
         'Only claims with status "draft" or "active" can be submitted. Received claim status "cancelled"'
       )
     ).toBe('Only claims with status "draft" or "active" can be submitted. Received claim status "cancelled"');
+  });
+
+  describe('claimSubmissionErrorNeedsClaim', () => {
+    it.each([
+      undefinedAt('Claim.insurance[sequence=1].coverage'),
+      undefinedAt('Claim.item[0].net.value'),
+      undefinedAt('Claim.diagnosis[sequence=1]'),
+      undefinedAt('Claim.careTeam[Claim.item[1].careTeamSequence[0]].provider'),
+      `Duplicate code, ${undefinedAt('Claim.insurance[0].coverage')}`,
+    ])('needs the claim to describe %s', (message) => {
+      expect(claimSubmissionErrorNeedsClaim(message)).toBe(true);
+    });
+
+    it.each([
+      'Duplicate diagnosis code',
+      'Rule "Submit" failed: payer is on hold',
+      'Claim has no items with service dates',
+      undefinedAt('Claim.patient.birthDate'),
+      // Service lines named by sequence read the same with or without the claim.
+      undefinedAt('Claim.item[sequence=2].net.value'),
+    ])('does not need the claim to describe %s', (message) => {
+      expect(claimSubmissionErrorNeedsClaim(message)).toBe(false);
+    });
   });
 });

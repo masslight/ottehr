@@ -4,7 +4,10 @@ import { Claim, Device, Location, Organization, Practitioner, Provenance } from 
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { isPayerUrl } from 'utils/lib/helpers/helpers';
-import { describeClaimSubmissionError } from 'utils/lib/helpers/rcm/claim-submission-error';
+import {
+  claimSubmissionErrorNeedsClaim,
+  describeClaimSubmissionError,
+} from 'utils/lib/helpers/rcm/claim-submission-error';
 import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
 import { GetClaimHistoryInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
@@ -24,6 +27,7 @@ import {
   GetClaimHistoryResponse,
 } from 'utils/lib/types/data/billing/claim-history';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { mapWithConcurrency } from '../../shared/concurrency';
 import { sendErrors } from '../../shared/errors';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -42,6 +46,8 @@ type GetClaimHistoryParams = ValidatedZambdaInput<typeof GetClaimHistoryInputSch
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-claim-history';
+// Claim versions read at once to describe submission errors; a claim can fail submission many times.
+const CLAIM_REVISION_READ_CONCURRENCY = 5;
 
 // Reference-typed fields that deep-link to a billing-app screen.
 const FIELD_SCREEN: Record<string, ClaimHistoryLink['screen']> = {
@@ -150,19 +156,28 @@ async function describeSubmissionErrors(
   const revisionOf = (entry: ClaimHistoryEntry): string | undefined =>
     provenanceById.get(entry.id)?.entity?.find((entity) => entity.role === 'revision')?.what?.reference;
 
-  const claimsByRevision = new Map<string, Claim>();
-  const revisions = new Set(errorEntries.map(revisionOf).filter((ref): ref is string => !!ref));
-  await Promise.all(
-    [...revisions].map(async (revision) => {
-      const [resourceType, id, history, versionId] = revision.split('/');
-      if (resourceType !== 'Claim' || !id || history !== '_history' || !versionId) return;
-      try {
-        claimsByRevision.set(revision, await oystehr.fhir.history<Claim>({ resourceType: 'Claim', id, versionId }));
-      } catch (err) {
-        reportAnomaly(`Could not read ${revision} to describe a claim-submission error`, environment, err);
-      }
-    })
+  // Only errors that name a claim entry need the claim version they were recorded on; a long history
+  // of other failures (duplicate codes, rule failures) reads nothing.
+  const revisions = new Set(
+    errorEntries
+      .filter((entry) =>
+        entry.changes.some(
+          (change) => isSubmissionError(change) && !!change.newValue && claimSubmissionErrorNeedsClaim(change.newValue)
+        )
+      )
+      .map(revisionOf)
+      .filter((ref): ref is string => !!ref)
   );
+  const claimsByRevision = new Map<string, Claim>();
+  await mapWithConcurrency([...revisions], CLAIM_REVISION_READ_CONCURRENCY, async (revision) => {
+    const [resourceType, id, history, versionId] = revision.split('/');
+    if (resourceType !== 'Claim' || !id || history !== '_history' || !versionId) return;
+    try {
+      claimsByRevision.set(revision, await oystehr.fhir.history<Claim>({ resourceType: 'Claim', id, versionId }));
+    } catch (err) {
+      reportAnomaly(`Could not read ${revision} to describe a claim-submission error`, environment, err);
+    }
+  });
 
   for (const entry of errorEntries) {
     const revision = revisionOf(entry);

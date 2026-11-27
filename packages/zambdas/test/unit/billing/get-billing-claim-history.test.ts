@@ -221,6 +221,54 @@ describe('get-billing-claim-history performEffect', () => {
 
       expect(history).not.toHaveBeenCalled();
     });
+
+    // A submission-error provenance recorded on claim version `version`.
+    const errorAt = (version: number, message: string): Provenance => ({
+      ...provenanceBase(`prov${version}`, '2026-06-01T10:00:00Z'),
+      activity: { coding: [CLAIM_PROVENANCE_ACTIVITY.submit] },
+      entity: [{ role: 'revision', what: { reference: `Claim/c1/_history/${version}` } }],
+      extension: [
+        diffExtension([
+          { field: CLAIM_SUBMISSION_ERROR_FIELD, label: 'Error', previousValue: null, newValue: message },
+        ]),
+      ],
+    });
+
+    it('reads no claim version for errors whose description does not depend on the claim', async () => {
+      const history = vi.fn();
+      const provenances = [
+        errorAt(1, 'Duplicate diagnosis code'),
+        errorAt(2, 'Rule "Submit" failed: payer is on hold'),
+        errorAt(3, '"Claim.patient.birthDate" is undefined'),
+      ];
+      const oystehr = makeOystehr({ Provenance: () => pagedBundle(provenances, []) }, history);
+
+      const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
+
+      expect(history).not.toHaveBeenCalled();
+      expect(entries.find((entry) => entry.id === 'prov3')?.changes[0].newValue).toBe(
+        'Patient: Date of Birth is missing'
+      );
+    });
+
+    it('reads only a few claim versions at a time', async () => {
+      let inFlight = 0;
+      let maxInFlight = 0;
+      const history = vi.fn(async () => {
+        inFlight++;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        inFlight--;
+        return submittedClaim;
+      });
+      const provenances = Array.from({ length: 20 }, (_, i) => errorAt(i + 1, raw));
+      const oystehr = makeOystehr({ Provenance: () => pagedBundle(provenances, []) }, history);
+
+      await performEffect(oystehr, { claimId: 'c1', secrets: {} });
+
+      expect(history).toHaveBeenCalledTimes(20);
+      expect(maxInFlight).toBeLessThanOrEqual(5);
+    });
   });
 
   it('passes a stored rule attribution through to the entry verbatim', async () => {

@@ -520,3 +520,21 @@ export function describeClaimSubmissionError(message: string, claim?: Claim): st
     message
   );
 }
+
+/**
+ * Whether describing `message` depends on the claim, i.e. whether it names an insurance, service line,
+ * diagnosis or other claim entry. Messages the mapping leaves alone (duplicate codes, rule failures)
+ * or describes without the claim return false, so callers can skip reading the claim for them.
+ */
+export function claimSubmissionErrorNeedsClaim(message: string): boolean {
+  // Describe against a stand-in claim that records whether any label looks something up on it.
+  let consulted = false;
+  const probe = new Proxy({} as Claim, {
+    get: () => {
+      consulted = true;
+      return undefined;
+    },
+  });
+  describeClaimSubmissionError(message, probe);
+  return consulted;
+}
