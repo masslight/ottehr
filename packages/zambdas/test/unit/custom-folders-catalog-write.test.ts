@@ -70,6 +70,31 @@ describe('writeCustomFoldersCatalog', () => {
     expect(mockUpdate).toHaveBeenCalledTimes(MAX_CATALOG_WRITE_ATTEMPTS);
   });
 
+  // The create/rename rules live in `mutate` so a retry checks them against what the concurrent writer
+  // saved, instead of re-applying a change that was only valid for the catalog it first read.
+  it('re-runs mutate on the refetched catalog and stops when its rules reject that catalog', async () => {
+    const takenByConcurrentWriter = { statusCode: 409, message: 'A folder named "X" already exists' };
+    mockSearch.mockImplementation(async () => ({
+      unbundle: () => [{ ...catalogAt('2'), entry: [{ item: { display: 'X', identifier: { value: 'custom-x' } } }] }],
+    }));
+    mockUpdate.mockRejectedValueOnce(versionConflict()).mockImplementation(async (list: List) => list);
+
+    const write = writeCustomFoldersCatalog({
+      oystehr,
+      initialCatalog: catalogAt('1'),
+      mutate: (catalog) => {
+        if (catalog.entry?.some((entry) => entry.item?.display === 'X')) throw takenByConcurrentWriter;
+        return { ...catalog, entry: [...(catalog.entry ?? []), { item: { display: 'X' } }] };
+      },
+      tag: 'test',
+    });
+    const outcome = expect(write).rejects.toBe(takenByConcurrentWriter);
+    await vi.runAllTimersAsync();
+
+    await outcome;
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+  });
+
   it('rethrows any other error on the first attempt', async () => {
     const serverError = new Oystehr.OystehrFHIRError({
       code: 500,

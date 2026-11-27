@@ -1,16 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
-import { parseCustomFoldersCatalogIncludingDeleted } from 'utils/lib/fhir/list';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { RenameCustomFolderInputValidated, RenameCustomFolderOutput } from 'utils/lib/types/data/custom-folder.types';
-import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, requireAdminUser } from '../../shared/auth';
 import { loadCustomFoldersCatalog, writeCustomFoldersCatalog } from '../../shared/custom-folders';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { renameFolderInCatalog } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -60,41 +59,11 @@ const performEffect = async (
   console.log(`rename-custom-folder: starting "${internalName}" → "${newName}"`);
 
   const catalog = await loadCustomFoldersCatalog(oystehr, { required: true });
-  const defs = parseCustomFoldersCatalogIncludingDeleted(catalog);
-
-  const target = defs.find((d) => d.internalName === internalName);
-  if (!target) {
-    throw { ...FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Custom folder "${internalName}" not found`), statusCode: 404 };
-  }
-  // Soft-deleted (tombstoned) entries are read-only — admin must re-create the
-  // folder (which clears the tombstone) before they can rename it.
-  if (target.deleted) {
-    throw { ...FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Custom folder "${internalName}" not found`), statusCode: 404 };
-  }
-
-  // Uniqueness check: newName must not match any system folder display or another
-  // active custom folder. Soft-deleted entries don't reserve display names.
-  const systemDisplayNames = FOLDERS_CONFIG.map((f) => f.display.toLowerCase().trim());
-  if (systemDisplayNames.includes(newName.toLowerCase().trim())) {
-    throw { ...INVALID_INPUT_ERROR(`A folder named "${newName}" already exists`), statusCode: 409 };
-  }
-
-  const otherCustomNames = defs
-    .filter((d) => d.internalName !== internalName && !d.deleted)
-    .map((d) => d.displayName.toLowerCase().trim());
-  if (otherCustomNames.includes(newName.toLowerCase().trim())) {
-    throw { ...INVALID_INPUT_ERROR(`A folder named "${newName}" already exists`), statusCode: 409 };
-  }
 
   await writeCustomFoldersCatalog({
     oystehr,
     initialCatalog: catalog,
-    mutate: (current) => ({
-      ...current,
-      entry: (current.entry ?? []).map((entry) =>
-        entry.item?.identifier?.value === internalName ? { ...entry, item: { ...entry.item, display: newName } } : entry
-      ),
-    }),
+    mutate: (current) => renameFolderInCatalog(current, internalName, newName),
     tag: 'rename-custom-folder',
   });
 

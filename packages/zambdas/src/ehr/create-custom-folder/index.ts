@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FOLDERS_CONFIG } from 'utils/lib/fhir/constants';
-import { deriveInternalFolderName, parseCustomFoldersCatalogIncludingDeleted } from 'utils/lib/fhir/list';
+import { deriveInternalFolderName } from 'utils/lib/fhir/list';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { CreateCustomFolderInputValidated, CreateCustomFolderOutput } from 'utils/lib/types/data/custom-folder.types';
 import { INVALID_INPUT_ERROR, NOT_AUTHORIZED } from 'utils/lib/types/errors';
@@ -11,6 +11,7 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { addFolderToCatalog } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -58,56 +59,17 @@ const performEffect = async (folderName: string, oystehr: Oystehr): Promise<Crea
     throw { ...INVALID_INPUT_ERROR(`A folder named "${folderName}" already exists`), statusCode: 409 };
   }
 
-  const catalog = await loadCustomFoldersCatalog(oystehr);
-  const allDefs = parseCustomFoldersCatalogIncludingDeleted(catalog);
-
   const internalName = deriveInternalFolderName(folderName);
   if (!internalName) {
     throw INVALID_INPUT_ERROR('Could not derive a valid internal name from the provided folder name');
   }
 
-  const lowerName = folderName.toLowerCase().trim();
-  const visibleDefs = allDefs.filter((d) => !d.deleted);
-  if (visibleDefs.some((d) => d.displayName.toLowerCase().trim() === lowerName)) {
-    throw { ...INVALID_INPUT_ERROR(`A folder named "${folderName}" already exists`), statusCode: 409 };
-  }
+  const catalog = await loadCustomFoldersCatalog(oystehr);
 
-  const sameInternal = allDefs.find((d) => d.internalName === internalName);
-  if (sameInternal && !sameInternal.deleted) {
-    throw {
-      ...INVALID_INPUT_ERROR(`A folder with a similar name already exists`),
-      statusCode: 409,
-    };
-  }
-
-  // Either insert a new entry, or clear the tombstone on an existing soft-deleted
-  // entry with the same internalName (refreshing its display to the newly-supplied
-  // folderName so any case/punctuation tweak the admin made on re-create is honored).
   await writeCustomFoldersCatalog({
     oystehr,
     initialCatalog: catalog,
-    mutate: (current) => {
-      const entries = current.entry ?? [];
-      const existingIdx = entries.findIndex((e) => e.item?.identifier?.value === internalName);
-      if (existingIdx >= 0) {
-        const existing = entries[existingIdx];
-        // Strip the soft-delete tombstone marker (entry.flag) when resurrecting.
-        const { flag: _flag, ...rest } = existing;
-        void _flag;
-        const updated = {
-          ...rest,
-          item: { ...existing.item, display: folderName, identifier: { value: internalName } },
-        };
-        return { ...current, entry: entries.map((e, i) => (i === existingIdx ? updated : e)) };
-      }
-      const newEntry = {
-        item: {
-          display: folderName,
-          identifier: { value: internalName },
-        },
-      };
-      return { ...current, entry: [...entries, newEntry] };
-    },
+    mutate: (current) => addFolderToCatalog(current, folderName, internalName),
     tag: 'create-custom-folder',
     createIfMissing: true,
   });
