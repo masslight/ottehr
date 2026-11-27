@@ -58,7 +58,11 @@ const pagedBundle = (matches: Resource[], includes: Resource[] = []): unknown =>
   unbundle: () => [...matches, ...includes],
 });
 
-const makeOystehr = (handlers: Record<string, (params?: unknown) => unknown>): Oystehr => {
+const makeOystehr = (
+  handlers: Record<string, (params?: unknown) => unknown>,
+  history: (params: { resourceType: string; id: string; versionId: string }) => Promise<unknown> = () =>
+    Promise.reject(new Error('unexpected history read'))
+): Oystehr => {
   const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) => {
     const handler = handlers[resourceType];
     if (!handler) return Promise.resolve({ entry: [], total: 0, unbundle: () => [] });
@@ -67,7 +71,10 @@ const makeOystehr = (handlers: Record<string, (params?: unknown) => unknown>): O
   const getPayerByUrl = vi
     .fn()
     .mockResolvedValue({ resourceType: 'Organization', id: 'pay1', name: 'Acme Health' } as Organization);
-  return { fhir: { search }, rcm: { getPayerByUrl } } as unknown as Oystehr;
+  return {
+    fhir: { search, history: vi.fn().mockImplementation(history) },
+    rcm: { getPayerByUrl },
+  } as unknown as Oystehr;
 };
 
 describe('get-billing-claim-history performEffect', () => {
@@ -143,12 +150,13 @@ describe('get-billing-claim-history performEffect', () => {
     expect(entries[0].message).toBeUndefined();
   });
 
-  it('describes a stored claim-submission error in billing terms and keeps the raw text as detail', async () => {
+  describe('claim-submission errors', () => {
     const raw =
-      '"Claim.insurance[sequence=1].coverage.extension[https://extensions.fhir.oystehr.com/rcm-claim-insurance-type]" is undefined';
-    const provenance: Provenance = {
+      '"Claim.insurance[sequence=2].coverage.extension[https://extensions.fhir.oystehr.com/rcm-claim-insurance-type]" is undefined';
+    const errorProvenance: Provenance = {
       ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
       activity: { coding: [CLAIM_PROVENANCE_ACTIVITY.submit] },
+      entity: [{ role: 'revision', what: { reference: 'Claim/c1/_history/3' } }],
       extension: [
         diffExtension([
           { field: CLAIM_SUBMISSION_ERROR_FIELD, label: 'Error', previousValue: null, newValue: raw },
@@ -157,22 +165,62 @@ describe('get-billing-claim-history performEffect', () => {
         ]),
       ],
     };
-    const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], []) });
+    // The claim as submitted: its focal (primary) coverage carries sequence 2.
+    const submittedClaim = {
+      resourceType: 'Claim',
+      id: 'c1',
+      insurance: [
+        { sequence: 1, focal: false, coverage: { reference: 'Coverage/secondary' } },
+        { sequence: 2, focal: true, coverage: { reference: 'Coverage/primary' } },
+      ],
+    };
 
-    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
+    it('describes a stored error against the claim version it was recorded on and keeps the raw text', async () => {
+      const history = vi.fn().mockResolvedValue(submittedClaim);
+      const oystehr = makeOystehr({ Provenance: () => pagedBundle([errorProvenance], []) }, history);
 
-    expect(entries[0].changes).toEqual([
-      {
-        field: CLAIM_SUBMISSION_ERROR_FIELD,
-        label: 'Error',
-        previousValue: null,
-        newValue: 'Primary insurance: Plan Type is missing',
+      const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
+
+      expect(history).toHaveBeenCalledWith({ resourceType: 'Claim', id: 'c1', versionId: '3' });
+      expect(entries[0].changes).toEqual([
+        {
+          field: CLAIM_SUBMISSION_ERROR_FIELD,
+          label: 'Error',
+          previousValue: null,
+          newValue: 'Primary insurance: Plan Type is missing',
+          detail: raw,
+        },
+        // Text the mapping doesn't recognize, and non-error fields, pass through untouched.
+        { field: CLAIM_SUBMISSION_ERROR_FIELD, label: 'Error', previousValue: null, newValue: 'Duplicate code' },
+        { field: 'memberId', label: 'Member ID', previousValue: null, newValue: '"Claim.x" is undefined' },
+      ]);
+    });
+
+    it('falls back to the raw sequence and reports it when the claim version cannot be read', async () => {
+      const oystehr = makeOystehr({ Provenance: () => pagedBundle([errorProvenance], []) });
+
+      const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
+
+      expect(entries[0].changes[0]).toMatchObject({
+        newValue: 'Insurance with sequence 2: Plan Type is missing',
         detail: raw,
-      },
-      // Text the mapping doesn't recognize, and non-error fields, pass through untouched.
-      { field: CLAIM_SUBMISSION_ERROR_FIELD, label: 'Error', previousValue: null, newValue: 'Duplicate code' },
-      { field: 'memberId', label: 'Member ID', previousValue: null, newValue: '"Claim.x" is undefined' },
-    ]);
+      });
+      expect(captureExceptionMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads no claim version when the history has no submission errors', async () => {
+      const history = vi.fn();
+      const provenance: Provenance = {
+        ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
+        entity: [{ role: 'revision', what: { reference: 'Claim/c1/_history/3' } }],
+        extension: [diffExtension([{ field: 'memberId', label: 'Member ID', previousValue: 'A', newValue: 'B' }])],
+      };
+      const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], []) }, history);
+
+      await performEffect(oystehr, { claimId: 'c1', secrets: {} });
+
+      expect(history).not.toHaveBeenCalled();
+    });
   });
 
   it('passes a stored rule attribution through to the entry verbatim', async () => {

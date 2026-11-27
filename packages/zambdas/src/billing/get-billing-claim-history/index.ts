@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Device, Location, Organization, Practitioner, Provenance } from 'fhir/r4b';
+import { Claim, Device, Location, Organization, Practitioner, Provenance } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { isPayerUrl } from 'utils/lib/helpers/helpers';
@@ -90,7 +90,10 @@ export async function performEffect(oystehr: Oystehr, params: GetClaimHistoryPar
     // Newest first. Sort here rather than relying on a server-side _sort on `recorded`.
     .sort((a, b) => (a.recorded < b.recorded ? 1 : a.recorded > b.recorded ? -1 : 0));
 
-  await attachLinksAndFallbackNames(oystehr, entries);
+  await Promise.all([
+    attachLinksAndFallbackNames(oystehr, entries),
+    describeSubmissionErrors(oystehr, provenances, entries, environment),
+  ]);
 
   return { entries };
 }
@@ -114,7 +117,6 @@ function parseChanges(provenance: Provenance, environment: string): ClaimFieldCh
     }
     const changes = parsed as ClaimFieldChange[];
     attachEntityRefs(provenance, changes, environment);
-    changes.forEach(describeSubmissionError);
     return changes;
   } catch (err) {
     // One malformed record shouldn't blank the whole history view, but we want to know it happened.
@@ -123,15 +125,56 @@ function parseChanges(provenance: Provenance, environment: string): ClaimFieldCh
   }
 }
 
+const isSubmissionError = (change: ClaimFieldChange): boolean =>
+  change.field === CLAIM_SUBMISSION_ERROR_FIELD && !!change.newValue;
+
 // Claim-submission errors are stored as the claim service returned them (FHIR paths); rewrite them
 // for billers here, on read, so records written before this mapping existed read well too. The
 // stored text is kept as detail for support.
-function describeSubmissionError(change: ClaimFieldChange): void {
-  if (change.field !== CLAIM_SUBMISSION_ERROR_FIELD || !change.newValue) return;
-  const described = describeClaimSubmissionError(change.newValue);
-  if (described === change.newValue) return;
-  change.detail = change.newValue;
-  change.newValue = described;
+//
+// The paths pick insurances, service lines and diagnoses by FHIR sequence or array index, which is
+// not how the billing app labels them (the focal coverage is primary whatever its sequence; lines show
+// their own sequence). Resolve them against the claim version the error was recorded on — the
+// Provenance's revision entity, captured right after the failed submission — and fall back to labels
+// that name the raw sequence/position when that version can't be read.
+async function describeSubmissionErrors(
+  oystehr: Oystehr,
+  provenances: Provenance[],
+  entries: ClaimHistoryEntry[],
+  environment: string
+): Promise<void> {
+  const errorEntries = entries.filter((entry) => entry.changes.some(isSubmissionError));
+  if (errorEntries.length === 0) return;
+
+  const provenanceById = new Map(provenances.map((provenance) => [provenance.id, provenance]));
+  const revisionOf = (entry: ClaimHistoryEntry): string | undefined =>
+    provenanceById.get(entry.id)?.entity?.find((entity) => entity.role === 'revision')?.what?.reference;
+
+  const claimsByRevision = new Map<string, Claim>();
+  const revisions = new Set(errorEntries.map(revisionOf).filter((ref): ref is string => !!ref));
+  await Promise.all(
+    [...revisions].map(async (revision) => {
+      const [resourceType, id, history, versionId] = revision.split('/');
+      if (resourceType !== 'Claim' || !id || history !== '_history' || !versionId) return;
+      try {
+        claimsByRevision.set(revision, await oystehr.fhir.history<Claim>({ resourceType: 'Claim', id, versionId }));
+      } catch (err) {
+        reportAnomaly(`Could not read ${revision} to describe a claim-submission error`, environment, err);
+      }
+    })
+  );
+
+  for (const entry of errorEntries) {
+    const revision = revisionOf(entry);
+    const claim = revision ? claimsByRevision.get(revision) : undefined;
+    for (const change of entry.changes) {
+      if (!isSubmissionError(change) || !change.newValue) continue;
+      const described = describeClaimSubmissionError(change.newValue, claim);
+      if (described === change.newValue) continue;
+      change.detail = change.newValue;
+      change.newValue = described;
+    }
+  }
 }
 
 function parseAcknowledgment(provenance: Provenance, environment: string): ClaimAcknowledgmentEvent | undefined {

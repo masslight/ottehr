@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Claim } from 'fhir/r4b';
 import { describeClaimSubmissionError } from 'utils/lib/helpers/rcm/claim-submission-error';
 import { ExportClaimX12InputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { ExportClaimX12Response } from 'utils/lib/types/data/billing/billing.types';
@@ -50,10 +51,23 @@ async function performEffect(params: ExportClaimX12Params, oystehr: Oystehr): Pr
     console.error(`X12 generation failed for claim ${claimId}`, error);
     if (error instanceof Oystehr.OystehrSdkError && String(error.code) === '4006') {
       // Tell the user which value the claim is missing, in billing-app terms rather than as a FHIR path.
+      // The claim lets insurances and service lines be named as the claim screens name them.
       throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR(
-        error.message ? describeClaimSubmissionError(error.message) : CLAIM_NOT_READY_FOR_X12_EXPORT.message
+        error.message
+          ? describeClaimSubmissionError(error.message, await readClaimForErrorLabels(oystehr, claimId))
+          : CLAIM_NOT_READY_FOR_X12_EXPORT.message
       );
     }
     throw error;
+  }
+}
+
+// Best effort: without the claim the error still reads, just with raw sequence/position labels.
+async function readClaimForErrorLabels(oystehr: Oystehr, claimId: string): Promise<Claim | undefined> {
+  try {
+    return await oystehr.fhir.get<Claim>({ resourceType: 'Claim', id: claimId });
+  } catch (error) {
+    console.warn(`Could not read Claim/${claimId} to describe its X12 export error`, error);
+    return undefined;
   }
 }

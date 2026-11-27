@@ -1,3 +1,4 @@
+import { Claim } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import { describeClaimSubmissionError } from './claim-submission-error';
 
@@ -7,6 +8,23 @@ const EXT = 'https://extensions.fhir.oystehr.com';
 const CODES = 'https://terminology.zapehr.com/CodeSystem';
 const ID_TYPE = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 const undefinedAt = (path: string): string => `"${path}" is undefined`;
+
+// A claim whose entries line up with their positions, so the table below reads naturally; the
+// 'resolves entries against the claim' tests cover claims where they don't.
+const CLAIM: Claim = {
+  resourceType: 'Claim',
+  status: 'active',
+  type: {},
+  use: 'claim',
+  patient: {},
+  created: '2026-01-01',
+  provider: {},
+  priority: {},
+  insurance: [1, 2, 3, 4].map((sequence) => ({ sequence, focal: sequence === 1, coverage: {} })),
+  item: [1, 2, 3].map((sequence) => ({ sequence, productOrService: {} })),
+  diagnosis: [{ sequence: 1, diagnosisCodeableConcept: { coding: [{ code: 'J06.9' }] } }],
+};
+const describeWithClaim = (message: string): string => describeClaimSubmissionError(message, CLAIM);
 
 describe('describeClaimSubmissionError', () => {
   describe('missing values ("<path>" is undefined)', () => {
@@ -86,8 +104,8 @@ describe('describeClaimSubmissionError', () => {
         'Service line 1 ordering provider: NPI',
       ],
       // Claim level
-      ['Claim.diagnosis[0]', 'Diagnosis 1'],
-      ['Claim.otherDiagnoses[2]', 'Other diagnosis 3'],
+      ['Claim.diagnosis[0]', 'Diagnosis J06.9'],
+      ['Claim.otherDiagnoses[2]', 'Other diagnosis at position 3'],
       ['Claim.billablePeriod.start', 'Billing period'],
       ['Claim.total.value', 'Total charges'],
       ['Claim.id', 'Claim ID'],
@@ -98,73 +116,69 @@ describe('describeClaimSubmissionError', () => {
       [`Claim.extension[${EXT}/rcm-claim-some-new-thing]`, 'Some new thing'],
       // Prior payer's response (secondary claims)
       ['ClaimResponse.addItem.category["PR"]', 'Prior payer response: Patient responsibility'],
-      ['ClaimResponse.item[0].adjudication[charge]', 'Service line 1 (prior payer response): Charged amount'],
-      ['ClaimResponse.item[0].adjudication[paid]', 'Service line 1 (prior payer response): Paid amount'],
+      ['ClaimResponse.item[0].adjudication[charge]', 'Prior payer response, item at position 1: Charged amount'],
+      ['ClaimResponse.item[0].adjudication[paid]', 'Prior payer response, item at position 1: Paid amount'],
     ])('%s', (path, expected) => {
-      expect(describeClaimSubmissionError(undefinedAt(path))).toBe(`${expected} is missing`);
+      expect(describeWithClaim(undefinedAt(path))).toBe(`${expected} is missing`);
     });
   });
 
   it('describes an X12 element length violation', () => {
     expect(
-      describeClaimSubmissionError(
+      describeWithClaim(
         `"Claim.provider.identifier[type=(${ID_TYPE},NPI)]" length must be in [2;80] range but was "123456789012345678901234567890123456789012345678901234567890123456789012345678901"`
       )
     ).toMatch(/^Billing provider: NPI must be 2-80 characters \(got "/);
-    expect(
-      describeClaimSubmissionError('"Claim.patient.address[0].state" length must be in [2;2] range but was "Ohio"')
-    ).toBe('Patient: State must be exactly 2 characters (got "Ohio")');
-    expect(
-      describeClaimSubmissionError('"Claim.patient.address[0].city" length must be in [2;30] range but was ""')
-    ).toBe('Patient: City is missing');
+    expect(describeWithClaim('"Claim.patient.address[0].state" length must be in [2;2] range but was "Ohio"')).toBe(
+      'Patient: State must be exactly 2 characters (got "Ohio")'
+    );
+    expect(describeWithClaim('"Claim.patient.address[0].city" length must be in [2;30] range but was ""')).toBe(
+      'Patient: City is missing'
+    );
   });
 
   it('describes an X12 element allowed-values violation', () => {
     expect(
-      describeClaimSubmissionError(
+      describeWithClaim(
         `"Claim.insurance[sequence=1].coverage.extension[${EXT}/rcm-claim-insurance-type]" value "ZZ" is not in the list of allowed values [11,12,13]`
       )
     ).toBe('Primary insurance: Plan Type "ZZ" is not a valid value');
-    expect(
-      describeClaimSubmissionError('"params.action" value "undefined" is not in the list of allowed values [1,7,8]')
-    ).toBe('Submission type is missing');
+    expect(describeWithClaim('"params.action" value "undefined" is not in the list of allowed values [1,7,8]')).toBe(
+      'Submission type is missing'
+    );
   });
 
   it('describes a missing payer ID', () => {
     const payor = 'Claim.insurance[sequence=1].coverage.payor[0]';
     expect(
-      describeClaimSubmissionError(
+      describeWithClaim(
         `${payor}.identifier[type=(${ID_TYPE},NIIP)] or ${payor}.identifier[type=(${ID_TYPE},XV)] must be present`
       )
     ).toBe('Primary insurance payer: Payer ID is missing');
     expect(
-      describeClaimSubmissionError(
-        `identifier[type=(${ID_TYPE},NIIP)] or identifier[type=(${ID_TYPE},XV)] must be present`
-      )
+      describeWithClaim(`identifier[type=(${ID_TYPE},NIIP)] or identifier[type=(${ID_TYPE},XV)] must be present`)
     ).toBe('Payer ID is missing');
-    expect(describeClaimSubmissionError(`${payor} must have an ETIN identifier or resolve to a payer with an ID`)).toBe(
+    expect(describeWithClaim(`${payor} must have an ETIN identifier or resolve to a payer with an ID`)).toBe(
       'Primary insurance: Payer has no Payer ID'
     );
   });
 
   it("describes a billing provider's missing tax ID", () => {
     expect(
-      describeClaimSubmissionError(
+      describeWithClaim(
         `Claim.provider.identifier[type=(${ID_TYPE},SS)] or Claim.provider.identifier[type=(${ID_TYPE},NE)] must be present`
       )
     ).toBe('Billing provider: SSN or Tax ID / EIN is missing');
   });
 
   it('describes reference problems', () => {
-    expect(describeClaimSubmissionError('Malformed or missing reference at Claim.facility')).toBe(
-      'Service facility is missing'
-    );
+    expect(describeWithClaim('Malformed or missing reference at Claim.facility')).toBe('Service facility is missing');
     expect(
-      describeClaimSubmissionError(
+      describeWithClaim(
         'Claim.insurance[sequence=2].coverage.payor[0] could not be queried, ensure the reference is correct: Organization/abc'
       )
     ).toBe('Secondary insurance: Payer could not be found; re-select it');
-    expect(describeClaimSubmissionError('Resource referenced at Claim.provider must be Organization')).toBe(
+    expect(describeWithClaim('Resource referenced at Claim.provider must be Organization')).toBe(
       'Billing provider must be an organization'
     );
   });
@@ -177,36 +191,34 @@ describe('describeClaimSubmissionError', () => {
       `Claim.supportingInfo[category=(http://terminology.hl7.org/CodeSystem/claiminformationcategory,info) && ` +
       `code=(${CODES}/rcm-claim-additional-info-type,NTE)]`;
     expect(
-      describeClaimSubmissionError(
+      describeWithClaim(
         `"${pwk} && [code=${CODES}/rcm-claim-attachment-report-type-code]" must be defined for user-managed attachments`
       )
     ).toBe('Claim attachment: Report type is missing or invalid');
-    expect(describeClaimSubmissionError(`"${pwk}.valueString" must be defined for user-managed attachments`)).toBe(
+    expect(describeWithClaim(`"${pwk}.valueString" must be defined for user-managed attachments`)).toBe(
       'Claim attachment: Attachment control number is missing or invalid'
     );
-    expect(describeClaimSubmissionError(`"${nte}.valueString" must be defined for user-managed attachments`)).toBe(
+    expect(describeWithClaim(`"${nte}.valueString" must be defined for user-managed attachments`)).toBe(
       'Claim note: Note text is missing or invalid'
     );
     expect(
-      describeClaimSubmissionError(
+      describeWithClaim(
         '"Claim.supportingInfo.valueReference" must be a valid `DocumentReference` reference for claim attachments'
       )
     ).toBe('Claim attachment: Document is missing or invalid');
   });
 
   it('describes claim-level failures', () => {
-    expect(describeClaimSubmissionError('Claim has no items with service dates')).toBe(
-      'No service line has a Date of Service'
-    );
-    expect(describeClaimSubmissionError('Unknown claim type "undefined"')).toBe('Claim type is missing');
-    expect(describeClaimSubmissionError('Unknown claim type "oral"')).toBe(
+    expect(describeWithClaim('Claim has no items with service dates')).toBe('No service line has a Date of Service');
+    expect(describeWithClaim('Unknown claim type "undefined"')).toBe('Claim type is missing');
+    expect(describeWithClaim('Unknown claim type "oral"')).toBe(
       'Claim type "oral" is not supported; it must be professional or institutional'
     );
   });
 
   it('rewrites every error in a joined list and keeps the surrounding text', () => {
     expect(
-      describeClaimSubmissionError(
+      describeWithClaim(
         `${undefinedAt(
           `Claim.insurance[sequence=1].coverage.extension[${EXT}/rcm-claim-insurance-type]`
         )}, Duplicate diagnosis code`
@@ -214,12 +226,70 @@ describe('describeClaimSubmissionError', () => {
     ).toBe('Primary insurance: Plan Type is missing, Duplicate diagnosis code');
   });
 
-  it('returns other messages unchanged', () => {
-    expect(describeClaimSubmissionError('Duplicate diagnosis code J06.9')).toBe('Duplicate diagnosis code J06.9');
-    expect(describeClaimSubmissionError(undefinedAt('Patient.name'))).toBe(undefinedAt('Patient.name'));
-    expect(describeClaimSubmissionError(undefinedAt('Claim.item[0'))).toBe(undefinedAt('Claim.item[0'));
+  describe('resolves entries against the claim', () => {
+    it('names the focal insurance primary whatever its sequence', () => {
+      const claim: Claim = {
+        ...CLAIM,
+        insurance: [
+          { sequence: 1, focal: false, coverage: {} },
+          { sequence: 2, focal: true, coverage: {} },
+        ],
+      };
+      expect(describeClaimSubmissionError(undefinedAt('Claim.insurance[sequence=2].coverage'), claim)).toBe(
+        'Primary insurance: Coverage is missing'
+      );
+      expect(describeClaimSubmissionError(undefinedAt('Claim.insurance[0].coverage'), claim)).toBe(
+        'Secondary insurance: Coverage is missing'
+      );
+    });
+
+    it('numbers service lines by their sequence, as the claim screens do', () => {
+      const claim: Claim = { ...CLAIM, item: [7, 3].map((sequence) => ({ sequence, productOrService: {} })) };
+      expect(describeClaimSubmissionError(undefinedAt('Claim.item[0].net.value'), claim)).toBe(
+        'Service line 7: Charges is missing'
+      );
+      expect(
+        describeClaimSubmissionError(undefinedAt('Claim.careTeam[Claim.item[1].careTeamSequence[0]].provider'), claim)
+      ).toBe('Service line 3 rendering provider is missing');
+    });
+
+    it('labels an entry the claim does not have by its raw selector', () => {
+      expect(describeClaimSubmissionError(undefinedAt('Claim.insurance[sequence=5]'), CLAIM)).toBe(
+        'Insurance with sequence 5 is missing'
+      );
+      expect(describeClaimSubmissionError(undefinedAt('Claim.item[9].net.value'), CLAIM)).toBe(
+        'Service line at position 10: Charges is missing'
+      );
+    });
+  });
+
+  it('labels entries by raw sequence or position when the claim is unavailable', () => {
     expect(
       describeClaimSubmissionError(
+        undefinedAt(`Claim.insurance[sequence=1].coverage.extension[${EXT}/rcm-claim-insurance-type]`)
+      )
+    ).toBe('Insurance with sequence 1: Plan Type is missing');
+    expect(describeClaimSubmissionError(undefinedAt('Claim.insurance[0].coverage'))).toBe(
+      'Insurance at position 1: Coverage is missing'
+    );
+    expect(describeClaimSubmissionError(undefinedAt('Claim.item[0].net.value'))).toBe(
+      'Service line at position 1: Charges is missing'
+    );
+    expect(describeClaimSubmissionError(undefinedAt('Claim.item[sequence=4].net.value'))).toBe(
+      'Service line 4: Charges is missing'
+    );
+    expect(
+      describeClaimSubmissionError(undefinedAt('Claim.careTeam[Claim.item[1].careTeamSequence[0]].provider'))
+    ).toBe('Service line at position 2 rendering provider is missing');
+    expect(describeClaimSubmissionError(undefinedAt('Claim.diagnosis[0]'))).toBe('Diagnosis at position 1 is missing');
+  });
+
+  it('returns other messages unchanged', () => {
+    expect(describeWithClaim('Duplicate diagnosis code J06.9')).toBe('Duplicate diagnosis code J06.9');
+    expect(describeWithClaim(undefinedAt('Patient.name'))).toBe(undefinedAt('Patient.name'));
+    expect(describeWithClaim(undefinedAt('Claim.item[0'))).toBe(undefinedAt('Claim.item[0'));
+    expect(
+      describeWithClaim(
         'Only claims with status "draft" or "active" can be submitted. Received claim status "cancelled"'
       )
     ).toBe('Only claims with status "draft" or "active" can be submitted. Received claim status "cancelled"');

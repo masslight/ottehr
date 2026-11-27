@@ -75,7 +75,7 @@ describe('export-billing-claim-x12 validateRequestParameters', () => {
   });
 });
 
-const { claimToX12Mock } = vi.hoisted(() => ({ claimToX12Mock: vi.fn() }));
+const { claimToX12Mock, getMock } = vi.hoisted(() => ({ claimToX12Mock: vi.fn(), getMock: vi.fn() }));
 
 vi.mock('../../src/shared/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -91,6 +91,9 @@ vi.mock('../../src/billing/shared', () => ({
   createBillingClient: () => ({
     rcm: {
       claimToX12: claimToX12Mock,
+    },
+    fhir: {
+      get: getMock,
     },
   }),
 }));
@@ -122,17 +125,10 @@ describe('export-billing-claim-x12 handler', () => {
     expect(JSON.parse(result.body)).toEqual({ x12: 'ISA*00*~ST*837*' });
   });
 
-  it('describes the RCM reason for an incomplete-claim (400) error in billing terms', async () => {
+  describe('incomplete-claim (4006) errors', () => {
     const reason =
       '"Claim.insurance[0].coverage.extension[https://extensions.fhir.oystehr.com/rcm-claim-insurance-type]" is undefined';
-    claimToX12Mock.mockRejectedValue(
-      new Oystehr.OystehrSdkError({
-        message: reason,
-        code: 4006,
-      })
-    );
-
-    await expect(
+    const exportClaim = (): Promise<APIGatewayProxyResult> =>
       handler({
         headers: null,
         body: JSON.stringify({
@@ -141,10 +137,43 @@ describe('export-billing-claim-x12 handler', () => {
         secrets: {
           PROJECT_API,
         },
-      })
-    ).rejects.toMatchObject({
-      code: APIErrorCode.RESOURCE_INCOMPLETE_FOR_OPERATION,
-      message: 'Primary insurance: Plan Type is missing',
+      });
+
+    beforeEach(() => {
+      getMock.mockReset();
+      claimToX12Mock.mockRejectedValue(
+        new Oystehr.OystehrSdkError({
+          message: reason,
+          code: 4006,
+        })
+      );
+    });
+
+    it('describes the RCM reason in billing terms, naming insurances as the claim does', async () => {
+      // insurance[0] is not the focal coverage here, so it is the secondary insurance.
+      getMock.mockResolvedValue({
+        resourceType: 'Claim',
+        id: CLAIM_ID,
+        insurance: [
+          { sequence: 1, focal: false, coverage: { reference: 'Coverage/secondary' } },
+          { sequence: 2, focal: true, coverage: { reference: 'Coverage/primary' } },
+        ],
+      });
+
+      await expect(exportClaim()).rejects.toMatchObject({
+        code: APIErrorCode.RESOURCE_INCOMPLETE_FOR_OPERATION,
+        message: 'Secondary insurance: Plan Type is missing',
+      });
+      expect(getMock).toHaveBeenCalledWith({ resourceType: 'Claim', id: CLAIM_ID });
+    });
+
+    it('falls back to the raw position when the claim cannot be read', async () => {
+      getMock.mockRejectedValue(new Error('network'));
+
+      await expect(exportClaim()).rejects.toMatchObject({
+        code: APIErrorCode.RESOURCE_INCOMPLETE_FOR_OPERATION,
+        message: 'Insurance at position 1: Plan Type is missing',
+      });
     });
   });
 

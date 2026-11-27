@@ -6,6 +6,8 @@
 // billing app uses ("Primary insurance: Plan Type is missing") and leaves any other text untouched, so
 // an unrecognized message still reaches the user verbatim.
 
+import { Claim } from 'fhir/r4b';
+
 // ---------------------------------------------------------------------------------------------------
 // Labels
 // ---------------------------------------------------------------------------------------------------
@@ -166,14 +168,53 @@ function parsePath(path: string): PathSegment[] | undefined {
   return segments;
 }
 
-// 1-based position from "[sequence=N]" (already 1-based) or a "[N]" array index.
-function position(segment: PathSegment): number | undefined {
-  const selector = segment.selectors[0];
+// Which entry of a repeating element a selector picks: "[sequence=N]" (the entry's FHIR sequence) or
+// "[N]" (its zero-based array index). Neither is what the billing app shows, so labels resolve them
+// against the claim when it is available.
+type EntrySelector = { sequence: number } | { index: number };
+
+function entrySelector(selector: string | undefined): EntrySelector | undefined {
   if (selector === undefined) return undefined;
   const sequence = /^sequence=(\d+)$/.exec(selector);
-  if (sequence) return Number(sequence[1]);
-  if (/^\d+$/.test(selector)) return Number(selector) + 1;
+  if (sequence) return { sequence: Number(sequence[1]) };
+  if (/^\d+$/.test(selector)) return { index: Number(selector) };
   return undefined;
+}
+
+function findEntry<T extends { sequence: number }>(entries: T[] | undefined, at: EntrySelector): T | undefined {
+  return 'sequence' in at ? entries?.find((entry) => entry.sequence === at.sequence) : entries?.[at.index];
+}
+
+// Without the claim, say exactly what the selector says rather than guess at the billing-app label.
+function unresolvedLabel(noun: string, at: EntrySelector | undefined): string {
+  if (!at) return noun;
+  return 'sequence' in at ? `${noun} with sequence ${at.sequence}` : `${noun} at position ${at.index + 1}`;
+}
+
+// The claim detail screen lists coverages focal-first; the focal entry is the primary insurance.
+function insuranceLabel(at: EntrySelector | undefined, claim: Claim | undefined): string {
+  const entry = at && findEntry(claim?.insurance, at);
+  if (!claim || !entry) return unresolvedLabel('Insurance', at);
+  const ordered = [...(claim.insurance ?? [])].sort(
+    (a, b) => Number(!!b.focal) - Number(!!a.focal) || a.sequence - b.sequence
+  );
+  const rank = ordered.indexOf(entry);
+  return rank < INSURANCE_ORDINALS.length ? `${INSURANCE_ORDINALS[rank]} insurance` : `Insurance ${rank + 1}`;
+}
+
+// Service lines are numbered by Claim.item.sequence on the claim screens.
+function serviceLineLabel(at: EntrySelector | undefined, claim: Claim | undefined): string {
+  if (at && 'sequence' in at) return `Service line ${at.sequence}`;
+  const entry = at && findEntry(claim?.item, at);
+  return entry ? `Service line ${entry.sequence}` : unresolvedLabel('Service line', at);
+}
+
+// Diagnoses are listed by code on the claim screens.
+function diagnosisLabel(at: EntrySelector | undefined, claim: Claim | undefined): string {
+  const entry = at && findEntry(claim?.diagnosis, at);
+  if (!entry) return unresolvedLabel('Diagnosis', at);
+  const code = entry.diagnosisCodeableConcept?.coding?.find((coding) => coding.code)?.code;
+  return code ? `Diagnosis ${code}` : `Diagnosis ${entry.sequence}`;
 }
 
 // "subscriberId" / "rcm-claim-some-thing" -> "Subscriber id" / "Some thing".
@@ -200,40 +241,44 @@ function identifierLabel(segment: PathSegment): string {
   return 'Identifier';
 }
 
-function careTeamLabel(segment: PathSegment): string {
+function careTeamLabel(segment: PathSegment, claim: Claim | undefined): string {
   const selector = segment.selectors[0] ?? '';
   const role = /role=\([^,]*,(\w+)\)/.exec(selector)?.[1];
   if (role) return CARE_TEAM_ROLE_LABELS[role] ?? 'Care team provider';
+  // "Claim.careTeam[Claim.item[N].careTeamSequence[0]]": the rendering provider of that service line.
   const item = /item\[(\d+)\]/.exec(selector)?.[1];
-  if (item !== undefined) return `Service line ${Number(item) + 1} rendering provider`;
+  if (item !== undefined) return `${serviceLineLabel({ index: Number(item) }, claim)} rendering provider`;
   return 'Care team provider';
 }
 
 // The label of a repeating element that identifies which entry of the claim is meant, if it is one.
-function collectionLabel(segment: PathSegment): string | undefined {
-  const index = position(segment);
+function collectionLabel(segment: PathSegment, claim: Claim | undefined): string | undefined {
+  const at = entrySelector(segment.selectors[0]);
   switch (segment.name) {
     case 'insurance':
-      if (index === undefined) return 'Insurance';
-      return index <= INSURANCE_ORDINALS.length ? `${INSURANCE_ORDINALS[index - 1]} insurance` : `Insurance ${index}`;
+      return insuranceLabel(at, claim);
     case 'item':
-      return index === undefined ? 'Service line' : `Service line ${index}`;
+      return serviceLineLabel(at, claim);
     case 'diagnosis':
-      return index === undefined ? 'Diagnosis' : `Diagnosis ${index}`;
+      return diagnosisLabel(at, claim);
     case 'otherDiagnoses':
-      return index === undefined ? 'Other diagnosis' : `Other diagnosis ${index}`;
-    case 'procedure':
-      return index === undefined ? 'Procedure' : `Procedure ${index}`;
+      // Built by the 837 builder from the claim's secondary diagnoses; it has no counterpart on the claim.
+      return unresolvedLabel('Other diagnosis', at);
+    case 'procedure': {
+      const entry = at && findEntry(claim?.procedure, at);
+      return entry ? `Procedure ${entry.sequence}` : unresolvedLabel('Procedure', at);
+    }
     case 'modifier':
-      return index === undefined ? 'Modifier' : `Modifier ${index}`;
+      // Modifiers have no sequence; the service line lists them in array order.
+      return at && 'index' in at ? `Modifier ${at.index + 1}` : 'Modifier';
     case 'careTeam':
-      return careTeamLabel(segment);
+      return careTeamLabel(segment, claim);
     default:
       return undefined;
   }
 }
 
-function fieldLabel(segment: PathSegment, parent: PathSegment | undefined): string {
+function fieldLabel(segment: PathSegment, parent: PathSegment | undefined, claim: Claim | undefined): string {
   if (segment.name === 'extension') return extensionLabel(segment);
   if (segment.name === 'identifier') return identifierLabel(segment);
   if (segment.name === 'telecom') return 'Phone number';
@@ -244,7 +289,10 @@ function fieldLabel(segment: PathSegment, parent: PathSegment | undefined): stri
   const nestedKey =
     segment.name === 'line' ? `line.${segment.selectors[0] ?? 0}` : parent ? `${parent.name}.${segment.name}` : '';
   return (
-    NESTED_FIELD_LABELS[nestedKey] ?? collectionLabel(segment) ?? FIELD_LABELS[segment.name] ?? humanize(segment.name)
+    NESTED_FIELD_LABELS[nestedKey] ??
+    collectionLabel(segment, claim) ??
+    FIELD_LABELS[segment.name] ??
+    humanize(segment.name)
   );
 }
 
@@ -271,10 +319,11 @@ function describeSupportingInfo(path: string): string {
 /**
  * The billing-app description of the value at a claim-service validation path, e.g.
  * "Claim.insurance[sequence=1].coverage.subscriberId" -> "Primary insurance: Member ID".
+ * `claim` (the claim as submitted) resolves entry selectors to the labels the billing app shows.
  * `allowRootless` accepts a path that starts below the Claim (the 837 builder reports some payer
  * identifiers that way).
  */
-function describePath(path: string, allowRootless = false): string | undefined {
+function describePath(path: string, claim: Claim | undefined, allowRootless = false): string | undefined {
   if (LITERAL_LABELS[path]) return LITERAL_LABELS[path];
   if (path.startsWith('Claim.supportingInfo')) return describeSupportingInfo(path);
 
@@ -282,11 +331,13 @@ function describePath(path: string, allowRootless = false): string | undefined {
   if (!parsed || parsed.length === 0) return undefined;
   let segments: PathSegment[];
   let context: string | undefined;
+  let isPriorPayerResponse = false;
   if (parsed[0].name === 'Claim' && parsed[0].selectors.length === 0) {
     segments = parsed.slice(1);
   } else if (parsed[0].name === 'ClaimResponse') {
     segments = parsed.slice(1);
     context = 'Prior payer response';
+    isPriorPayerResponse = true;
   } else if (allowRootless) {
     segments = parsed;
   } else {
@@ -308,9 +359,14 @@ function describePath(path: string, allowRootless = false): string | undefined {
   for (let i = 0; i < segments.length - 1; i++) {
     const segment = segments[i];
     const next = segments[i + 1];
-    const collection = collectionLabel(segment);
+    if (isPriorPayerResponse && segment.name === 'item') {
+      // A prior payer's response item, indexed within that response rather than the claim.
+      context = `${context}, ${unresolvedLabel('item', entrySelector(segment.selectors[0]))}`;
+      continue;
+    }
+    const collection = collectionLabel(segment, claim);
     if (collection) {
-      context = context && segment.name === 'item' ? `${collection} (${context.toLowerCase()})` : collection;
+      context = collection;
       // "careTeam[...].provider" as the last element is the care-team member itself.
       if (segment.name === 'careTeam' && next === last && last.name === 'provider') return context;
       continue;
@@ -341,7 +397,7 @@ function describePath(path: string, allowRootless = false): string | undefined {
     }
   }
 
-  const field = fieldLabel(last, segments[segments.length - 2]);
+  const field = fieldLabel(last, segments[segments.length - 2], isPriorPayerResponse ? undefined : claim);
   return context ? `${context}: ${field}` : field;
 }
 
@@ -349,12 +405,12 @@ function describePath(path: string, allowRootless = false): string | undefined {
 // Message rules
 // ---------------------------------------------------------------------------------------------------
 
-type Rule = [pattern: RegExp, describe: (...groups: string[]) => string | undefined];
+type Rule = [pattern: RegExp, describe: (claim: Claim | undefined, ...groups: string[]) => string | undefined];
 
 const withDescription =
   (format: (description: string, ...rest: string[]) => string) =>
-  (path: string, ...rest: string[]): string | undefined => {
-    const description = describePath(path);
+  (claim: Claim | undefined, path: string, ...rest: string[]): string | undefined => {
+    const description = describePath(path, claim);
     return description ? format(description, ...rest) : undefined;
   };
 
@@ -392,9 +448,9 @@ const RULES: Rule[] = [
   // Payer / billing-provider identifiers: "<path> or <path> must be present"
   [
     /(\S+) or (\S+) must be present/g,
-    (first: string, second: string) => {
-      const a = describePath(first, true);
-      const b = describePath(second, true);
+    (claim, first, second) => {
+      const a = describePath(first, claim, true);
+      const b = describePath(second, claim, true);
       if (!a || !b) return undefined;
       if (a === b) return `${a} is missing`;
       const [context, fieldA] = a.includes(': ') ? a.split(': ') : ['', a];
@@ -422,7 +478,7 @@ const RULES: Rule[] = [
   [/^Claim has no items with service dates$/g, () => 'No service line has a Date of Service'],
   [
     /^Unknown claim type "([^"]*)"$/g,
-    (type: string) =>
+    (_claim, type) =>
       type === '' || type === 'undefined'
         ? 'Claim type is missing'
         : `Claim type "${type}" is not supported; it must be professional or institutional`,
@@ -433,14 +489,18 @@ const RULES: Rule[] = [
  * Rewrite the validation errors the Oystehr claim service returns while building an 837 into
  * biller-facing text. Text that isn't one of those errors is returned unchanged; when several errors
  * are joined into one message, each is rewritten in place.
+ *
+ * Pass the claim as it was submitted to name insurances, service lines and diagnoses the way the
+ * billing app does (the paths only carry FHIR sequences and array indexes). Without it, those are
+ * labeled by the raw sequence or position.
  */
-export function describeClaimSubmissionError(message: string): string {
+export function describeClaimSubmissionError(message: string, claim?: Claim): string {
   return RULES.reduce(
     (text, [pattern, describe]) =>
       // replace() passes (match, ...captures, offset, input); none of the rules has named groups.
       text.replace(pattern, (original: string, ...groups: unknown[]) => {
         const captures = groups.slice(0, -2) as string[];
-        return describe(...captures) ?? original;
+        return describe(claim, ...captures) ?? original;
       }),
     message
   );
