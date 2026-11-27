@@ -16,9 +16,9 @@ import {
 import { BillingRule, BillingRulesResponse } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { mapWithConcurrency } from '../../shared/concurrency';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { isCustomInsuranceOrganization } from '../custom-insurance-org.helpers';

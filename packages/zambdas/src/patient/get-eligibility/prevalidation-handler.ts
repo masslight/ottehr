@@ -25,6 +25,7 @@ import {
 import { InsurancePlanDTO } from 'utils/lib/types/data/telemed/insurances.types';
 import { CreateRelatedPersonObject } from '../../shared/coverage';
 import { createInsurancePlanDto } from '../../shared/insurances';
+import { settledValueOrThrow } from '../../shared/settled';
 import {
   getInsurancePlansAndOrgs,
   makeCoverageEligibilityRequest,
@@ -33,6 +34,7 @@ import {
 import {
   complexBillingProviderValidation,
   EligibilityCheckPrevalidationStructuredInput,
+  getDefaultBillingProviderResource,
   validateInsuranceRequirements,
 } from './validation';
 
@@ -72,13 +74,17 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
 
   console.log('rps: ', JSON.stringify(rps));
 
-  const [primary, secondary] = await getInsurancePlansAndOrgs(
-    {
-      primary: primaryInsuranceData.insuranceId,
-      secondary: secondaryInsuranceData?.insuranceId,
-    },
-    oystehrClient
-  );
+  const [insurancePlansResult, defaultBillingResourceResult] = await Promise.allSettled([
+    getInsurancePlansAndOrgs(
+      {
+        primary: primaryInsuranceData.insuranceId,
+        secondary: secondaryInsuranceData?.insuranceId,
+      },
+      oystehrClient
+    ),
+    getDefaultBillingProviderResource(input.secrets ?? null, oystehrClient),
+  ]);
+  const [primary, secondary] = settledValueOrThrow(insurancePlansResult);
 
   console.log('primary and secondary insurances: ', primary, secondary);
 
@@ -133,7 +139,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
       { primary, secondary },
       appointmentId ?? '',
       input.secrets ?? null,
-      oystehrClient
+      settledValueOrThrow(defaultBillingResourceResult)
     );
   } catch (e) {
     console.log('error getting billing provider data', e);

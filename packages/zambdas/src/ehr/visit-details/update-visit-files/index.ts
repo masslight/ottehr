@@ -22,6 +22,7 @@ import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 
 const ZAMBDA_NAME = 'update-visit-files';
@@ -129,10 +130,29 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
   } else {
     throw new Error('Either appointmentId or patientId must be provided');
   }
-  const patient = await oystehr.fhir.search<Appointment | Patient | Encounter>({
-    resourceType,
-    params,
-  });
+  // todo: should be able to narrow the search based on the the document type being requested
+  // notes to a potential future brave refactor-er:
+  // the shared abstraction for creating document references is a bit funny and says I need to include the existing list
+  // of List resources, so I'm including it. it has the necessary input to go get those resources however and also already does additional querying
+  // to get the DocumentReference resources using passed in params, so it's straddling a couple of different possible api designs here.
+  // it looks like it is just being pulled too many different ways in service to different use cases. strong "wrong abstraction" smells.
+  const searchListResources = async (listPatientId: string): Promise<List[]> =>
+    (
+      await oystehr.fhir.search<List>({
+        resourceType: 'List',
+        params: [{ name: 'patient', value: `Patient/${listPatientId}` }],
+      })
+    ).unbundle();
+
+  const listPatientIdToPrefetch = appointmentId ? undefined : patientId;
+  const [patientResult, prefetchedListResourcesResult] = await Promise.allSettled([
+    oystehr.fhir.search<Appointment | Patient | Encounter>({
+      resourceType,
+      params,
+    }),
+    listPatientIdToPrefetch ? searchListResources(listPatientIdToPrefetch) : undefined,
+  ]);
+  const patient = settledValueOrThrow(patientResult);
   const appointment = patient.entry?.find((entry) => entry.resource?.resourceType === 'Appointment')
     ?.resource as Appointment;
   const patientResource = patient.entry?.find((entry) => entry.resource?.resourceType === 'Patient')
@@ -150,18 +170,8 @@ const complexValidation = async (input: Input, oystehr: Oystehr): Promise<Effect
     throw FHIR_RESOURCE_NOT_FOUND_CUSTOM('Could not find Patient associated with provided Appointment id');
   }
 
-  // todo: should be able to narrow the search based on the the document type being requested
-  // notes to a potential future brave refactor-er:
-  // the shared abstraction for creating document references is a bit funny and says I need to include the existing list
-  // of List resources, so I'm including it. it has the necessary input to go get those resources however and also already does additional querying
-  // to get the DocumentReference resources using passed in params, so it's straddling a couple of different possible api designs here.
-  // it looks like it is just being pulled too many different ways in service to different use cases. strong "wrong abstraction" smells.
-  const listResources = (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [{ name: 'patient', value: `Patient/${confirmedPatientId}` }],
-    })
-  ).unbundle();
+  const listResources =
+    settledValueOrThrow(prefetchedListResourcesResult) ?? (await searchListResources(confirmedPatientId));
 
   return {
     ...input,

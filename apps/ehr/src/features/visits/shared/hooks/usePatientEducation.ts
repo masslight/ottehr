@@ -80,6 +80,8 @@ export interface UsePatientEducationResult {
   defaultLanguage: PatientEducationLanguage;
 }
 
+const PDF_LOAD_BATCH_SIZE = 3;
+
 export function usePatientEducation(): UsePatientEducationResult {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -213,6 +215,7 @@ export function usePatientEducation(): UsePatientEducationResult {
           copiedPages.forEach((page) => finalDoc.addPage(page));
         };
 
+        const pdfLoaders: (() => Promise<Uint8Array | ArrayBuffer>)[] = [];
         for (const dx of selection) {
           const approved = approvedFor(dx.code, language);
           if (approved) {
@@ -220,16 +223,18 @@ export function usePatientEducation(): UsePatientEducationResult {
             if (appendedApprovedIds.has(approved.documentReferenceId)) continue;
             appendedApprovedIds.add(approved.documentReferenceId);
 
-            if (!approved.pdfPresignedUrl) {
+            const pdfPresignedUrl = approved.pdfPresignedUrl;
+            if (!pdfPresignedUrl) {
               throw new Error(`Approved PDF for ${dx.code} is missing a presigned URL.`);
             }
 
-            const response = await fetch(approved.pdfPresignedUrl);
-            if (!response.ok) {
-              throw new Error(`Failed to fetch approved PDF for ${dx.code}: ${response.status}`);
-            }
-
-            await appendPdfPages(await response.arrayBuffer());
+            pdfLoaders.push(async () => {
+              const response = await fetch(pdfPresignedUrl);
+              if (!response.ok) {
+                throw new Error(`Failed to fetch approved PDF for ${dx.code}: ${response.status}`);
+              }
+              return await response.arrayBuffer();
+            });
             continue;
           }
 
@@ -238,8 +243,16 @@ export function usePatientEducation(): UsePatientEducationResult {
             throw new Error(`Generated content for ${dx.code} is missing.`);
           }
 
-          const generatedBytes = await generateCombinedPdf([generatedSection], language);
-          await appendPdfPages(generatedBytes);
+          pdfLoaders.push(() => generateCombinedPdf([generatedSection], language));
+        }
+
+        for (let start = 0; start < pdfLoaders.length; start += PDF_LOAD_BATCH_SIZE) {
+          const loadedPdfs = await Promise.all(
+            pdfLoaders.slice(start, start + PDF_LOAD_BATCH_SIZE).map((load) => load())
+          );
+          for (const pdfBytes of loadedPdfs) {
+            await appendPdfPages(pdfBytes);
+          }
         }
 
         mergedPdfBytes = await finalDoc.save();

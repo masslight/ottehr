@@ -5,6 +5,7 @@ import { setNpi } from 'utils/lib/fhir/helpers';
 import { UpdateBillingProviderInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { commitClaimResourceChange, resolveClaimActor } from '../provenance';
@@ -32,9 +33,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const agent = await complexValidation(oystehr, params, input.headers?.Authorization);
-
-  const response = await performEffect(oystehr, params, agent);
+  const response = await performEffect(
+    oystehr,
+    params,
+    complexValidation(oystehr, params, input.headers?.Authorization)
+  );
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
@@ -53,10 +56,15 @@ async function complexValidation(
 export async function performEffect(
   oystehr: Oystehr,
   params: UpdateBillingProviderParams,
-  agent?: ProvenanceAgent
+  callerAgent?: ProvenanceAgent | Promise<ProvenanceAgent | undefined>
 ): Promise<{ id: string }> {
   if (params.kind === 'individual') {
-    const provider = await fetchById<Practitioner>(oystehr, 'Practitioner', params.providerId);
+    const [providerResult, agentResult] = await Promise.allSettled([
+      fetchById<Practitioner>(oystehr, 'Practitioner', params.providerId),
+      callerAgent,
+    ]);
+    const agent = settledValueOrThrow(agentResult);
+    const provider = settledValueOrThrow(providerResult);
     const before = structuredClone(provider);
     provider.name = [{ family: params.lastName, given: [params.firstName] }];
     applyIdentifiersAndAddress(provider, params);
@@ -65,7 +73,12 @@ export async function performEffect(
     return save(oystehr, params, provider, before, agent);
   }
 
-  const provider = await fetchById<Organization>(oystehr, 'Organization', params.providerId);
+  const [providerResult, agentResult] = await Promise.allSettled([
+    fetchById<Organization>(oystehr, 'Organization', params.providerId),
+    callerAgent,
+  ]);
+  const agent = settledValueOrThrow(agentResult);
+  const provider = settledValueOrThrow(providerResult);
   const before = structuredClone(provider);
   provider.name = params.name;
   applyIdentifiersAndAddress(provider, params);

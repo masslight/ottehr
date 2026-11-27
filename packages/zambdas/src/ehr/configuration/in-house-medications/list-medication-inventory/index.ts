@@ -70,12 +70,15 @@ export const performEffect = async (
   }
 
   const today = params.today ?? DateTime.now().toISODate();
-  const [drugs, lots] = await Promise.all([getTrackedDrugs(oystehr), getLots(oystehr, params)]);
+  const [drugs, lots, activeLocations] = await Promise.all([
+    getTrackedDrugs(oystehr),
+    getLots(oystehr, params),
+    params.view === 'location' ? undefined : listActiveLocations(oystehr, { inPersonOnly: true }),
+  ]);
   if (params.view === 'location') {
     return { drugs: buildLocationRows(drugs, lots, params.locationId, today), entries: [] };
   }
-  const { locations } = await listActiveLocations(oystehr, { inPersonOnly: true });
-  return { drugs: buildAllLocationsRows(drugs, lots, locations, today), entries: [] };
+  return { drugs: buildAllLocationsRows(drugs, lots, activeLocations?.locations ?? [], today), entries: [] };
 };
 
 const getTrackedDrugs = async (oystehr: Oystehr): Promise<TrackedDrug[]> => {

@@ -7,6 +7,7 @@ import { hasReachedPatientAr } from 'utils/lib/types/data/billing/claim-status';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
@@ -44,18 +45,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function performEffect(oystehr: Oystehr, params: GetPatientDetailParams): Promise<PatientDetailResponse> {
-  const patient = await fetchById<Patient>(oystehr, 'Patient', params.patientId);
-
-  const { claims, balance } = await fetchPatientClaims(oystehr, params.patientId);
-
+  const [patientResult, patientClaimsResult] = await Promise.allSettled([
+    fetchById<Patient>(oystehr, 'Patient', params.patientId).then(async (patient) => ({
+      patient,
+      ...(await resolveClinicalPatientIds({
+        oystehr,
+        patient,
+      })),
+    })),
+    fetchPatientClaims(oystehr, params.patientId),
+  ]);
   const {
+    patient,
     clinicalId,
     clinicalFriendlyId,
     workingCopyParentId: workingCopyReferenceResourceId,
-  } = await resolveClinicalPatientIds({
-    oystehr,
-    patient,
-  });
+  } = settledValueOrThrow(patientResult);
+  const { claims, balance } = settledValueOrThrow(patientClaimsResult);
   const phone = patient.telecom?.find((t) => t.system === 'phone')?.value ?? '';
   const email = patient.telecom?.find((t) => t.system === 'email')?.value ?? '';
   const addr = patient.address?.[0];

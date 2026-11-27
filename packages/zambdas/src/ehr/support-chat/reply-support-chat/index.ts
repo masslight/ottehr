@@ -8,6 +8,7 @@ import { checkOrCreateM2MClientToken, getUser, getUserToken } from '../../../sha
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { practitionerRefForUser } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { notifyPatient } from '../../../shared/support-chat/notify-patient';
 import { getTaskPatientId } from '../../../shared/support-chat/request-task';
 import {
@@ -58,8 +59,12 @@ export const index = wrapHandler('reply-support-chat', async (input: ZambdaInput
     })
   );
 
-  await notifyPatient({ patient, location, secrets, oystehr });
-  const messages = await searchThread(oystehr, threadId);
+  const [notifyResult, messagesResult] = await Promise.allSettled([
+    notifyPatient({ patient, location, secrets, oystehr }),
+    searchThread(oystehr, threadId),
+  ]);
+  settledValueOrThrow(notifyResult);
+  const messages = settledValueOrThrow(messagesResult);
 
   return { statusCode: 200, body: JSON.stringify(toChatResponse(messages, 'staff')) };
 });

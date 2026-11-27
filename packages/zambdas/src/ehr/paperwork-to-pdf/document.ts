@@ -17,6 +17,7 @@ import { assertZ3Url } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { getMimeType } from 'utils/lib/utils/file';
 import { assertDefined, resolveTimezone } from '../../shared/helpers';
+import { settledValueOrThrow } from '../../shared/settled';
 
 export interface Document {
   patientInfo: PatientInfo;
@@ -76,19 +77,23 @@ export async function createDocument(
 
   // Assemble the flow into a concrete item[] so section titles, labels, and image detection resolve
   // for flow-backed paperwork; a non-flow questionnaire is returned unchanged.
-  const questionnaire = await resolveEffectiveQuestionnaire(
-    await getCanonicalQuestionnaire({ url, version }, oystehr),
-    oystehr
-  );
-
-  const [subjectType, subjectId] = (questionnaireResponse.subject?.reference ?? '').split('/');
-  if (subjectType !== 'Patient') {
-    throw new Error(`Only "Patient" subject is supported but was "${subjectType}"`);
-  }
-  const patient = await oystehr.fhir.get<Patient>({
-    resourceType: 'Patient',
-    id: subjectId,
-  });
+  const [questionnaireResult, patientResult] = await Promise.allSettled([
+    getCanonicalQuestionnaire({ url, version }, oystehr).then((canonical) =>
+      resolveEffectiveQuestionnaire(canonical, oystehr)
+    ),
+    (async () => {
+      const [subjectType, subjectId] = (questionnaireResponse.subject?.reference ?? '').split('/');
+      if (subjectType !== 'Patient') {
+        throw new Error(`Only "Patient" subject is supported but was "${subjectType}"`);
+      }
+      return oystehr.fhir.get<Patient>({
+        resourceType: 'Patient',
+        id: subjectId,
+      });
+    })(),
+  ]);
+  const questionnaire = settledValueOrThrow(questionnaireResult);
+  const patient = settledValueOrThrow(patientResult);
 
   const { type } = getAppointmentType(appointment);
   const timezone = resolveTimezone(schedule, location);

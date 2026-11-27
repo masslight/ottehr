@@ -48,7 +48,6 @@ export const handleReviewTaskAndPdf = async (input: HandleReviewTaskAndPdfInput)
 
     console.log('configuring z3 upload');
     const qrEncounterRef = questionnaireResponse.encounter;
-    const pdfBytes = await renderQrPdf(questionnaireResponse, questionnaire, patient, NOW);
 
     // 1.1 Upload to Z3 (Paperwork bucket)
     const title = questionnaire?.title || questionnaire?.name || 'Form';
@@ -59,7 +58,10 @@ export const handleReviewTaskAndPdf = async (input: HandleReviewTaskAndPdfInput)
       bucketName: BUCKET_NAMES.PAPERWORK,
       patientID: patientId,
     });
-    const presignedUrl = await createPresignedUrl(oystehrToken, baseFileUrl, 'upload');
+    const [pdfBytes, presignedUrl] = await Promise.all([
+      renderQrPdf(questionnaireResponse, questionnaire, patient, NOW),
+      createPresignedUrl(oystehrToken, baseFileUrl, 'upload'),
+    ]);
     await uploadObjectToZ3(pdfBytes, presignedUrl);
     console.log('form pdf z3 upload complete');
 
@@ -147,29 +149,30 @@ const getResources = async (
     );
   }
 
-  const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
-  const locationId = encounter.location?.[0]?.location?.reference?.replace('Location/', '');
-  console.log(`location id parsed from Encounter/${encounter.id}: ${locationId}`);
-
   const [listResourcesBundle, patient, location, questionnaire] = await Promise.all([
-    await oystehr.fhir.search<List>({
+    oystehr.fhir.search<List>({
       resourceType: 'List',
       params: [
         { name: 'subject', value: `Patient/${patientId}` },
         { name: 'code', value: 'patient-docs-folder' },
       ],
     }),
-    await oystehr.fhir.get<Patient>({
+    oystehr.fhir.get<Patient>({
       resourceType: 'Patient',
       id: patientId,
     }),
-    locationId
-      ? oystehr.fhir.get<Location>({
-          resourceType: 'Location',
-          id: locationId,
-        })
-      : Promise.resolve(undefined),
-    await getQuestionnaireForQR(questionnaireResponse, oystehr),
+    (async (): Promise<Location | undefined> => {
+      const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
+      const locationId = encounter.location?.[0]?.location?.reference?.replace('Location/', '');
+      console.log(`location id parsed from Encounter/${encounter.id}: ${locationId}`);
+      return locationId
+        ? oystehr.fhir.get<Location>({
+            resourceType: 'Location',
+            id: locationId,
+          })
+        : undefined;
+    })(),
+    getQuestionnaireForQR(questionnaireResponse, oystehr),
   ]);
   const listResources = listResourcesBundle.unbundle();
 

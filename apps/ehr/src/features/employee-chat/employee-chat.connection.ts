@@ -465,8 +465,10 @@ export async function connectEmployeeChat(params: { oystehrZambda: Oystehr; myPr
   setState({ status: 'connecting', error: undefined, myProfile: params.myProfile });
 
   try {
-    const access = await getEmployeeChats(params.oystehrZambda);
-    const { Client: TwilioClient } = await import('@twilio/conversations');
+    const [access, { Client: TwilioClient }] = await Promise.all([
+      getEmployeeChats(params.oystehrZambda),
+      import('@twilio/conversations'),
+    ]);
     if (myEpoch !== epoch) return;
     access.conversations.forEach(upsertSummary);
 

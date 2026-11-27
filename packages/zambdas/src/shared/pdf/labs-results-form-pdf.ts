@@ -555,31 +555,34 @@ export async function createExternalLabResultPDF(
   ) as ActivityDefinition;
   const fillerLab = activityDef?.publisher;
 
-  let location: Location | undefined;
-  if (locationID) {
-    location = await oystehr.fhir.get<Location>({
-      resourceType: 'Location',
-      id: locationID,
-    });
-  }
-
   const timezone = getTimezoneForLabs(schedule);
 
   if (!encounter.id) throw new Error('encounter id is undefined');
   if (!patient.id) throw new Error('patient.id is undefined');
   if (!diagnosticReport.id) throw new Error('diagnosticReport id is undefined');
 
-  // orderSubmitDate comes back in whatever timezone was initially recorded, so probably utc
-  const { reviewDate: orderSubmitDate } = await getTaskCompletedByAndWhen(oystehr, pstTask);
-
-  const {
-    reviewingProvider,
-    reviewDateInTz,
-    externalLabResults,
-    resultsReceivedDateInTz,
-    resultInterpretationDisplays,
-    obsAttachments,
-  } = await getResultsDetailsForPDF(oystehr, diagnosticReport, observations, timezone);
+  const [
+    location,
+    // orderSubmitDate comes back in whatever timezone was initially recorded, so probably utc
+    { reviewDate: orderSubmitDate },
+    {
+      reviewingProvider,
+      reviewDateInTz,
+      externalLabResults,
+      resultsReceivedDateInTz,
+      resultInterpretationDisplays,
+      obsAttachments,
+    },
+  ] = await Promise.all([
+    locationID
+      ? oystehr.fhir.get<Location>({
+          resourceType: 'Location',
+          id: locationID,
+        })
+      : undefined,
+    getTaskCompletedByAndWhen(oystehr, pstTask),
+    getResultsDetailsForPDF(oystehr, diagnosticReport, observations, timezone),
+  ]);
 
   const sortedSpecimens = specimens?.sort((a, b) =>
     compareDates(a.collection?.collectedDateTime, b.collection?.collectedDateTime)
@@ -1098,7 +1101,7 @@ async function setUpAndDrawAllExternalLabResultTypesFormPdfBytes(
   }
 
   const clientInfo = await getPdfClientForLabsPDFs();
-  const { callIcon, faxIcon, textStyles, initialPageStyles } = await getPdfClientForLabsPDFs();
+  const { callIcon, faxIcon, textStyles, initialPageStyles } = clientInfo;
   let pdfClient = clientInfo.pdfClient;
 
   const drawRowHelper = (data: { col1: string; col2: string }): void => {
@@ -1328,7 +1331,7 @@ async function createExternalLabsResultsFormPdfBytes(
 
 async function createInHouseLabsResultsFormPdfBytes(data: InHouseLabResultsData): Promise<Uint8Array> {
   const clientInfo = await getPdfClientForLabsPDFs();
-  const { callIcon, faxIcon, textStyles } = await getPdfClientForLabsPDFs();
+  const { callIcon, faxIcon, textStyles } = clientInfo;
   let pdfClient = clientInfo.pdfClient;
 
   pdfClient = await drawCommonLabsElements(pdfClient, textStyles, { callIcon, faxIcon }, data);

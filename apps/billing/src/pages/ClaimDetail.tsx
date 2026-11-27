@@ -664,6 +664,7 @@ export default function ClaimDetail(): ReactElement {
               coverageType="primary"
               claim={claim}
               updateResource={updateResource}
+              refetchClaim={fetchDetail}
               getCoverageIdFromClaim={(claim: ClaimDetailResponse) => claim.coverageFhirId}
               showAddButton={!showCoverageMap.secondary}
               onAdd={() =>
@@ -680,6 +681,7 @@ export default function ClaimDetail(): ReactElement {
                 coverageType="secondary"
                 claim={claim}
                 updateResource={updateResource}
+                refetchClaim={fetchDetail}
                 getCoverageIdFromClaim={(claim: ClaimDetailResponse) => claim.secondaryCoverageFhirId}
                 showAddButton={!showCoverageMap.tertiary}
                 onAdd={() =>
@@ -699,6 +701,7 @@ export default function ClaimDetail(): ReactElement {
                 coverageType="tertiary"
                 claim={claim}
                 updateResource={updateResource}
+                refetchClaim={fetchDetail}
                 getCoverageIdFromClaim={(claim: ClaimDetailResponse) => claim.tertiaryCoverageFhirId}
                 showAddButton={!showCoverageMap.quaternary}
                 onAdd={() =>
@@ -718,6 +721,7 @@ export default function ClaimDetail(): ReactElement {
                 coverageType="quaternary"
                 claim={claim}
                 updateResource={updateResource}
+                refetchClaim={fetchDetail}
                 getCoverageIdFromClaim={(claim: ClaimDetailResponse) => claim.quaternaryCoverageFhirId}
                 showAddButton={false}
                 onAdd={() => {}}
@@ -883,6 +887,7 @@ export function InsuranceSection({
   getCoverageIdFromClaim,
   claim,
   updateResource,
+  refetchClaim,
   showAddButton,
   onAdd,
 }: {
@@ -890,6 +895,7 @@ export function InsuranceSection({
   getCoverageIdFromClaim: (claim: ClaimDetailResponse) => string | undefined;
   claim: ClaimDetailResponse;
   updateResource: UpdateFn;
+  refetchClaim: () => Promise<void>;
   showAddButton: boolean;
   onAdd: () => void;
 }): ReactElement {
@@ -941,8 +947,17 @@ export function InsuranceSection({
       if (!coverageId) {
         if (selectedCoverage?.id) {
           // Selected from some base, add it to claim and update below
-          await updateResource('Claim', claim.id, { coverageId: selectedCoverage.id, coverageType });
-          const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
+          const attachError = await updateResource(
+            'Claim',
+            claim.id,
+            { coverageId: selectedCoverage.id, coverageType },
+            false
+          );
+          if (attachError) return attachError;
+          const [updatedClaim] = await Promise.all([
+            getBillingClaimDetail(oystehrZambda, { claimId: claim.id }),
+            refetchClaim(),
+          ]);
           coverageId = getCoverageIdFromClaim(updatedClaim);
         } else {
           // No base selected, make a new one and attach it
@@ -1540,14 +1555,22 @@ function BillingProviderSection({
         'providerId' in payload && payload.providerId && !selectedProvider ? payload.providerId : undefined;
       if (!providerId) {
         if (selectedProvider?.id) {
-          const attachError = await updateResource('Claim', claim.id, {
-            billingProvider: {
-              id: selectedProvider.id,
-              type: selectedProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
+          const attachError = await updateResource(
+            'Claim',
+            claim.id,
+            {
+              billingProvider: {
+                id: selectedProvider.id,
+                type: selectedProvider.kind === 'organization' ? 'Organization' : 'Practitioner',
+              },
             },
-          });
+            false
+          );
           if (attachError) return attachError;
-          const updatedClaim = await getBillingClaimDetail(oystehrZambda, { claimId: claim.id });
+          const [updatedClaim] = await Promise.all([
+            getBillingClaimDetail(oystehrZambda, { claimId: claim.id }),
+            refetchClaim(),
+          ]);
           providerId = updatedClaim.billingProviderFhirId;
           await updateBillingProvider(oystehrZambda, { ...payload, providerId, claimId: claim.id });
           await refetchClaim();

@@ -16,34 +16,29 @@ export const hasNumericVisionValue = (vitals: VitalsObservationDTO[]): boolean =
   });
 };
 
-export const autoAddVisionCptCodes = async ({
+export const resolveVisionCptCodes = async ({
   vitals,
-  encounterId,
   existingCptCodes,
   apiClient,
   oystehr,
-  onCptCodesAdded,
 }: {
   vitals: VitalsObservationDTO[];
-  encounterId: string;
   existingCptCodes: Set<string>;
   apiClient: OystehrTelemedAPIClient | undefined | null;
   oystehr: Oystehr | undefined;
-  /** Called after codes were added, so the caller can re-read the billing codes where they are shown. */
-  onCptCodesAdded?: () => Promise<void>;
-}): Promise<void> => {
+}): Promise<{ code: string; display: string }[]> => {
   const visionAutoCptCodes = PROVIDER_CONFIG.assessment.visionAutoCptCodes ?? [];
   if (!hasNumericVisionValue(vitals) || visionAutoCptCodes.length === 0) {
-    return;
+    return [];
   }
   if (!oystehr || !apiClient || !apiClient.saveChartData) {
-    return;
+    return [];
   }
 
   const codesToAdd = visionAutoCptCodes.filter((code: string) => !existingCptCodes.has(code));
 
   if (codesToAdd.length === 0) {
-    return;
+    return [];
   }
 
   const cptCodesWithDisplay = await Promise.all(
@@ -67,12 +62,25 @@ export const autoAddVisionCptCodes = async ({
     })
   );
 
-  const validCptCodes = cptCodesWithDisplay.filter((c) => c !== null);
+  return cptCodesWithDisplay.filter((c) => c !== null);
+};
 
-  if (validCptCodes.length > 0) {
+export const autoAddVisionCptCodes = async ({
+  cptCodes,
+  encounterId,
+  apiClient,
+  onCptCodesAdded,
+}: {
+  cptCodes: { code: string; display: string }[];
+  encounterId: string;
+  apiClient: OystehrTelemedAPIClient | undefined | null;
+  /** Called after codes were added, so the caller can re-read the billing codes where they are shown. */
+  onCptCodesAdded?: () => Promise<void>;
+}): Promise<void> => {
+  if (cptCodes.length > 0) {
     await apiClient?.saveChartData?.({
       encounterId,
-      cptCodes: validCptCodes,
+      cptCodes,
     });
 
     await onCptCodesAdded?.();

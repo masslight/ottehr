@@ -163,59 +163,75 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
     ];
   }
 
-  await cancelAppointmentResource(appointment, [fhirCancellationReason], oystehr);
+  const locationId = getLocationIdFromAppointment(appointment);
+  const [cancelResult, locationResult, relatedPersonsResult] = await Promise.allSettled([
+    cancelAppointmentResource(appointment, [fhirCancellationReason], oystehr),
+    locationId ? getLocationResource(locationId, oystehr) : Promise.resolve(undefined),
+    getRelatedPersonsForPatient(patient.id || '', oystehr),
+  ]);
+  if (cancelResult.status === 'rejected') throw cancelResult.reason;
 
   const response: CancelTelemedAppointmentZambdaOutput = {};
 
-  console.group('sendCancellationEmail');
-  const locationId = getLocationIdFromAppointment(appointment);
-  let location: Location | undefined;
-  if (locationId) location = await getLocationResource(locationId, oystehr);
+  if (locationResult.status === 'rejected') throw locationResult.reason;
+  const location: Location | undefined = locationResult.value;
   const locationName = location?.name;
-  try {
-    const email = getPatientContactEmail(patient);
-    if (email) {
-      const emailClient = getEmailClient(secrets, oystehr);
-      const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
 
-      const templateData: TelemedCancelationTemplateData = {
-        'book-again-url': `${WEBSITE_URL}/welcome`,
-        location: locationName!,
-      };
-      await emailClient.sendVirtualCancelationEmail(email, templateData);
-    } else {
-      throw Error('no email found');
-    }
-  } catch (error: any) {
-    console.error('error sending cancellation email', error);
-    captureException(error);
-  }
-  console.groupEnd();
+  const notificationResults = await Promise.allSettled([
+    (async () => {
+      console.group('sendCancellationEmail');
+      try {
+        const email = getPatientContactEmail(patient);
+        if (email) {
+          const emailClient = getEmailClient(secrets, oystehr);
+          const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
 
-  console.log('Send cancel message request');
+          const templateData: TelemedCancelationTemplateData = {
+            'book-again-url': `${WEBSITE_URL}/welcome`,
+            location: locationName!,
+          };
+          await emailClient.sendVirtualCancelationEmail(email, templateData);
+        } else {
+          throw Error('no email found');
+        }
+      } catch (error: any) {
+        console.error('error sending cancellation email', error);
+        captureException(error);
+      }
+      console.groupEnd();
+    })(),
+    (async () => {
+      console.log('Send cancel message request');
 
-  const relatedPersons = await getRelatedPersonsForPatient(patient.id || '', oystehr);
-  if (!relatedPersons.length) {
-    console.log(`No user-relatedperson found for patient ${patient.id}; not sending cancellation text`);
-    reportMissingUserRelatedPerson('telemed-cancel-appointment', patient.id);
-  } else {
-    const supportPhone = location?.extension?.find((e) => e.url === LOCATION_SUPPORT_PHONE_EXTENSION_URL)?.valueString;
-    if (!supportPhone) {
-      console.warn(
-        `No support phone number configured for location "${locationName}" — omitting from cancellation SMS`
-      );
-    }
-    const message = supportPhone ? `Sorry to see you go. Questions? Call ${supportPhone}` : 'Sorry to see you go.';
-    await sendSmsToRelatedPersons({
-      relatedPersons,
-      message,
-      oystehr,
-      env: getSecret(SecretsKeys.ENVIRONMENT, secrets),
-      failStrategy: 'never-throw',
-    });
-  }
-
-  await createAuditEvent(AuditableZambdaEndpoints.appointmentCancel, oystehr, input, patient.id || '', secrets);
+      if (relatedPersonsResult.status === 'rejected') throw relatedPersonsResult.reason;
+      const relatedPersons = relatedPersonsResult.value;
+      if (!relatedPersons.length) {
+        console.log(`No user-relatedperson found for patient ${patient.id}; not sending cancellation text`);
+        reportMissingUserRelatedPerson('telemed-cancel-appointment', patient.id);
+      } else {
+        const supportPhone = location?.extension?.find((e) => e.url === LOCATION_SUPPORT_PHONE_EXTENSION_URL)
+          ?.valueString;
+        if (!supportPhone) {
+          console.warn(
+            `No support phone number configured for location "${locationName}" — omitting from cancellation SMS`
+          );
+        }
+        const message = supportPhone ? `Sorry to see you go. Questions? Call ${supportPhone}` : 'Sorry to see you go.';
+        await sendSmsToRelatedPersons({
+          relatedPersons,
+          message,
+          oystehr,
+          env: getSecret(SecretsKeys.ENVIRONMENT, secrets),
+          failStrategy: 'never-throw',
+        });
+      }
+    })(),
+    createAuditEvent(AuditableZambdaEndpoints.appointmentCancel, oystehr, input, patient.id || '', secrets),
+  ]);
+  const notificationFailure = notificationResults.find(
+    (result): result is PromiseRejectedResult => result.status === 'rejected'
+  );
+  if (notificationFailure) throw notificationFailure.reason;
 
   return {
     statusCode: 200,

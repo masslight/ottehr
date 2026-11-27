@@ -264,6 +264,7 @@ describe('ClaimDetail — payer links', () => {
             getCoverageIdFromClaim={() => 'coverage-1'}
             claim={makeClaim(AR_STAGE.insurancePayer)}
             updateResource={vi.fn()}
+            refetchClaim={vi.fn()}
             showAddButton={false}
             onAdd={vi.fn()}
           />

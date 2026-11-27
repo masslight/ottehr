@@ -64,30 +64,42 @@ export async function assembleProgressNoteInput(
   // Follow-ups hang off the top-level encounter, so resolve to the parent if this one is a follow-up.
   const followUpParentEncounterId = removePrefix('Encounter/', encounter.partOf?.reference ?? '') ?? encounterId;
 
-  const [visitNote, medicationOrdersData, upcomingFollowUps, signatures, dmeOrders, formResponses, referrals] =
-    await Promise.all([
-      buildVisitNote({ oystehr, m2mToken: token }, encounterId, {
+  const [
+    { chartData, additionalChartData, erxPharmacies },
+    medicationOrdersData,
+    upcomingFollowUps,
+    signatures,
+    dmeOrders,
+    formResponses,
+    immunizationOrdersData,
+    referrals,
+  ] = await Promise.all([
+    (async () => {
+      const visitNote = await buildVisitNote({ oystehr, m2mToken: token }, encounterId, {
         noteTypes: isInPersonAppointment ? progressNoteNoteTypes : telemedProgressNoteNoteTypes,
-      }),
-      getMedicationOrders(oystehr, { searchBy: { field: 'encounterId', value: encounterId } }),
-      getUpcomingFollowUps(oystehr, followUpParentEncounterId, visitResources.timezone, encounter.id),
-      // Supplementary: a signature lookup failure must not block PDF generation.
-      getEncounterSignatures(oystehr, encounterId).catch((error) => {
-        console.error(`Failed to resolve encounter signatures for encounter ${encounterId}:`, error);
-        return { signedBy: undefined, approvedBy: undefined };
-      }),
-      getEncounterDmeOrders(oystehr, encounterId),
-      getEncounterFormResponses(oystehr, encounterId, visitResources.questionnaireResponse, secrets),
-      loadEncounterReferrals(oystehr, encounterId),
-    ]);
+      });
+      // The composers read the two whole-chart shapes; the adapter presents the note as both.
+      const { chartData, additionalChartData } = visitNoteToLegacyChartData(visitNote, {
+        module: isInPersonAppointment ? 'in-person' : 'telemed',
+      });
+      const erxPharmacies = await fetchErxPharmacies(oystehr, additionalChartData?.prescribedMedications);
+      return { chartData, additionalChartData, erxPharmacies };
+    })(),
+    getMedicationOrders(oystehr, { searchBy: { field: 'encounterId', value: encounterId } }),
+    getUpcomingFollowUps(oystehr, followUpParentEncounterId, visitResources.timezone, encounter.id),
+    // Supplementary: a signature lookup failure must not block PDF generation.
+    getEncounterSignatures(oystehr, encounterId).catch((error) => {
+      console.error(`Failed to resolve encounter signatures for encounter ${encounterId}:`, error);
+      return { signedBy: undefined, approvedBy: undefined };
+    }),
+    getEncounterDmeOrders(oystehr, encounterId),
+    getEncounterFormResponses(oystehr, encounterId, visitResources.questionnaireResponse, secrets),
+    getImmunizationOrders(oystehr, { encounterIds: [encounterId] }),
+    loadEncounterReferrals(oystehr, encounterId),
+  ]);
 
-  const immunizationOrders = (await getImmunizationOrders(oystehr, { encounterIds: [encounterId] })).orders;
-  // The composers read the two whole-chart shapes; the adapter presents the note as both.
-  const { chartData, additionalChartData } = visitNoteToLegacyChartData(visitNote, {
-    module: isInPersonAppointment ? 'in-person' : 'telemed',
-  });
+  const immunizationOrders = immunizationOrdersData.orders;
   const medicationOrders = medicationOrdersData?.orders.filter((order) => order.status !== 'cancelled');
-  const erxPharmacies = await fetchErxPharmacies(oystehr, additionalChartData?.prescribedMedications);
 
   return {
     patient,

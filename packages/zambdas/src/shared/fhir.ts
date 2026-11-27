@@ -405,34 +405,38 @@ export async function getGroupMemberPractitionerRoleSchedules(
   if (!group.id) return [];
   const allLocationsFlag = getGroupAllLocations(group) === true;
 
-  const bundle = (
-    await oystehr.fhir.search<HealthcareService | Location | PractitionerRole | Schedule>({
-      resourceType: 'HealthcareService',
-      params: [
-        { name: '_id', value: group.id },
-        { name: '_include', value: 'HealthcareService:location' },
-        { name: '_revinclude:iterate', value: 'PractitionerRole:service' },
-        { name: '_revinclude:iterate', value: 'PractitionerRole:location' },
-        { name: '_revinclude:iterate', value: 'Schedule:actor:PractitionerRole' },
-      ],
-    })
-  ).unbundle();
-
-  // All-locations widening: pull every active PR + their Schedules into the
-  // bundle so the walker's `isMemberByAllLocations` branch has the candidates
-  // to match against. Mirrors the same widening getSchedules does for
-  // group-type lookups when the flag is set.
-  if (allLocationsFlag) {
-    const widened = (
-      await oystehr.fhir.search<PractitionerRole | Schedule>({
-        resourceType: 'PractitionerRole',
+  const [bundle, widened] = await Promise.all([
+    oystehr.fhir
+      .search<HealthcareService | Location | PractitionerRole | Schedule>({
+        resourceType: 'HealthcareService',
         params: [
-          { name: 'active', value: 'true' },
-          { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
-          { name: '_count', value: '1000' },
+          { name: '_id', value: group.id },
+          { name: '_include', value: 'HealthcareService:location' },
+          { name: '_revinclude:iterate', value: 'PractitionerRole:service' },
+          { name: '_revinclude:iterate', value: 'PractitionerRole:location' },
+          { name: '_revinclude:iterate', value: 'Schedule:actor:PractitionerRole' },
         ],
       })
-    ).unbundle();
+      .then((result) => result.unbundle()),
+    // All-locations widening: pull every active PR + their Schedules into the
+    // bundle so the walker's `isMemberByAllLocations` branch has the candidates
+    // to match against. Mirrors the same widening getSchedules does for
+    // group-type lookups when the flag is set.
+    allLocationsFlag
+      ? oystehr.fhir
+          .search<PractitionerRole | Schedule>({
+            resourceType: 'PractitionerRole',
+            params: [
+              { name: 'active', value: 'true' },
+              { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+              { name: '_count', value: '1000' },
+            ],
+          })
+          .then((result) => result.unbundle())
+      : [],
+  ]);
+
+  if (allLocationsFlag) {
     const seen = new Set(bundle.map((r) => `${r.resourceType}/${r.id}`));
     for (const r of widened) {
       const key = `${r.resourceType}/${r.id}`;

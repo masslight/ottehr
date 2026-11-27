@@ -38,7 +38,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const practitionerId = userProfileString[1];
     try {
-      const [practitionerResource, scheduleSearch] = await Promise.all([
+      const [practitionerResource, scheduleSearch, practitionerHasRecentEncounter] = await Promise.all([
         oystehr.fhir.get<Practitioner>({
           resourceType: 'Practitioner',
           id: practitionerId,
@@ -58,9 +58,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             const schedule = resources.find((r) => r.resourceType === 'Schedule');
             return schedule;
           }),
+        // Only meaningful once the user actually has a Practitioner — a self-registered account still on
+        // a Patient profile has no encounters to have participated in, and querying as though it did
+        // means searching for `Practitioner/<patient-id>`.
+        userProfile.startsWith('Practitioner/') ? hasRecentEncounter(oystehr, practitionerId) : false,
       ]);
       existingPractitionerResource = practitionerResource;
       schedule = scheduleSearch;
+      seenPatientRecently = Boolean(practitionerResource.id) && practitionerHasRecentEncounter;
       console.log('Existing practitioner: ' + JSON.stringify(existingPractitionerResource));
     } catch (error: any) {
       // A user still on a Patient profile (signed up, never set up as an employee) has no
@@ -72,12 +77,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         throw error;
       }
     }
-    // Only meaningful once the user actually has a Practitioner — a self-registered account still on
-    // a Patient profile has no encounters to have participated in, and querying as though it did
-    // means searching for `Practitioner/<patient-id>`.
-    seenPatientRecently = existingPractitionerResource?.id
-      ? await hasRecentEncounter(oystehr, existingPractitionerResource.id)
-      : false;
 
     const allLicenses: Array<PractitionerLicense> = [];
     console.log(existingPractitionerResource);

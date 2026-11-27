@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { DeviceRequest, FhirResource, Procedure } from 'fhir/r4b';
+import { DeviceRequest, FhirResource, Practitioner, Procedure } from 'fhir/r4b';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { CreateDmeOrderInputSchema, CreateDmeOrderResponse } from 'utils/lib/types/api/dme.types';
@@ -10,10 +10,12 @@ import { makeCPTCodeDTO } from '../../../shared/chart-data';
 import { makeDmeBillingProcedures, makeDmeDeviceRequest, makeDmeProvenance } from '../../../shared/dme';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../../shared/validation';
 import { assertVisitIsEditable } from '../../easy-chart-shared/visit-lock';
 import {
+  DmeEncounterContext,
   fetchDmeEncounterContext,
   fetchOrderingPractitioner,
   makeBillingProcedureRequests,
@@ -32,11 +34,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
-  const [callerPractitionerId] = await Promise.all([
-    resolveCallerPractitionerId(userToken, params.secrets),
-    assertVisitIsEditable(oystehr, params.encounterId, ZAMBDA_NAME),
-  ]);
-  const response = await createDmeOrder(params, callerPractitionerId, oystehr);
+  const [visitEditableResult, callerPractitionerIdResult, contextResult, orderingPractitionerResult] =
+    await Promise.allSettled([
+      assertVisitIsEditable(oystehr, params.encounterId, ZAMBDA_NAME),
+      resolveCallerPractitionerId(userToken, params.secrets),
+      fetchDmeEncounterContext(params.encounterId, oystehr),
+      fetchOrderingPractitioner(params.orderedByPractitionerId, oystehr),
+    ]);
+  settledValueOrThrow(visitEditableResult);
+  const callerPractitionerId = settledValueOrThrow(callerPractitionerIdResult);
+  const response = await createDmeOrder(
+    params,
+    callerPractitionerId,
+    settledValueOrThrow(contextResult),
+    settledValueOrThrow(orderingPractitionerResult),
+    oystehr
+  );
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -46,14 +59,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const createDmeOrder = async (
   params: ValidatedZambdaInput<typeof CreateDmeOrderInputSchema>,
   callerPractitionerId: string | undefined,
+  context: DmeEncounterContext,
+  orderingPractitioner: Practitioner,
   oystehr: Oystehr
 ): Promise<CreateDmeOrderResponse> => {
   const { secrets: _secrets, encounterId, ...fields } = params;
 
-  const [context, orderingPractitioner] = await Promise.all([
-    fetchDmeEncounterContext(encounterId, oystehr),
-    fetchOrderingPractitioner(fields.orderedByPractitionerId, oystehr),
-  ]);
   const patientId = context.patient.id!;
 
   const deviceRequestFullUrl = `urn:uuid:${randomUUID()}`;

@@ -79,8 +79,10 @@ export const PaperworkFlowDialog: FC<PaperworkFlowDialogProps> = ({
     onSuccess: async (_data, { draft }) => {
       enqueueSnackbar(`Saved "${draft.name}"`, { variant: 'success' });
       onClose();
-      await queryClient.invalidateQueries({ queryKey: ['paperwork-flow-list'] });
-      await queryClient.invalidateQueries({ queryKey: ['service-categories'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['paperwork-flow-list'] }),
+        queryClient.invalidateQueries({ queryKey: ['service-categories'] }),
+      ]);
     },
     onError: (error: unknown) => {
       let message = error instanceof Error ? error.message : 'unknown error';

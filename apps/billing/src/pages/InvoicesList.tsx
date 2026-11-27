@@ -24,6 +24,7 @@ import {
 } from 'utils/lib/types/data/billing/billing.constants';
 import { SearchBillingInvoicesInput } from 'utils/lib/types/data/billing/billing.schemas';
 import { BillingInvoiceListItem } from 'utils/lib/types/data/billing/billing.types';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { searchBillingInvoices } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
@@ -35,6 +36,9 @@ import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 import { downloadTextFile } from '../utils/downloadFile';
 import { formatDate } from '../utils/format';
+
+const EXPORT_PAGE_SIZE = 100;
+const EXPORT_PAGE_CONCURRENCY = 5;
 
 // Disable local sorting because only one page is loaded.
 const columns = (
@@ -250,14 +254,20 @@ export default function InvoicesList(): ReactElement {
     setError(null);
     try {
       const params = toSearchParams(filters);
-      const rows: BillingInvoiceListItem[] = [];
-      let total: number;
-      do {
-        const page = await searchBillingInvoices(oystehrZambda, { ...params, offset: rows.length, pageSize: 100 });
-        rows.push(...page.invoices);
-        total = page.total;
-        if (page.invoices.length === 0) break;
-      } while (rows.length < total);
+      const firstPage = await searchBillingInvoices(oystehrZambda, {
+        ...params,
+        offset: 0,
+        pageSize: EXPORT_PAGE_SIZE,
+      });
+      const pageLength = firstPage.invoices.length;
+      const offsets: number[] = [];
+      for (let offset = pageLength; pageLength > 0 && offset < firstPage.total; offset += pageLength) {
+        offsets.push(offset);
+      }
+      const otherPages = await mapWithConcurrency(offsets, EXPORT_PAGE_CONCURRENCY, (offset) =>
+        searchBillingInvoices(oystehrZambda, { ...params, offset, pageSize: EXPORT_PAGE_SIZE })
+      );
+      const rows = [...firstPage.invoices, ...otherPages.flatMap((page) => page.invoices)];
 
       downloadTextFile(
         'invoices.csv',

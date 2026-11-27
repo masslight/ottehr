@@ -16,6 +16,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { changeInPersonVisitStatusIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -58,7 +59,11 @@ export const complexValidation = async (
 }> => {
   const { encounterId, userToken, updatedStatus, secrets } = params;
 
-  const visitResources = await getVisitResources(oystehr, encounterId);
+  const [visitResourcesResult, userResult] = await Promise.allSettled([
+    getVisitResources(oystehr, encounterId),
+    userMe(userToken, secrets),
+  ]);
+  const visitResources = settledValueOrThrow(visitResourcesResult);
   if (!visitResources) {
     throw new Error(`Visit resources are not properly defined for encounter ${encounterId}`);
   }
@@ -67,7 +72,7 @@ export const complexValidation = async (
 
   if (!encounter?.id) throw new Error('Encounter not found');
 
-  const user = await userMe(userToken, secrets);
+  const user = settledValueOrThrow(userResult);
   if (!user) {
     throw new Error('user unexpectedly not found');
   }

@@ -25,6 +25,7 @@ import { assembleProgressNoteInput } from '../../shared/pdf/assemble-progress-no
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeZ3ObjectUrl, z3ObjectNameDatePrefix } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 import { createPresignedUrl } from '../../shared/z3Utils';
@@ -84,7 +85,11 @@ const performEffect = async (
 ): Promise<FillFormTemplateOutput> => {
   const { documentReferenceId, appointmentId, secrets } = validatedInput;
 
-  const template = await getFormTemplateOrThrow(oystehr, documentReferenceId);
+  const [templateResult, visitResourcesResult] = await Promise.allSettled([
+    getFormTemplateOrThrow(oystehr, documentReferenceId),
+    getAppointmentAndRelatedResources(oystehr, appointmentId, true),
+  ]);
+  const template = settledValueOrThrow(templateResult);
 
   // `getFormTemplateOrThrow` only proves the record is a form template, not that it is one anybody should
   // be filling. Prefilling is chart-facing and reachable by every clinical role, so an id is enough to
@@ -102,28 +107,30 @@ const performEffect = async (
     throw new Error(`Form template DocumentReference/${documentReferenceId} has no attachment URL`);
   }
 
-  const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
+  const visitResources = settledValueOrThrow(visitResourcesResult);
   if (!visitResources?.patient?.id) {
     throw new Error(`No patient found for appointment ${appointmentId}`);
   }
+  const visitPatientId = visitResources.patient.id;
 
   // The template bytes and the encounter context are independent, and both are slow.
-  const [templateBytes, context] = await Promise.all([
-    downloadTemplate(templateUrl, token),
-    assembleProgressNoteInput(oystehr, token, visitResources, secrets),
-  ]);
-
+  //
   // Coverage is resolved separately from the note input, which carries only one, because forms routinely
   // ask for primary and secondary in their own boxes.
   //
   // The accounts are searched rather than taken from the appointment bundle, which keeps whichever one
   // came back first — an arbitrary choice for any patient holding both a billing account and a workers'
   // compensation one, which is exactly the patient these forms are for.
-  const accounts = await loadFormFillAccounts(oystehr, visitResources.patient.id);
-  const insurance = await loadFormFillInsurance(oystehr, visitResources.appointment, {
-    account: accounts.billing,
-    packageCoverage: visitResources.coverage,
-  });
+  const [templateBytes, context, insurance] = await Promise.all([
+    downloadTemplate(templateUrl, token),
+    assembleProgressNoteInput(oystehr, token, visitResources, secrets),
+    loadFormFillAccounts(oystehr, visitPatientId).then((accounts) =>
+      loadFormFillInsurance(oystehr, visitResources.appointment, {
+        account: accounts.billing,
+        packageCoverage: visitResources.coverage,
+      })
+    ),
+  ]);
   const fillContext = { ...context, insurance };
 
   const mapping =
@@ -205,16 +212,21 @@ const performEffect = async (
 
   // Superseded only once the replacement exists, so a failure here leaves the previous draft as the
   // current one rather than leaving the encounter with none.
-  await supersedePreviousInstances(oystehr, {
-    patientId,
-    encounterId: visitResources.encounter?.id,
-    templateId: documentReferenceId,
-    keepId: instance.id!,
-  });
+  const [supersedeResult, presignedUrlResult] = await Promise.allSettled([
+    supersedePreviousInstances(oystehr, {
+      patientId,
+      encounterId: visitResources.encounter?.id,
+      templateId: documentReferenceId,
+      keepId: instance.id!,
+    }),
+    getPresignedURL(z3Url, token),
+  ]);
+  settledValueOrThrow(supersedeResult);
+  const presignedUrl = settledValueOrThrow(presignedUrlResult);
 
   return {
     documentReferenceId: instance.id!,
-    presignedUrl: await getPresignedURL(z3Url, token),
+    presignedUrl,
     fileName,
     report: {
       filledCount: filled.length,

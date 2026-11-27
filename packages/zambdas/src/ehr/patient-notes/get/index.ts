@@ -8,6 +8,7 @@ import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { PATIENT_NOTE_TAG, TASK_NOTE_TAG, toNoteDto } from '../../../shared/notes';
 import { getMyPractitionerId } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
 
@@ -31,19 +32,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   if (taskIds) {
-    const callerId = await getMyPractitionerId(getUserToken(input), secrets);
-    const resources = await getAllFhirSearchPages<Communication>(
-      {
-        resourceType: 'Communication',
-        params: [
-          { name: 'based-on', value: taskIds.map((taskId) => `Task/${taskId}`).join(',') },
-          { name: '_tag', value: TASK_NOTE_TAG },
-          { name: 'status', value: 'completed' },
-          { name: '_sort', value: '-sent' },
-        ],
-      },
-      oystehr
-    );
+    const [callerIdResult, resourcesResult] = await Promise.allSettled([
+      getMyPractitionerId(getUserToken(input), secrets),
+      getAllFhirSearchPages<Communication>(
+        {
+          resourceType: 'Communication',
+          params: [
+            { name: 'based-on', value: taskIds.map((taskId) => `Task/${taskId}`).join(',') },
+            { name: '_tag', value: TASK_NOTE_TAG },
+            { name: 'status', value: 'completed' },
+            { name: '_sort', value: '-sent' },
+          ],
+        },
+        oystehr
+      ),
+    ]);
+    const callerId = settledValueOrThrow(callerIdResult);
+    const resources = settledValueOrThrow(resourcesResult);
     const output: GetNotesOutput = { notes: resources.map((note) => toNoteDto(note, callerId)), hasMore: false };
     return { body: JSON.stringify(output), statusCode: 200 };
   }

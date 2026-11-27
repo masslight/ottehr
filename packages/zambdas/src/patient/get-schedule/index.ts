@@ -39,6 +39,7 @@ import { getAuth0Token } from '../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { isEntryAtBookableLocation } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -89,8 +90,19 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   const availableSlots: SlotListItem[] = [];
 
   console.time('get-schedule-from-slug');
-  const scheduleData = await getSchedules(oystehr, scheduleType, { slug });
-  const { scheduleList, metadata, rootScheduleOwner: scheduleOwner } = scheduleData;
+  const [scheduleDataResult, fhirCategoryHitsResult] = await Promise.allSettled([
+    getSchedules(oystehr, scheduleType, { slug }),
+    oystehr.fhir
+      .search<HealthcareService>({
+        resourceType: 'HealthcareService',
+        params: [
+          { name: '_tag', value: 'booking-service-category' },
+          { name: 'active', value: 'true' },
+        ],
+      })
+      .then((bundle) => bundle.unbundle()),
+  ]);
+  const { scheduleList, metadata, rootScheduleOwner: scheduleOwner } = settledValueOrThrow(scheduleDataResult);
   console.timeEnd('get-schedule-from-slug');
   console.log('groupItems retrieved from getScheduleUtil:', JSON.stringify(scheduleList, null, 2));
   //console.log('owner retrieved from getScheduleUtil:', JSON.stringify(scheduleOwner, null, 2));
@@ -107,15 +119,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
   // Same lookup feeds Slot.serviceCategory stamping, slot duration, AND cadence.
   // We fetch the category-tagged HealthcareServices once and use the result for
   // every downstream lookup that needs them.
-  const fhirCategoryHits = (
-    await oystehr.fhir.search<HealthcareService>({
-      resourceType: 'HealthcareService',
-      params: [
-        { name: '_tag', value: 'booking-service-category' },
-        { name: 'active', value: 'true' },
-      ],
-    })
-  ).unbundle();
+  const fhirCategoryHits = settledValueOrThrow(fhirCategoryHitsResult);
 
   const parseCategoryConfig = (hs: HealthcareService): { durationMinutes?: number; cadenceMinutes?: number } => ({
     durationMinutes: getServiceCategoryDurationMinutes(hs),
@@ -495,61 +499,69 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     scheduleMatch
   );
 
-  // Group bookings: getLocationInformation returns the group's name (e.g.
-  // "MyGroup"), which is meaningless to a patient who is booking at a
-  // specific physical Location. When the group flow has resolved to a
-  // concrete Location — either via explicit atLocationSlug OR the single-
-  // qualifying-Location auto-pick at `effectiveAtLocationId` — override the
-  // friendly name so the booking page header reads "at Main Clinic" instead
-  // of "at MyGroup". The single-Location auto-pick case is load-bearing:
-  // groups with exactly one Location skip the picker entirely on the front
-  // end, so without this branch the header would degrade for the most
-  // common single-Location group setup. The scheduleOwner type
-  // (HealthcareService) stays as-is so other consumers that branch on owner
-  // type still see the group identity.
-  if (scheduleOwner.resourceType === 'HealthcareService') {
-    let resolvedAtLocation: Location | undefined = atLocation;
-    if (!resolvedAtLocation && effectiveAtLocationId) {
-      // Best-effort lookup for the auto-picked single Location. A failed
-      // fetch falls through to leave the group name in place — no worse
-      // than the pre-fix behavior.
-      resolvedAtLocation = await oystehr.fhir
-        .get<Location>({ resourceType: 'Location', id: effectiveAtLocationId })
-        .catch(() => undefined);
-    }
-    if (resolvedAtLocation?.name) {
-      locationInformationWithClosures.name = resolvedAtLocation.name;
-    }
-  }
-
-  // PR-actored schedules don't carry a friendly name — getLocationInformation
-  // returns "Role <uuid>" as a placeholder. Compose "<practitioner-name> at
-  // <location-name>" by fetching the referenced resources, so the booking page
-  // header reads naturally to the patient.
-  if (scheduleOwner.resourceType === 'PractitionerRole') {
-    const role = scheduleOwner as PractitionerRole;
-    const practitionerId = getIdFromReference(role.practitioner?.reference);
-    const locationId = getIdFromReference(role.location?.[0]?.reference);
-    const [practitioner, prLocation] = await Promise.all([
-      practitionerId
-        ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId }).catch(() => undefined)
-        : Promise.resolve(undefined),
-      locationId
-        ? oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId }).catch(() => undefined)
-        : Promise.resolve(undefined),
-    ]);
-    const practitionerName = practitioner ? getFullName(practitioner) : undefined;
-    const locationName = prLocation?.name;
-    const composed =
-      practitionerName && locationName ? `${practitionerName} at ${locationName}` : practitionerName ?? locationName;
-    if (composed) {
-      locationInformationWithClosures.name = composed;
-    }
-  }
-
   console.log('getting wait time based on longest waiting patient at location');
   console.time('get_waiting_minutes');
-  const waitingMinutes = await getWaitingMinutesAtSchedule(oystehr, now, scheduleOwner);
+  const [waitingMinutes] = await Promise.all([
+    getWaitingMinutesAtSchedule(oystehr, now, scheduleOwner),
+    (async (): Promise<void> => {
+      // Group bookings: getLocationInformation returns the group's name (e.g.
+      // "MyGroup"), which is meaningless to a patient who is booking at a
+      // specific physical Location. When the group flow has resolved to a
+      // concrete Location — either via explicit atLocationSlug OR the single-
+      // qualifying-Location auto-pick at `effectiveAtLocationId` — override the
+      // friendly name so the booking page header reads "at Main Clinic" instead
+      // of "at MyGroup". The single-Location auto-pick case is load-bearing:
+      // groups with exactly one Location skip the picker entirely on the front
+      // end, so without this branch the header would degrade for the most
+      // common single-Location group setup. The scheduleOwner type
+      // (HealthcareService) stays as-is so other consumers that branch on owner
+      // type still see the group identity.
+      if (scheduleOwner.resourceType === 'HealthcareService') {
+        let resolvedAtLocation: Location | undefined = atLocation;
+        if (!resolvedAtLocation && effectiveAtLocationId) {
+          // Best-effort lookup for the auto-picked single Location. A failed
+          // fetch falls through to leave the group name in place — no worse
+          // than the pre-fix behavior.
+          resolvedAtLocation = await oystehr.fhir
+            .get<Location>({ resourceType: 'Location', id: effectiveAtLocationId })
+            .catch(() => undefined);
+        }
+        if (resolvedAtLocation?.name) {
+          locationInformationWithClosures.name = resolvedAtLocation.name;
+        }
+      }
+    })(),
+    (async (): Promise<void> => {
+      // PR-actored schedules don't carry a friendly name — getLocationInformation
+      // returns "Role <uuid>" as a placeholder. Compose "<practitioner-name> at
+      // <location-name>" by fetching the referenced resources, so the booking page
+      // header reads naturally to the patient.
+      if (scheduleOwner.resourceType === 'PractitionerRole') {
+        const role = scheduleOwner as PractitionerRole;
+        const practitionerId = getIdFromReference(role.practitioner?.reference);
+        const locationId = getIdFromReference(role.location?.[0]?.reference);
+        const [practitioner, prLocation] = await Promise.all([
+          practitionerId
+            ? oystehr.fhir
+                .get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId })
+                .catch(() => undefined)
+            : Promise.resolve(undefined),
+          locationId
+            ? oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId }).catch(() => undefined)
+            : Promise.resolve(undefined),
+        ]);
+        const practitionerName = practitioner ? getFullName(practitioner) : undefined;
+        const locationName = prLocation?.name;
+        const composed =
+          practitionerName && locationName
+            ? `${practitionerName} at ${locationName}`
+            : practitionerName ?? locationName;
+        if (composed) {
+          locationInformationWithClosures.name = composed;
+        }
+      }
+    })(),
+  ]);
   console.timeEnd('get_waiting_minutes');
 
   let timezone: Timezone | undefined;

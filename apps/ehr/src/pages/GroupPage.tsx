@@ -376,20 +376,9 @@ function GroupPageContent(): ReactElement {
       console.log('oystehr client is not defined');
       return;
     }
-    // Phase 1: load the group so the rest of the fetch graph knows which
-    // Locations are already attached. Standalone GET — short and gates
-    // phase 2.
-    const groupTemp = await oystehr.fhir.get<HealthcareService>({
-      resourceType: 'HealthcareService',
-      id: groupID,
-    });
-    const attachedLocationIds = (groupTemp.location ?? [])
-      .map((ref) => getIdFromReference(ref.reference))
-      .filter((id): id is string => !!id);
-
-    // Phase 2 (parallel): paginated PRs (with their Practitioners _included),
-    // paginated active Locations, and a supplemental fetch for any already-
-    // attached Locations. PRs are paginated for the same reason Locations
+    // Paginated PRs (with their Practitioners _included), paginated active
+    // Locations, and the group followed by a supplemental fetch for any
+    // already-attached Locations. PRs are paginated for the same reason Locations
     // are — at scale, `_count=1000` silently truncates and the widget loses
     // anyone beyond the first page. Active Locations alone can exceed 1000,
     // so paginate with `status=active` pushed to the server to keep each
@@ -397,36 +386,48 @@ function GroupPageContent(): ReactElement {
     // a Location attached whose status has since flipped to inactive —
     // without it, those Locations would vanish from chips/widget/subtext
     // as soon as we filter the main fetch by status.
-    const [practitionerResources, activeLocations, attachedLocations] = await Promise.all([
-      getAllFhirSearchPages<PractitionerRole | Practitioner | Schedule>(
-        {
-          resourceType: 'PractitionerRole',
-          params: [
-            { name: '_include', value: 'PractitionerRole:practitioner' },
-            // Pull each PR's owning Schedule along so the providers-per-
-            // location widget can deep-link to the schedule editor without
-            // an extra round trip per click.
-            { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
-          ],
-        },
-        oystehr
-      ),
-      getAllFhirSearchPages<Location>(
-        {
-          resourceType: 'Location',
-          params: [{ name: 'status', value: 'active' }],
-        },
-        oystehr
-      ),
-      attachedLocationIds.length > 0
-        ? oystehr.fhir
-            .search<Location>({
-              resourceType: 'Location',
-              params: [{ name: '_id', value: attachedLocationIds.join(',') }],
-            })
-            .then((b) => b.unbundle())
-        : Promise.resolve<Location[]>([]),
-    ]);
+    const [{ groupTemp, attachedLocationIds, attachedLocations }, practitionerResources, activeLocations] =
+      await Promise.all([
+        (async () => {
+          const group = await oystehr.fhir.get<HealthcareService>({
+            resourceType: 'HealthcareService',
+            id: groupID,
+          });
+          const locationIds = (group.location ?? [])
+            .map((ref) => getIdFromReference(ref.reference))
+            .filter((id): id is string => !!id);
+          const locations =
+            locationIds.length > 0
+              ? (
+                  await oystehr.fhir.search<Location>({
+                    resourceType: 'Location',
+                    params: [{ name: '_id', value: locationIds.join(',') }],
+                  })
+                ).unbundle()
+              : [];
+          return { groupTemp: group, attachedLocationIds: locationIds, attachedLocations: locations };
+        })(),
+        getAllFhirSearchPages<PractitionerRole | Practitioner | Schedule>(
+          {
+            resourceType: 'PractitionerRole',
+            params: [
+              { name: '_include', value: 'PractitionerRole:practitioner' },
+              // Pull each PR's owning Schedule along so the providers-per-
+              // location widget can deep-link to the schedule editor without
+              // an extra round trip per click.
+              { name: '_revinclude', value: 'Schedule:actor:PractitionerRole' },
+            ],
+          },
+          oystehr
+        ),
+        getAllFhirSearchPages<Location>(
+          {
+            resourceType: 'Location',
+            params: [{ name: 'status', value: 'active' }],
+          },
+          oystehr
+        ),
+      ]);
 
     const practitionersTemp = practitionerResources.filter((r): r is Practitioner => r.resourceType === 'Practitioner');
     const practitionerRolesTemp = practitionerResources.filter(

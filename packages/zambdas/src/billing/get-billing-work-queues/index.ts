@@ -6,8 +6,8 @@ import {
   WorkQueue,
   WorkQueueSummary,
 } from 'utils/lib/types/data/billing/work-queue.schemas';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { mapWithConcurrency } from '../../shared/concurrency';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { buildClaimFilterParams, scanMatchingClaims } from '../claim-search';

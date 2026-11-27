@@ -14,6 +14,7 @@ import { checkOrCreateM2MClientToken, getUser } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { sendLetterFax } from '../../../shared/send-letter-fax';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { getOrCreateRadiologyOrderForm } from '../shared/order-form-resources';
 import { validateInput, validateSecrets } from './validation';
@@ -46,8 +47,16 @@ const performEffect = async (
   const { serviceRequestId, faxNumber } = body;
   const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
 
-  // Fax the form on file so the recipient gets the document that was printed and reviewed here.
-  const { mediaUrl: media, patientId } = await getOrCreateRadiologyOrderForm(serviceRequestId, secrets, token, oystehr);
+  const [orderFormResult, userPractitionerResult] = await Promise.allSettled([
+    // Fax the form on file so the recipient gets the document that was printed and reviewed here.
+    getOrCreateRadiologyOrderForm(serviceRequestId, secrets, token, oystehr),
+    oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: user.profile.split('/')[1],
+    }),
+  ]);
+  const { mediaUrl: media, patientId } = settledValueOrThrow(orderFormResult);
+  const userPractitioner = settledValueOrThrow(userPractitionerResult);
 
   console.log('Sending radiology order fax to', faxNumber);
   const fax = await sendLetterFax({
@@ -58,7 +67,17 @@ const performEffect = async (
     organizationId,
   });
 
-  await writeFaxProvenance(fax.id!, fax.sent, serviceRequestId, patientId, faxNumber, organizationId, user, oystehr);
+  await writeFaxProvenance(
+    fax.id!,
+    fax.sent,
+    serviceRequestId,
+    patientId,
+    faxNumber,
+    organizationId,
+    user,
+    userPractitioner,
+    oystehr
+  );
 
   return { communicationId: fax.id! };
 };
@@ -71,12 +90,9 @@ const writeFaxProvenance = async (
   faxNumber: string,
   organizationId: string,
   user: User,
+  userPractitioner: Practitioner,
   oystehr: Oystehr
 ): Promise<void> => {
-  const userPractitioner = await oystehr.fhir.get<Practitioner>({
-    resourceType: 'Practitioner',
-    id: user.profile.split('/')[1],
-  });
   // Strip the +1 country code and non-digits to produce a valid FHIR contained id.
   const containedId = faxNumber.replace(/^\+1/, '').replace(/\D/g, '');
 

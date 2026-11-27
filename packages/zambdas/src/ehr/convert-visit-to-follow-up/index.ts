@@ -14,6 +14,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { convertVisitToScheduledFollowUp } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -62,7 +63,24 @@ export const complexValidation = async (
     throw INVALID_INPUT_ERROR('A visit cannot be a follow-up of itself');
   }
 
-  const visitResources = await getVisitResources(oystehr, encounterId);
+  const [visitResourcesResult, ownFollowUpsResult, parentEncounterResult, userResult] = await Promise.allSettled([
+    getVisitResources(oystehr, encounterId),
+    oystehr.fhir
+      .search<Encounter>({
+        resourceType: 'Encounter',
+        params: [
+          { name: 'part-of', value: `Encounter/${encounterId}` },
+          { name: '_count', value: '1' },
+        ],
+      })
+      .then((bundle) => bundle.unbundle()),
+    oystehr.fhir.get<Encounter>({
+      resourceType: 'Encounter',
+      id: parentEncounterId,
+    }),
+    userMe(userToken, secrets),
+  ]);
+  const visitResources = settledValueOrThrow(visitResourcesResult);
   if (!visitResources) {
     throw new Error(`Visit resources are not properly defined for encounter ${encounterId}`);
   }
@@ -75,15 +93,7 @@ export const complexValidation = async (
     throw INVALID_INPUT_ERROR('This visit is already a follow-up');
   }
 
-  const ownFollowUps = (
-    await oystehr.fhir.search<Encounter>({
-      resourceType: 'Encounter',
-      params: [
-        { name: 'part-of', value: `Encounter/${encounterId}` },
-        { name: '_count', value: '1' },
-      ],
-    })
-  ).unbundle();
+  const ownFollowUps = settledValueOrThrow(ownFollowUpsResult);
   if (ownFollowUps.length > 0) {
     throw INVALID_INPUT_ERROR('This visit already has its own follow-ups and cannot become a follow-up itself');
   }
@@ -93,11 +103,7 @@ export const complexValidation = async (
     throw new Error(`Could not resolve the patient for encounter ${encounterId}`);
   }
 
-  const parentEncounter = await oystehr.fhir.get<Encounter>({
-    resourceType: 'Encounter',
-    id: parentEncounterId,
-  });
-
+  const parentEncounter = settledValueOrThrow(parentEncounterResult);
   // Mirrors the guard in create-appointment: follow-ups are one level deep only.
   if (parentEncounter.partOf) {
     throw INVALID_INPUT_ERROR(
@@ -109,7 +115,7 @@ export const complexValidation = async (
     throw INVALID_INPUT_ERROR('The initial visit belongs to a different patient');
   }
 
-  const user = await userMe(userToken, secrets);
+  const user = settledValueOrThrow(userResult);
   if (!user) {
     throw new Error('user unexpectedly not found');
   }

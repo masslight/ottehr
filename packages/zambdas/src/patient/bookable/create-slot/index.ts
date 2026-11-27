@@ -31,6 +31,7 @@ import { resolveFlowCanonicalForServiceMode } from '../../../ehr/paperwork-flow/
 import { checkIsEHRUser, checkOrCreateM2MClientToken, getUser } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { assertScheduleLocationActorBookable } from './helpers';
 
@@ -308,46 +309,53 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   //   - Location actor: drop. Schedule.actor IS the Location; stamping
   //     would just duplicate state.
   //   - Practitioner actor: drop. No Location concept to attribute to.
-  let shouldStampAtLocation = false;
-  if (atLocationId) {
+  const validateAtLocation = async (): Promise<boolean> => {
+    if (!atLocationId) return false;
     const actorRef = schedule.actor?.[0]?.reference;
     const [actorType, actorId] = actorRef?.split('/') ?? [];
     if (!actorType || !actorId) {
       throw INVALID_INPUT_ERROR('Schedule has no resolvable actor; cannot interpret "atLocationId"');
     }
-    if (actorType === 'HealthcareService' || actorType === 'PractitionerRole') {
-      let atLocation: Location;
-      try {
-        atLocation = await oystehr.fhir.get<Location>({ resourceType: 'Location', id: atLocationId });
-      } catch {
-        throw INVALID_INPUT_ERROR(`"atLocationId" did not match any Location: ${atLocationId}`);
-      }
-      if (actorType === 'HealthcareService') {
-        const group = await oystehr.fhir.get<HealthcareService>({ resourceType: 'HealthcareService', id: actorId });
-        const isAllLocations = getGroupAllLocations(group) === true;
-        const groupLocationRefs = new Set(
-          (group.location ?? []).map((l) => l.reference).filter((r): r is string => !!r)
-        );
-        const isMember = isAllLocations || groupLocationRefs.has(`Location/${atLocation.id}`);
-        if (!isMember) {
-          throw INVALID_INPUT_ERROR(
-            `"atLocationId" resolves to a Location that is not a member of the group: ${atLocationId}`
-          );
-        }
-      } else {
-        // PractitionerRole
-        const role = await oystehr.fhir.get<PractitionerRole>({ resourceType: 'PractitionerRole', id: actorId });
-        const hasLocation = (role.location ?? []).some((ref) => ref.reference === `Location/${atLocation.id}`);
-        if (!hasLocation) {
-          throw INVALID_INPUT_ERROR(
-            `"atLocationId" resolves to a Location not associated with the PractitionerRole owning this schedule: ${atLocationId}`
-          );
-        }
-      }
-      shouldStampAtLocation = true;
+    if (actorType !== 'HealthcareService' && actorType !== 'PractitionerRole') {
+      // Location, Practitioner: silently drop.
+      return false;
     }
-    // Location, Practitioner: silently drop.
-  }
+    const getAtLocation = (): Promise<Location> =>
+      oystehr.fhir.get<Location>({ resourceType: 'Location', id: atLocationId }).catch(() => {
+        throw INVALID_INPUT_ERROR(`"atLocationId" did not match any Location: ${atLocationId}`);
+      });
+    if (actorType === 'HealthcareService') {
+      const [atLocationResult, groupResult] = await Promise.allSettled([
+        getAtLocation(),
+        oystehr.fhir.get<HealthcareService>({ resourceType: 'HealthcareService', id: actorId }),
+      ]);
+      const atLocation = settledValueOrThrow(atLocationResult);
+      const group = settledValueOrThrow(groupResult);
+      const isAllLocations = getGroupAllLocations(group) === true;
+      const groupLocationRefs = new Set((group.location ?? []).map((l) => l.reference).filter((r): r is string => !!r));
+      const isMember = isAllLocations || groupLocationRefs.has(`Location/${atLocation.id}`);
+      if (!isMember) {
+        throw INVALID_INPUT_ERROR(
+          `"atLocationId" resolves to a Location that is not a member of the group: ${atLocationId}`
+        );
+      }
+    } else {
+      // PractitionerRole
+      const [atLocationResult, roleResult] = await Promise.allSettled([
+        getAtLocation(),
+        oystehr.fhir.get<PractitionerRole>({ resourceType: 'PractitionerRole', id: actorId }),
+      ]);
+      const atLocation = settledValueOrThrow(atLocationResult);
+      const role = settledValueOrThrow(roleResult);
+      const hasLocation = (role.location ?? []).some((ref) => ref.reference === `Location/${atLocation.id}`);
+      if (!hasLocation) {
+        throw INVALID_INPUT_ERROR(
+          `"atLocationId" resolves to a Location not associated with the PractitionerRole owning this schedule: ${atLocationId}`
+        );
+      }
+    }
+    return true;
+  };
 
   // Decide whether to stamp the slot-booked-via-group extension. Applies
   // when the actor is either a PR (pools-providers) or a Location whose
@@ -359,8 +367,8 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   // caller stamp any group HS onto any Slot — that ref propagates into
   // Appointment.participant (and downstream Encounter behavior), so the
   // check has to be authoritative.
-  let shouldStampBookedViaGroup = false;
-  if (bookedViaGroupId) {
+  const validateBookedViaGroup = async (): Promise<boolean> => {
+    if (!bookedViaGroupId) return false;
     const actorRef = schedule.actor?.[0]?.reference ?? '';
     const [actorType, actorId] = actorRef.split('/');
     if (actorType !== 'HealthcareService') {
@@ -377,15 +385,23 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
       }
       // Pull the group HS and its Locations (for membership + inactive
       // filtering) in one search.
-      const groupBundle = (
-        await oystehr.fhir.search<HealthcareService | Location>({
-          resourceType: 'HealthcareService',
-          params: [
-            { name: '_id', value: bookedViaGroupId },
-            { name: '_include', value: 'HealthcareService:location' },
-          ],
-        })
-      ).unbundle();
+      const [groupBundle, actorRole] = await Promise.all([
+        oystehr.fhir
+          .search<HealthcareService | Location>({
+            resourceType: 'HealthcareService',
+            params: [
+              { name: '_id', value: bookedViaGroupId },
+              { name: '_include', value: 'HealthcareService:location' },
+            ],
+          })
+          .then((bundle) => bundle.unbundle()),
+        actorType === 'PractitionerRole'
+          ? oystehr.fhir
+              .get<PractitionerRole>({ resourceType: 'PractitionerRole', id: actorId })
+              .then((role): PractitionerRole | undefined => role)
+              .catch(() => undefined)
+          : Promise.resolve(undefined),
+      ]);
       const group = groupBundle.find(
         (r): r is HealthcareService => r.resourceType === 'HealthcareService' && r.id === bookedViaGroupId
       );
@@ -416,13 +432,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
         // PR-actored: defer to the membership walker so back-ref, location-
         // overlap, and all-locations widening all resolve consistently with
         // how slot-vending decides membership.
-        let actorRole: PractitionerRole | undefined;
-        try {
-          actorRole = await oystehr.fhir.get<PractitionerRole>({
-            resourceType: 'PractitionerRole',
-            id: actorId,
-          });
-        } catch {
+        if (!actorRole) {
           throw INVALID_INPUT_ERROR(`Schedule actor PractitionerRole not found: ${actorId}`);
         }
         const allLocationsFlag = getGroupAllLocations(group) === true;
@@ -432,10 +442,54 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
           );
         }
       }
-      shouldStampBookedViaGroup = true;
+      return true;
     }
     // HS actor: silently drop — Schedule.actor already records the group.
-  }
+    return false;
+  };
+
+  // handle assigning correct questionnaireCanonical
+  // we will check if any flows have been created for this service category x visit modality
+  // if yes, the flow questionnaire will take precedence over the questionnaireCanonical
+  // UNLESS this is running in for e2e tests; in that case the questionnaireCanonical param value always wins
+  // this extension is the source of truth for what the booking questionnaire response should point to
+  const resolveFlowCanonical = async (): Promise<CanonicalUrl | undefined> => {
+    // this should be an interim solution while booking questionnaires are still ottehr-managed,
+    // allowing us to continue to definitively test ottehr managed services x ottehr managed questionnaires
+    const runningIne2e = Boolean(process.env.PLAYWRIGHT_SUITE_ID);
+    const serviceLivesInBookingConfig = isBookingConfigServiceCategoryCode(effectiveServiceCategoryCode);
+    const byPassPracticeManagedPaperworkFlow = runningIne2e && serviceLivesInBookingConfig;
+
+    if (byPassPracticeManagedPaperworkFlow) {
+      console.log(
+        'byPassPracticeManagedPaperworkFlow is true, we will not check for a flow questionnaire and are treating questionnaireCanonical as authority'
+      );
+      return undefined;
+    }
+    const flowCanonical = await resolveFlowCanonicalForServiceMode({
+      serviceCategoryCode: effectiveServiceCategoryCode,
+      serviceMode: serviceModality,
+      oystehr,
+      secrets,
+    });
+
+    console.log(
+      `flowCanonical for ${effectiveServiceCategoryCode} x ${serviceModality}: ${
+        flowCanonical ? `${flowCanonical.url}|${flowCanonical.version}` : 'none'
+      }`
+    );
+    return flowCanonical;
+  };
+
+  const [atLocationCheck, bookedViaGroupCheck, flowCanonicalCheck] = await Promise.allSettled([
+    validateAtLocation(),
+    validateBookedViaGroup(),
+    resolveFlowCanonical(),
+  ]);
+  if (atLocationCheck.status === 'rejected') throw atLocationCheck.reason;
+  if (bookedViaGroupCheck.status === 'rejected') throw bookedViaGroupCheck.reason;
+  const shouldStampAtLocation = atLocationCheck.value;
+  const shouldStampBookedViaGroup = bookedViaGroupCheck.value;
 
   // setZone: true preserves the timezone from the input ISO string instead of converting to system timezone
   // This prevents DST offset issues when the system timezone differs from the intended timezone
@@ -472,37 +526,8 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     extension.push(makeBookingOriginExtensionEntry(originalBookingUrl));
   }
 
-  // handle assigning correct questionnaireCanonical
-  // we will check if any flows have been created for this service category x visit modality
-  // if yes, the flow questionnaire will take precedence over the questionnaireCanonical
-  // UNLESS this is running in for e2e tests; in that case the questionnaireCanonical param value always wins
-  // this extension is the source of truth for what the booking questionnaire response should point to
-  let flowCanonical: CanonicalUrl | undefined;
-
-  // this should be an interim solution while booking questionnaires are still ottehr-managed,
-  // allowing us to continue to definitively test ottehr managed services x ottehr managed questionnaires
-  const runningIne2e = Boolean(process.env.PLAYWRIGHT_SUITE_ID);
-  const serviceLivesInBookingConfig = isBookingConfigServiceCategoryCode(effectiveServiceCategoryCode);
-  const byPassPracticeManagedPaperworkFlow = runningIne2e && serviceLivesInBookingConfig;
-
-  if (byPassPracticeManagedPaperworkFlow) {
-    console.log(
-      'byPassPracticeManagedPaperworkFlow is true, we will not check for a flow questionnaire and are treating questionnaireCanonical as authority'
-    );
-  } else {
-    flowCanonical = await resolveFlowCanonicalForServiceMode({
-      serviceCategoryCode: effectiveServiceCategoryCode,
-      serviceMode: serviceModality,
-      oystehr,
-      secrets,
-    });
-
-    console.log(
-      `flowCanonical for ${effectiveServiceCategoryCode} x ${serviceModality}: ${
-        flowCanonical ? `${flowCanonical.url}|${flowCanonical.version}` : 'none'
-      }`
-    );
-  }
+  if (flowCanonicalCheck.status === 'rejected') throw flowCanonicalCheck.reason;
+  const flowCanonical = flowCanonicalCheck.value;
 
   const winningQuestionnaireCanonical = flowCanonical ?? questionnaireCanonical;
 

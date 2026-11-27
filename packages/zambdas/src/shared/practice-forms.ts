@@ -91,17 +91,16 @@ export const getEncounterFormResponses = async (
   intakeQr: QuestionnaireResponse | undefined,
   secrets: Secrets | null
 ): Promise<StandaloneFormDTO[]> => {
-  const questionnaireResponses = await getAllFhirSearchPages<QuestionnaireResponse>(
-    {
-      resourceType: 'QuestionnaireResponse',
-      params: [{ name: 'encounter', value: `Encounter/${encounterId}` }],
-    },
-    oystehr
-  );
   const loadQuestionnaire = makeQuestionnaireLoader(oystehr);
   const ownIntakeQr = intakeQr?.encounter?.reference === `Encounter/${encounterId}` ? intakeQr : undefined;
   const [standalone, flowForms] = await Promise.all([
-    getStandaloneForms(questionnaireResponses, loadQuestionnaire),
+    getAllFhirSearchPages<QuestionnaireResponse>(
+      {
+        resourceType: 'QuestionnaireResponse',
+        params: [{ name: 'encounter', value: `Encounter/${encounterId}` }],
+      },
+      oystehr
+    ).then((questionnaireResponses) => getStandaloneForms(questionnaireResponses, loadQuestionnaire)),
     ownIntakeQr ? getIntakePaperworkFlowForms(ownIntakeQr, loadQuestionnaire, secrets) : undefined,
   ]);
   return [...standalone, ...(flowForms ?? [])].filter(hasAnyAnswer);

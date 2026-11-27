@@ -38,6 +38,7 @@ import {
   extractAbnormalValueSetValues,
   extractQuantityRange,
 } from 'utils/lib/helpers/in-house-labs';
+import { Secrets } from 'utils/lib/secrets';
 import { NonNormalResult } from 'utils/lib/types/api/lab';
 import {
   ABNORMAL_OBSERVATION_INTERPRETATION,
@@ -66,6 +67,7 @@ import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { createInHouseLabResultPDF } from '../../../../shared/pdf/labs-results-form-pdf';
 import { getMyPractitionerId } from '../../../../shared/practitioners';
 import { wrapHandler } from '../../../../shared/sentry';
+import { settledValueOrThrow } from '../../../../shared/settled';
 import { createOwnerReference } from '../../../../shared/tasks';
 import { ZambdaInput } from '../../../../shared/types/common';
 import {
@@ -88,9 +90,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log('token', m2mToken);
 
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-  const curUserPractitionerId = await getMyPractitionerId(userToken, secrets);
 
   const {
+    curUserPractitionerId,
     serviceRequest,
     encounter,
     patient,
@@ -104,7 +106,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     relatedServiceRequests,
     existingDiagnosticReport,
     resultEntryMode,
-  } = await getInHouseLabResultResources(serviceRequestId, curUserPractitionerId, oystehr);
+  } = await getInHouseLabResultResources(serviceRequestId, userToken, secrets, oystehr);
 
   const currentUserPractitionerName = getFullestAvailableName(currentUserPractitioner);
   const attendingPractitionerName = getFullestAvailableName(attendingPractitioner);
@@ -190,9 +192,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 const getInHouseLabResultResources = async (
   serviceRequestId: string,
-  curUserPractitionerId: string,
+  userToken: string,
+  secrets: Secrets | null,
   oystehr: Oystehr
 ): Promise<{
+  curUserPractitionerId: string;
   serviceRequest: ServiceRequest;
   encounter: Encounter;
   patient: Patient;
@@ -207,8 +211,9 @@ const getInHouseLabResultResources = async (
   existingDiagnosticReport: DiagnosticReport | undefined;
   resultEntryMode: EntryMode;
 }> => {
-  const labOrderResources = (
-    await oystehr.fhir.search<
+  const [curUserPractitionerIdResult, labOrderResourcesBundleResult] = await Promise.allSettled([
+    getMyPractitionerId(userToken, secrets),
+    oystehr.fhir.search<
       ServiceRequest | Patient | Encounter | Specimen | Task | Schedule | Location | DiagnosticReport
     >({
       resourceType: 'ServiceRequest',
@@ -261,8 +266,10 @@ const getInHouseLabResultResources = async (
           value: 'DiagnosticReport:based-on',
         },
       ],
-    })
-  ).unbundle();
+    }),
+  ]);
+  const curUserPractitionerId = settledValueOrThrow(curUserPractitionerIdResult);
+  const labOrderResources = settledValueOrThrow(labOrderResourcesBundleResult).unbundle();
 
   console.log('labOrderResources', JSON.stringify(labOrderResources));
 
@@ -404,6 +411,7 @@ const getInHouseLabResultResources = async (
   }
 
   return {
+    curUserPractitionerId,
     serviceRequest,
     encounter,
     patient,

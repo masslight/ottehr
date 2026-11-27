@@ -72,86 +72,90 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   let documents = null;
   let reviewedLabResults: FileURLInfo[] = [];
-
-  try {
-    console.log(`getting presigned urls for document references files at ${appointmentId}`);
-    const { presignedUrls, reviewedLabResultsUrls } = await getPatientPortalPresignedURLs(
-      oystehr,
-      oystehrToken,
-      secrets,
-      encounter?.id
-    );
-    documents = presignedUrls;
-    reviewedLabResults = reviewedLabResultsUrls;
-  } catch (error) {
-    console.log('getPresignedURLs', error);
-    captureException(error);
-  }
-
   let medications = null;
-
-  try {
-    medications = await getMedications(oystehr, encounter?.id);
-  } catch (error) {
-    captureException(error);
-    console.log('getMedications', error);
-  }
-
   let reviewedRadiologyResults: GetVisitDetailsResponse['reviewedRadiologyResults'] = [];
-
-  try {
-    if (encounter?.id) {
-      reviewedRadiologyResults = await getReviewedRadiologyResults(oystehr, oystehrToken, secrets, encounter.id);
-    }
-  } catch (error) {
-    captureException(error);
-    console.log('getReviewedRadiologyResults', error);
-  }
-
   let followUps: GetVisitDetailsResponse['followUps'] = [];
 
-  try {
-    if (encounter?.id) {
-      const getEncounterSortValue = (encounterResource: Encounter): number => {
-        const dateString = encounterResource.period?.start ?? encounterResource.period?.end;
-        return dateString ? new Date(dateString).getTime() : Number.POSITIVE_INFINITY;
-      };
-
-      const sortedFollowups = allEncounters
-        .filter((e) => isFollowupEncounter(e) && e.id !== encounter.id)
-        .sort((a, b) => getEncounterSortValue(a) - getEncounterSortValue(b));
-
-      followUps = await Promise.all(
-        sortedFollowups.map(async (followupEncounter) => {
-          let followupDocuments = {};
-          try {
-            if (followupEncounter.id) {
-              const { presignedUrls } = await getPatientPortalPresignedURLs(
-                oystehr,
-                oystehrToken,
-                secrets,
-                followupEncounter.id
-              );
-              followupDocuments = presignedUrls;
-            }
-          } catch (error) {
-            console.log('getPresignedURLs for follow-up', error);
-            captureException(error);
-          }
-
-          const encounterTime = followupEncounter.period?.start ?? followupEncounter.period?.end;
-
-          return {
-            encounterTime,
-            documents: followupDocuments,
+  await Promise.all([
+    (async () => {
+      try {
+        console.log(`getting presigned urls for document references files at ${appointmentId}`);
+        const { presignedUrls, reviewedLabResultsUrls } = await getPatientPortalPresignedURLs(
+          oystehr,
+          oystehrToken,
+          secrets,
+          encounter?.id
+        );
+        documents = presignedUrls;
+        reviewedLabResults = reviewedLabResultsUrls;
+      } catch (error) {
+        console.log('getPresignedURLs', error);
+        captureException(error);
+      }
+    })(),
+    (async () => {
+      try {
+        medications = await getMedications(oystehr, encounter?.id);
+      } catch (error) {
+        captureException(error);
+        console.log('getMedications', error);
+      }
+    })(),
+    (async () => {
+      try {
+        if (encounter?.id) {
+          reviewedRadiologyResults = await getReviewedRadiologyResults(oystehr, oystehrToken, secrets, encounter.id);
+        }
+      } catch (error) {
+        captureException(error);
+        console.log('getReviewedRadiologyResults', error);
+      }
+    })(),
+    (async () => {
+      try {
+        if (encounter?.id) {
+          const getEncounterSortValue = (encounterResource: Encounter): number => {
+            const dateString = encounterResource.period?.start ?? encounterResource.period?.end;
+            return dateString ? new Date(dateString).getTime() : Number.POSITIVE_INFINITY;
           };
-        })
-      );
-    }
-  } catch (error) {
-    captureException(error);
-    console.log('getFollowUpEncounters', error);
-  }
+
+          const sortedFollowups = allEncounters
+            .filter((e) => isFollowupEncounter(e) && e.id !== encounter.id)
+            .sort((a, b) => getEncounterSortValue(a) - getEncounterSortValue(b));
+
+          followUps = await Promise.all(
+            sortedFollowups.map(async (followupEncounter) => {
+              let followupDocuments = {};
+              try {
+                if (followupEncounter.id) {
+                  const { presignedUrls } = await getPatientPortalPresignedURLs(
+                    oystehr,
+                    oystehrToken,
+                    secrets,
+                    followupEncounter.id
+                  );
+                  followupDocuments = presignedUrls;
+                }
+              } catch (error) {
+                console.log('getPresignedURLs for follow-up', error);
+                captureException(error);
+              }
+
+              const encounterTime = followupEncounter.period?.start ?? followupEncounter.period?.end;
+
+              return {
+                encounterTime,
+                documents: followupDocuments,
+              };
+            })
+          );
+        }
+      } catch (error) {
+        captureException(error);
+        console.log('getFollowUpEncounters', error);
+      }
+    })(),
+  ]);
 
   console.log('building get appointment response');
   const response: GetVisitDetailsResponse = {

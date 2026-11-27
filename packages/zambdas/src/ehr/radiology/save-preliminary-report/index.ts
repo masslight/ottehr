@@ -20,6 +20,7 @@ import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { resolveCallerPractitionerRef } from '../../../shared/practitioners';
 import { savePerformedBy } from '../../../shared/radiology';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateICD10Codes } from '../create-order/validation';
 import { extractDiagnosticsFromAdvaPACSErrorBody } from '../shared';
@@ -61,19 +62,22 @@ async function performEffect(
   } = validatedInput.body;
 
   // Validate the ICD-10 codes up front so we fail fast before touching AdvaPACS.
-  const diagnoses = await validateICD10Codes(diagnosisCodes, oystehr);
-
-  // Both fetched up front, so a failure here happens before the single-shot AdvaPACS report POST.
+  // The order and author are fetched up front too, so a failure happens before the single-shot AdvaPACS POST.
   console.group('Fetching service request from Oystehr');
-  const [serviceRequest, author] = await Promise.all([
+  const [diagnosesResult, serviceRequestResult, authorResult, existingReportsResult] = await Promise.allSettled([
+    validateICD10Codes(diagnosisCodes, oystehr),
     oystehr.fhir.get<ServiceRequest>({ resourceType: 'ServiceRequest', id: serviceRequestId }),
     resolveCallerPractitionerRef(validatedInput.callerAccessToken, secrets, oystehr),
+    searchExistingReports(serviceRequestId, oystehr),
   ]);
+  const diagnoses = settledValueOrThrow(diagnosesResult);
+  const serviceRequest = settledValueOrThrow(serviceRequestResult);
+  const author = settledValueOrThrow(authorResult);
   console.groupEnd();
   console.debug('Service request fetched successfully');
 
   console.group('Validating the order accepts a preliminary report');
-  await validateOrderAcceptsPreliminaryReport(serviceRequest, oystehr);
+  validateOrderAcceptsPreliminaryReport(serviceRequest, existingReportsResult);
   console.groupEnd();
 
   // Record who performed the study before writing the report; a report failure downstream then leaves the
@@ -106,21 +110,23 @@ async function performEffect(
         Array.isArray(serviceRequest.reasonCode) && serviceRequest.reasonCode.length > 0
       )
     : undefined;
-  if (reasonCodeOperation) {
-    console.group('Updating service request diagnosis in Oystehr');
-    await oystehr.fhir.patch({
-      resourceType: 'ServiceRequest',
-      id: serviceRequestId,
-      operations: [reasonCodeOperation],
-    });
-    console.groupEnd();
-    console.debug('Service request diagnosis updated successfully');
-  }
-
-  // Fetch the corresponding service request from AdvaPACS using the accession number
-  console.group('Fetching service request from AdvaPACS');
-  const advaPacsServiceRequest = await fetchServiceRequestFromAdvaPACS(accessionNumber, secrets);
+  console.group('Updating service request diagnosis in Oystehr');
+  const [reasonCodePatchResult, advaPacsServiceRequestResult] = await Promise.allSettled([
+    reasonCodeOperation
+      ? oystehr.fhir.patch({
+          resourceType: 'ServiceRequest',
+          id: serviceRequestId,
+          operations: [reasonCodeOperation],
+        })
+      : undefined,
+    // Fetch the corresponding service request from AdvaPACS using the accession number
+    fetchServiceRequestFromAdvaPACS(accessionNumber, secrets),
+  ]);
+  settledValueOrThrow(reasonCodePatchResult);
   console.groupEnd();
+  if (reasonCodeOperation) console.debug('Service request diagnosis updated successfully');
+
+  const advaPacsServiceRequest = settledValueOrThrow(advaPacsServiceRequestResult);
   console.debug('AdvaPACS service request fetched successfully');
 
   // Create a DiagnosticReport in AdvaPACS with the preliminary report
@@ -143,7 +149,7 @@ async function performEffect(
   if (markAsFinal) {
     console.group('Marking the preliminary report as final');
     try {
-      await finalizeRadiologyReport(serviceRequestId, preliminaryReport, author, oystehr);
+      await finalizeRadiologyReport(serviceRequestId, preliminaryReport, async () => author, oystehr);
     } catch (error) {
       console.error('Failed to mark the preliminary report as final', error);
       throw RADIOLOGY_ERROR(
@@ -156,6 +162,16 @@ async function performEffect(
 
   return {};
 }
+
+const searchExistingReports = async (serviceRequestId: string, oystehr: Oystehr): Promise<DiagnosticReport4B[]> =>
+  (
+    await oystehr.fhir.search<DiagnosticReport4B>({
+      resourceType: 'DiagnosticReport',
+      params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequestId}` }],
+    })
+  )
+    .unbundle()
+    .filter((report) => report.status !== 'entered-in-error');
 
 /**
  * The patch that makes the order's `reasonCode` match the diagnoses saved with the read: `add`/`replace` for a
@@ -177,10 +193,10 @@ export const buildReasonCodeOperation = (
  * In-house, performed, not yet reported — checked here because the performer patch below runs before AdvaPACS
  * gets a chance to reject a duplicate report, and would rewrite an already-locked `performer`.
  */
-const validateOrderAcceptsPreliminaryReport = async (
+const validateOrderAcceptsPreliminaryReport = (
   serviceRequest: ServiceRequest,
-  oystehr: Oystehr
-): Promise<void> => {
+  existingReportsResult: PromiseSettledResult<DiagnosticReport4B[]>
+): void => {
   const isExternal = !!getExtension(serviceRequest, FHIR_EXTENSION.ServiceRequest.externalRadiologyOrder.url)
     ?.valueBoolean;
   if (isExternal) {
@@ -192,14 +208,7 @@ const validateOrderAcceptsPreliminaryReport = async (
     throw RADIOLOGY_ERROR('This study has not been performed yet, a preliminary report cannot be saved.');
   }
 
-  const existingReports = (
-    await oystehr.fhir.search<DiagnosticReport4B>({
-      resourceType: 'DiagnosticReport',
-      params: [{ name: 'based-on', value: `ServiceRequest/${serviceRequest.id}` }],
-    })
-  )
-    .unbundle()
-    .filter((report) => report.status !== 'entered-in-error');
+  const existingReports = settledValueOrThrow(existingReportsResult);
   if (existingReports.length > 0) {
     throw RADIOLOGY_ERROR('This report has already been saved, please refresh the page.');
   }

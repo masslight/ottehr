@@ -5,6 +5,7 @@ import { OkResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { commitClaimNote, resolveClaimActor } from '../provenance';
 import { createBillingClient, fetchById } from '../shared';
@@ -22,13 +23,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);
 
-  console.group('complexValidation');
-  const agent = await complexValidation(oystehr, params, userToken);
-  console.groupEnd();
-  console.debug('complexValidation success');
-
   console.group('performEffect');
-  const response = await performEffect(oystehr, params, agent);
+  const response = await performEffect(oystehr, params, complexValidation(oystehr, params, userToken));
   console.groupEnd();
   console.debug('performEffect success', truncateForLog(response));
 
@@ -49,9 +45,14 @@ async function complexValidation(
 export async function performEffect(
   oystehr: Oystehr,
   params: AddClaimNoteParams,
-  agent: ProvenanceAgent
+  callerAgent: ProvenanceAgent | Promise<ProvenanceAgent>
 ): Promise<OkResponse> {
-  const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
+  const [claimResult, agentResult] = await Promise.allSettled([
+    fetchById<Claim>(oystehr, 'Claim', params.claimId),
+    callerAgent,
+  ]);
+  const agent = settledValueOrThrow(agentResult);
+  const claim = settledValueOrThrow(claimResult);
   await commitClaimNote(oystehr, claim, params.message, agent);
 
   return { ok: true };

@@ -160,9 +160,10 @@ import { isoStringFromDateComponents } from 'utils/lib/utils/date';
 import { uploadPDF } from 'utils/lib/utils/pdf';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
-import { getInsuranceOverrideList, ListName } from '../../../rcm/get-insurance-override-list/handler';
+import { findInsuranceOverrideList, ListName } from '../../../rcm/get-insurance-override-list/handler';
 import { resolveCustomInsuranceOrgReference } from '../../../shared/custom-insurance-org-directory';
 import { createPdfBytes } from '../../../shared/pdf';
+import { settledValueOrThrow } from '../../../shared/settled';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
 
@@ -4259,17 +4260,18 @@ export const getAccountAndCoverageResourcesForPatient = async (
     throw PATIENT_NOT_FOUND_ERROR;
   }
 
-  // Get payer info for coverages
-  const insuranceOrgs = await searchInsuranceInformation(
-    oystehr,
-    getCoveragePayorReferences(accountAndCoverageResources),
-    accountAndCoverageResources.filter(isInsuranceOrganization)
-  );
-
-  // Get EHR-facing payer notes
-  const ehrPayerList = await getInsuranceOverrideList(oystehr, ListName.EHR);
+  const [insuranceOrgsResult, ehrPayerListResult] = await Promise.allSettled([
+    searchInsuranceInformation(
+      oystehr,
+      getCoveragePayorReferences(accountAndCoverageResources),
+      accountAndCoverageResources.filter(isInsuranceOrganization)
+    ),
+    findInsuranceOverrideList(oystehr, ListName.EHR),
+  ]);
+  const insuranceOrgs = settledValueOrThrow(insuranceOrgsResult);
+  const ehrPayerList = settledValueOrThrow(ehrPayerListResult);
   for (const org of insuranceOrgs) {
-    const override = ehrPayerList.entry?.find((override) => override.item.reference === getPayerUrl(org.id!));
+    const override = ehrPayerList?.entry?.find((override) => override.item.reference === getPayerUrl(org.id!));
     if (override) {
       const extensions = [...(org.extension ?? []), ...(override.extension ?? [])];
       org.extension = extensions;

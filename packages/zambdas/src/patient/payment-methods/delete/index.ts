@@ -38,16 +38,22 @@ export const index = wrapHandler('del-payment-method', async (input: ZambdaInput
     oystehrClient
   ));
 
-  const { stripeCustomerId } = await complexValidation({
-    patientId: beneficiaryPatientId,
-    appointmentId,
-    oystehrClient,
-  });
   const stripeClient = getStripeClient(secrets);
 
   // check if payment method is assigned to the customer to begin with, before updating the
   // customer invoice settings
-  const paymentMethod = await stripeClient.paymentMethods.retrieve(paymentMethodId);
+  const [validationResult, paymentMethodResult] = await Promise.allSettled([
+    complexValidation({
+      patientId: beneficiaryPatientId,
+      appointmentId,
+      oystehrClient,
+    }),
+    stripeClient.paymentMethods.retrieve(paymentMethodId),
+  ]);
+  if (validationResult.status === 'rejected') throw validationResult.reason;
+  const { stripeCustomerId } = validationResult.value;
+  if (paymentMethodResult.status === 'rejected') throw paymentMethodResult.reason;
+  const paymentMethod = paymentMethodResult.value;
   if (paymentMethod !== undefined && paymentMethod.customer === stripeCustomerId) {
     const detachedPaymentMethod = await stripeClient.paymentMethods.detach(paymentMethodId);
     console.log(

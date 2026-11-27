@@ -25,6 +25,7 @@ import { isFullFhirDateString } from 'utils/lib/utils/date';
 import { getLocalDateOfService } from 'utils/lib/utils/scheduleUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 
 interface GetEligibilityStandardInput {
@@ -148,20 +149,21 @@ export const complexInsuranceValidation = async (
   oystehr: Oystehr
 ): Promise<EligibilityCheckStructuredInput> => {
   const { appointmentId, patientId } = input;
-  let appointment: Appointment | undefined;
 
-  if (appointmentId) {
+  const getAppointment = async (): Promise<Appointment | undefined> => {
+    if (!appointmentId) return undefined;
     const appointmentResource = await oystehr.fhir.get<Appointment>({
       resourceType: 'Appointment',
       id: appointmentId,
     });
-    if (appointmentResource) {
-      appointment = appointmentResource;
-    } else {
+    if (!appointmentResource) {
       throw APIErrorCode.APPOINTMENT_NOT_FOUND;
     }
-  }
+    return appointmentResource;
+  };
+
   if (input.type === 'prevalidation') {
+    const appointment = await getAppointment();
     const { responseItems } = input;
     const primaryPolicyHolder = mapResponseItemsToInsurancePolicyHolder(responseItems);
     const primaryInsuranceData = mapResponseItemsToInsuranceData(responseItems);
@@ -193,8 +195,14 @@ export const complexInsuranceValidation = async (
   } else {
     const { billingProvider: maybeBillingProvider, coverageToCheck } = input;
 
-    const billingProvider = await resolveBillingProviderReference(maybeBillingProvider, oystehr, input.secrets);
-    const coverageResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+    const [appointmentResult, billingProviderResult, coverageResourcesResult] = await Promise.allSettled([
+      getAppointment(),
+      resolveBillingProviderReference(maybeBillingProvider, oystehr, input.secrets),
+      getAccountAndCoverageResourcesForPatient(patientId, oystehr),
+    ]);
+    const appointment = settledValueOrThrow(appointmentResult);
+    const billingProvider = settledValueOrThrow(billingProviderResult);
+    const coverageResources = settledValueOrThrow(coverageResourcesResult);
     const servicedDate = input.servicedDate ?? (await getAppointmentDateOfService(appointment, oystehr));
     return {
       type: 'standard',
@@ -346,7 +354,7 @@ export const complexBillingProviderValidation = async (
   plans: GetBillingProviderInput['plans'],
   appointmentId: string,
   secrets: Secrets | null,
-  oystehrClient: Oystehr
+  defaultBillingResource: BillingProviderResource
 ): Promise<BillingProviderDataObject> => {
   //const { type, reference } = prevalidationInput.billingProviderResource;
 
@@ -355,10 +363,7 @@ export const complexBillingProviderValidation = async (
     secrets,
     appointmentId,
   };
-  const providerData = await getBillingProviderData(
-    input,
-    await getDefaultBillingProviderResource(secrets, oystehrClient)
-  );
+  const providerData = await getBillingProviderData(input, defaultBillingResource);
 
   if (providerData === undefined) {
     throw APIErrorCode.MISSING_BILLING_PROVIDER_DETAILS;

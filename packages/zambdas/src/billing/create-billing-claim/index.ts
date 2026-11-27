@@ -36,6 +36,7 @@ import {
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
@@ -73,9 +74,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
-
-  const response = await performEffect(oystehr, params, agent);
+  const response = await performEffect(
+    oystehr,
+    params,
+    resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets)
+  );
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
@@ -91,24 +94,33 @@ interface OriginalResources {
 async function performEffect(
   oystehr: Oystehr,
   params: CreateClaimParams,
-  agent: ProvenanceAgent
+  callerAgent: Promise<ProvenanceAgent>
 ): Promise<{ claimId: string }> {
-  // before any working copies get created, so a bad ordering provider leaves nothing behind
-  await assertOrderingProvidersExist(
-    oystehr,
-    (params.serviceLines ?? []).map((line) => line.orderingProvider)
-  );
-  const originals = await readOriginals(oystehr, params);
+  const [agentResult, originalsResult] = await Promise.allSettled([
+    callerAgent,
+    (async () => {
+      // before any working copies get created, so a bad ordering provider leaves nothing behind
+      await assertOrderingProvidersExist(
+        oystehr,
+        (params.serviceLines ?? []).map((line) => line.orderingProvider)
+      );
+      return readOriginals(oystehr, params);
+    })(),
+  ]);
+  const agent = settledValueOrThrow(agentResult);
+  const originals = settledValueOrThrow(originalsResult);
   const copies = await createWorkingCopies(oystehr, originals);
-
-  if (copies.patient?.id) {
-    await linkPatientCopyViaPerson(oystehr, params.patientId, copies.patient.id);
-  }
 
   // Resolve the payer's display up front so the claim's references (and therefore its history
   // records) carry friendly names.
   const payerRef = copies.coverage?.payor?.[0]?.reference;
-  const payerName = payerRef ? payerDisplay((await resolvePayersByRef(oystehr, [payerRef])).get(payerRef)) : undefined;
+  const [payersByRefResult, linkResult] = await Promise.allSettled([
+    payerRef ? resolvePayersByRef(oystehr, [payerRef]) : undefined,
+    copies.patient?.id ? linkPatientCopyViaPerson(oystehr, params.patientId, copies.patient.id) : undefined,
+  ]);
+  settledValueOrThrow(linkResult);
+  const payersByRef = settledValueOrThrow(payersByRefResult);
+  const payerName = payerRef ? payerDisplay(payersByRef?.get(payerRef)) : undefined;
   const claim = buildClaim(copies, params, payerName);
 
   // Create the claim and its creation Provenance atomically; the Provenance targets the claim's

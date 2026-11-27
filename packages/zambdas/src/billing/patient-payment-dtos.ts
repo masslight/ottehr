@@ -455,98 +455,113 @@ async function buildPaymentDTOs(
 ): Promise<PatientPaymentDTO[]> {
   const paymentMethodCache = new Map<string, Stripe.PaymentMethod>(paymentMethods.map((pm) => [pm.id, pm]));
   const paymentIntentCache = new Map<string, Stripe.PaymentIntent>(stripePayments.map((pi) => [pi.id, pi]));
-  const takenByByNoticeId = await resolveTakenByNames(fhirPaymentNotices, practitionerNames);
+  const takenByNames = resolveTakenByNames(fhirPaymentNotices, practitionerNames);
 
-  const cardPaymentsNested: PatientPaymentDTO[][] = await Promise.all(
-    fhirPaymentNotices.map(async (paymentNotice) => {
-      const pnStripeId = stripePaymentIntentIdForNotice(paymentNotice);
-      if (!pnStripeId) {
-        return buildChargeOnlyPaymentDTOs(
-          paymentNotice,
-          stripeClient,
-          stripeAccountFor,
-          billingOystehr,
-          takenByByNoticeId.get(paymentNotice.id ?? '')
-        );
-      }
-
-      const paymentMethodExtension = paymentMethodForNotice(paymentNotice);
-
-      if (paymentMethodExtension === 'cash' || paymentMethodExtension === 'check') {
-        return [];
-      }
-
-      const paymentMethod = paymentMethodExtension === 'card-reader' ? 'card-reader' : 'card';
-      const stripeAccount = await stripeAccountFor(paymentNotice);
-      let paymentIntent = paymentIntentCache.get(pnStripeId);
-      if (!paymentIntent) {
-        const retrievedPaymentIntent = await resolvePaymentIntentById(pnStripeId, stripeClient, stripeAccount);
-        if (retrievedPaymentIntent) {
-          paymentIntent = retrievedPaymentIntent;
-          paymentIntentCache.set(retrievedPaymentIntent.id, retrievedPaymentIntent);
+  const [takenByByNoticeId, cardPaymentsNested] = await Promise.all([
+    takenByNames,
+    Promise.all(
+      fhirPaymentNotices.map(async (paymentNotice): Promise<PatientPaymentDTO[]> => {
+        const pnStripeId = stripePaymentIntentIdForNotice(paymentNotice);
+        if (!pnStripeId) {
+          return buildChargeOnlyPaymentDTOs(
+            paymentNotice,
+            stripeClient,
+            stripeAccountFor,
+            billingOystehr,
+            (await takenByNames).get(paymentNotice.id ?? '')
+          );
         }
-      }
 
-      const stripePaymentId = paymentIntent?.id ?? pnStripeId;
+        const paymentMethodExtension = paymentMethodForNotice(paymentNotice);
 
-      let paymentMethodId =
-        paymentIntent && typeof paymentIntent.payment_method === 'string' ? paymentIntent.payment_method : undefined;
+        if (paymentMethodExtension === 'cash' || paymentMethodExtension === 'check') {
+          return [];
+        }
 
-      if (!paymentMethodId && paymentIntent) {
-        paymentMethodId = await resolvePaymentMethodIdForIntent(paymentIntent, stripeClient, stripeAccount);
-      }
-
-      let stripePaymentMethod: Stripe.PaymentMethod | undefined;
-      if (paymentMethodId) {
-        stripePaymentMethod = paymentMethodCache.get(paymentMethodId);
-
-        if (!stripePaymentMethod) {
-          try {
-            const retrievedPaymentMethod = await stripeClient.paymentMethods.retrieve(paymentMethodId, {
-              stripeAccount,
-            });
-
-            stripePaymentMethod = retrievedPaymentMethod;
-            paymentMethodCache.set(paymentMethodId, retrievedPaymentMethod);
-          } catch (error) {
-            console.error('Error retrieving Stripe payment method', paymentMethodId, error);
+        const paymentMethod = paymentMethodExtension === 'card-reader' ? 'card-reader' : 'card';
+        const stripeAccount = await stripeAccountFor(paymentNotice);
+        let paymentIntent = paymentIntentCache.get(pnStripeId);
+        if (!paymentIntent) {
+          const retrievedPaymentIntent = await resolvePaymentIntentById(pnStripeId, stripeClient, stripeAccount);
+          if (retrievedPaymentIntent) {
+            paymentIntent = retrievedPaymentIntent;
+            paymentIntentCache.set(retrievedPaymentIntent.id, retrievedPaymentIntent);
           }
         }
-      }
 
-      const { cardBrand, cardLast4: last4 } = getCardDetails(stripePaymentMethod, paymentIntent);
-      const dateISO = DateTime.fromISO(paymentNotice.created).toISO();
-      const amountInCents = Math.round((paymentNotice.amount.value ?? 0) * 100);
+        const stripePaymentId = paymentIntent?.id ?? pnStripeId;
 
-      if (!dateISO || !paymentNotice.id) {
-        console.log('missing data for payment notice:', paymentNotice.id, 'dateISO', dateISO);
-        return [];
-      }
+        let paymentMethodId =
+          paymentIntent && typeof paymentIntent.payment_method === 'string' ? paymentIntent.payment_method : undefined;
 
-      const { refunds, stripeLookupFailed } = await resolveRefundsForPaymentNotice(
-        paymentNotice,
-        paymentIntent,
-        stripeClient,
-        stripeAccount,
-        billingOystehr
-      );
-      // without the intent (its lookup failed) or its refund list, only the recorded refunds are known
-      const unconfirmedField = !paymentIntent || stripeLookupFailed ? { refundsUnconfirmed: true } : {};
-      // in-flight reservations stay on the notice but are not refunds to show or count
-      const displayRefunds = refunds?.filter((refund) => !isPendingReservation(refund));
-      const refundFields = displayRefunds?.length
-        ? { refunds: displayRefunds, refundedAmountInCents: settledRefundTotalInCents(displayRefunds) }
-        : {};
-      const takenBy = takenByByNoticeId.get(paymentNotice.id);
-      const takenByField = takenBy ? { takenBy } : {};
+        if (!paymentMethodId && paymentIntent) {
+          paymentMethodId = await resolvePaymentMethodIdForIntent(paymentIntent, stripeClient, stripeAccount);
+        }
 
-      if (paymentMethod === 'card-reader') {
+        const dateISO = DateTime.fromISO(paymentNotice.created).toISO();
+        const amountInCents = Math.round((paymentNotice.amount.value ?? 0) * 100);
+
+        if (!dateISO || !paymentNotice.id) {
+          console.log('missing data for payment notice:', paymentNotice.id, 'dateISO', dateISO);
+          return [];
+        }
+
+        const [stripePaymentMethod, { refunds, stripeLookupFailed }] = await Promise.all([
+          (async (): Promise<Stripe.PaymentMethod | undefined> => {
+            if (!paymentMethodId) return undefined;
+            const cachedPaymentMethod = paymentMethodCache.get(paymentMethodId);
+            if (cachedPaymentMethod) return cachedPaymentMethod;
+            try {
+              const retrievedPaymentMethod = await stripeClient.paymentMethods.retrieve(paymentMethodId, {
+                stripeAccount,
+              });
+
+              paymentMethodCache.set(paymentMethodId, retrievedPaymentMethod);
+              return retrievedPaymentMethod;
+            } catch (error) {
+              console.error('Error retrieving Stripe payment method', paymentMethodId, error);
+              return undefined;
+            }
+          })(),
+          resolveRefundsForPaymentNotice(paymentNotice, paymentIntent, stripeClient, stripeAccount, billingOystehr),
+        ]);
+
+        const { cardBrand, cardLast4: last4 } = getCardDetails(stripePaymentMethod, paymentIntent);
+        // without the intent (its lookup failed) or its refund list, only the recorded refunds are known
+        const unconfirmedField = !paymentIntent || stripeLookupFailed ? { refundsUnconfirmed: true } : {};
+        // in-flight reservations stay on the notice but are not refunds to show or count
+        const displayRefunds = refunds?.filter((refund) => !isPendingReservation(refund));
+        const refundFields = displayRefunds?.length
+          ? { refunds: displayRefunds, refundedAmountInCents: settledRefundTotalInCents(displayRefunds) }
+          : {};
+        const takenBy = (await takenByNames).get(paymentNotice.id);
+        const takenByField = takenBy ? { takenBy } : {};
+
+        if (paymentMethod === 'card-reader') {
+          return [
+            {
+              paymentMethod: 'card-reader',
+              stripePaymentId,
+              amountInCents,
+              description: paymentIntent?.description ?? undefined,
+              fhirPaymentNotificationId: paymentNotice.id,
+              cardBrand,
+              cardLast4: last4,
+              dateISO,
+              ...takenByField,
+              ...refundFields,
+              ...unconfirmedField,
+            },
+          ];
+        }
+
         return [
           {
-            paymentMethod: 'card-reader',
+            paymentMethod: 'card' as const,
             stripePaymentId,
             amountInCents,
             description: paymentIntent?.description ?? undefined,
+            stripePaymentMethodId: paymentMethodId,
             fhirPaymentNotificationId: paymentNotice.id,
             cardBrand,
             cardLast4: last4,
@@ -556,26 +571,9 @@ async function buildPaymentDTOs(
             ...unconfirmedField,
           },
         ];
-      }
-
-      return [
-        {
-          paymentMethod: 'card' as const,
-          stripePaymentId,
-          amountInCents,
-          description: paymentIntent?.description ?? undefined,
-          stripePaymentMethodId: paymentMethodId,
-          fhirPaymentNotificationId: paymentNotice.id,
-          cardBrand,
-          cardLast4: last4,
-          dateISO,
-          ...takenByField,
-          ...refundFields,
-          ...unconfirmedField,
-        },
-      ];
-    })
-  );
+      })
+    ),
+  ]);
 
   const cardPayments: PatientPaymentDTO[] = cardPaymentsNested.flat().slice(0, cardPaymentLimit);
 

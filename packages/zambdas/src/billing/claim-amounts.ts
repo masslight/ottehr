@@ -15,6 +15,7 @@ import {
   NIO_INVOICE_PAYMENT_ID_SYSTEM,
   PAYMENT_REFERENCE_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
+import { chunkThings } from 'utils/lib/fhir/chat';
 import { CLAIM_STATUS_RESPONSE_EVENT_SYSTEM, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
@@ -26,6 +27,7 @@ import {
   X12AdjustmentGroupCode,
 } from 'utils/lib/types/data/billing/billing.constants';
 import { ClaimNioPayment, ClaimPatientPayment, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { fetchAllPages } from '../shared/fhir';
 import { PATIENT_PAYMENT_IDENTIFIER_FILTER } from './payments';
@@ -466,6 +468,7 @@ export function countEraClaims(claimResponses: ClaimResponse[]): EraClaimCounts 
 }
 
 const BATCH = 100;
+const BATCH_CONCURRENCY = 5;
 const PAGE_SIZE = 200;
 const PATIENT_PAYMENT_ENCOUNTER_BATCH = 50;
 
@@ -488,8 +491,8 @@ export async function fetchResourcesGrouped<T extends FhirResource>({
 }): Promise<Map<string, T[]>> {
   const grouped = new Map<string, T[]>();
   const uniqueIds = [...new Set(ids)];
-  for (let i = 0; i < uniqueIds.length; i += batchSize) {
-    const batch = uniqueIds.slice(i, i + batchSize);
+  const batchResults = await mapWithConcurrency(chunkThings(uniqueIds, batchSize), BATCH_CONCURRENCY, async (batch) => {
+    const resources: T[] = [];
     await fetchAllPages(async (offset, count) => {
       const bundle = await oystehr.fhir.search<T>({
         resourceType,
@@ -505,16 +508,18 @@ export async function fetchResourcesGrouped<T extends FhirResource>({
           },
         ],
       });
-      for (const resource of bundle.unbundle()) {
-        if (keep && !keep(resource)) continue;
-        const key = groupKeyOf(resource);
-        if (!key) continue;
-        const list = grouped.get(key) ?? [];
-        list.push(resource);
-        grouped.set(key, list);
-      }
+      resources.push(...bundle.unbundle());
       return bundle;
     }, PAGE_SIZE);
+    return resources;
+  });
+  for (const resource of batchResults.flat()) {
+    if (keep && !keep(resource)) continue;
+    const key = groupKeyOf(resource);
+    if (!key) continue;
+    const list = grouped.get(key) ?? [];
+    list.push(resource);
+    grouped.set(key, list);
   }
   return grouped;
 }
@@ -648,9 +653,8 @@ export async function fetchEraProcessingProvenances(oystehr: Oystehr, targetRefs
   const byId = new Map<string, Provenance>();
   const uniqueRefs = [...new Set(targetRefs)];
 
-  for (let i = 0; i < uniqueRefs.length; i += BATCH) {
-    const batch = uniqueRefs.slice(i, i + BATCH);
-
+  const batchResults = await mapWithConcurrency(chunkThings(uniqueRefs, BATCH), BATCH_CONCURRENCY, async (batch) => {
+    const provenances: Provenance[] = [];
     await fetchAllPages(async (offset, count) => {
       const bundle = await oystehr.fhir.search<Provenance>({
         resourceType: 'Provenance',
@@ -670,12 +674,14 @@ export async function fetchEraProcessingProvenances(oystehr: Oystehr, targetRefs
         ],
       });
 
-      for (const provenance of bundle.unbundle()) {
-        if (provenance.id && isEraProcessingProvenance(provenance)) byId.set(provenance.id, provenance);
-      }
+      provenances.push(...bundle.unbundle());
 
       return bundle;
     }, PAGE_SIZE);
+    return provenances;
+  });
+  for (const provenance of batchResults.flat()) {
+    if (provenance.id && isEraProcessingProvenance(provenance)) byId.set(provenance.id, provenance);
   }
   return [...byId.values()];
 }
@@ -690,12 +696,10 @@ export function eraProvenanceTargetIds(provenance: Provenance, resourceType: str
 }
 
 async function fetchPaymentReconciliationsByIds(oystehr: Oystehr, ids: string[]): Promise<PaymentReconciliation[]> {
-  const results: PaymentReconciliation[] = [];
   const uniqueIds = [...new Set(ids)];
 
-  for (let i = 0; i < uniqueIds.length; i += BATCH) {
-    const batch = uniqueIds.slice(i, i + BATCH);
-
+  const batchResults = await mapWithConcurrency(chunkThings(uniqueIds, BATCH), BATCH_CONCURRENCY, async (batch) => {
+    const results: PaymentReconciliation[] = [];
     await fetchAllPages(async (offset, count) => {
       const bundle = await oystehr.fhir.search<PaymentReconciliation>({
         resourceType: 'PaymentReconciliation',
@@ -719,8 +723,9 @@ async function fetchPaymentReconciliationsByIds(oystehr: Oystehr, ids: string[])
 
       return bundle;
     }, PAGE_SIZE);
-  }
-  return results;
+    return results;
+  });
+  return batchResults.flat();
 }
 
 export async function fetchClaimResponsesByPaymentReconciliations(

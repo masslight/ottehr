@@ -56,6 +56,7 @@ import { makeOrderDeleteRequests, makePendingRecheckCancelRequests } from '../..
 import { makeNursingOrderTransactionRequests } from '../../shared/nursing-orders';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import {
   createMedicationAdministrationResource,
@@ -84,13 +85,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const userToken = input.headers.Authorization.replace('Bearer ', '') as string;
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
-  const practitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
   console.log('Created zapToken, fhir and clients.');
 
   const billingOystehr = createBillingClient(m2mToken, validatedParameters.secrets);
+  const { orderId, orderData, newStatus } = validatedParameters;
   let response: Awaited<ReturnType<typeof performEffect>>;
   try {
-    response = await performEffect(oystehr, billingOystehr, validatedParameters, practitionerId);
+    const [practitionerIdResult, orderResourcesResult] = await Promise.allSettled([
+      getMyPractitionerId(userToken, validatedParameters.secrets),
+      orderId && (orderData || newStatus) ? getOrderResources(oystehr, orderId) : undefined,
+    ]);
+    const practitionerId = settledValueOrThrow(practitionerIdResult);
+    const orderResources = settledValueOrThrow(orderResourcesResult);
+    response = await performEffect(oystehr, billingOystehr, validatedParameters, practitionerId, orderResources);
   } catch (error) {
     throw fhirValidationErrorToApiError(error) ?? error;
   }
@@ -104,43 +111,54 @@ async function performEffect(
   oystehr: Oystehr,
   billingOystehr: Oystehr,
   params: UpdateMedicationOrderInput,
-  practitionerIdCalledZambda: string
+  practitionerIdCalledZambda: string,
+  prefetchedOrderResources: OrderPackage | undefined
 ): Promise<any> {
   const { orderId, newStatus, orderData } = params;
   if (orderId && orderData && newStatus !== 'cancelled') {
-    const orderResources = await getOrderResources(oystehr, orderId);
+    const orderResources = prefetchedOrderResources ?? (await getOrderResources(oystehr, orderId));
     // Captured before updateOrder writes the new status, so the vitals re-check can tell a real
     // transition into "administered" from a re-save of an already-administered order.
     const previousStatus = mapFhirToOrderStatus(orderResources.medicationAdministration);
     await updateOrder(oystehr, orderResources, newStatus, orderData, params.interactions, practitionerIdCalledZambda);
-    await syncInventoryForOrder(oystehr, orderId, practitionerIdCalledZambda, orderResources.medicationAdministration);
 
     const encounterIdFromMA = orderData.encounterId ?? getEncounterIdFromMA(orderResources.medicationAdministration);
-    if (encounterIdFromMA && newStatus) {
-      await manageAdditionalCptCodesForOrder(
-        oystehr,
-        encounterIdFromMA,
-        newStatus,
-        orderResources.medicationAdministration,
-        orderData.cptCodes
-      );
-      await createVitalsRecheckNursingOrderIfNeeded(
-        oystehr,
-        encounterIdFromMA,
-        previousStatus,
-        newStatus,
-        orderResources,
-        orderData,
-        practitionerIdCalledZambda
-      );
-    } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
+    const [syncResult, followUpResult] = await Promise.allSettled([
+      syncInventoryForOrder(oystehr, orderId, practitionerIdCalledZambda, orderResources.medicationAdministration),
+      (async () => {
+        if (encounterIdFromMA && newStatus) {
+          const [cptCodesResult, vitalsRecheckResult] = await Promise.allSettled([
+            manageAdditionalCptCodesForOrder(
+              oystehr,
+              encounterIdFromMA,
+              newStatus,
+              orderResources.medicationAdministration,
+              orderData.cptCodes
+            ),
+            createVitalsRecheckNursingOrderIfNeeded(
+              oystehr,
+              encounterIdFromMA,
+              previousStatus,
+              newStatus,
+              orderResources,
+              orderData,
+              practitionerIdCalledZambda
+            ),
+          ]);
+          settledValueOrThrow(cptCodesResult);
+          settledValueOrThrow(vitalsRecheckResult);
+        } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
+      })(),
+    ]);
+    settledValueOrThrow(syncResult);
+    settledValueOrThrow(followUpResult);
 
     return {
       message: 'Order was updated successfully',
       id: orderId,
     };
   } else if (orderId && newStatus) {
-    const orderResources = await getOrderResources(oystehr, orderId);
+    const orderResources = prefetchedOrderResources ?? (await getOrderResources(oystehr, orderId));
     const { retainedCptCodes, billingReviewRequired } = await changeOrderStatus(
       oystehr,
       billingOystehr,
@@ -148,17 +166,23 @@ async function performEffect(
       newStatus,
       practitionerIdCalledZambda
     );
-    await syncInventoryForOrder(oystehr, orderId, practitionerIdCalledZambda, orderResources.medicationAdministration);
 
     const encounterIdFromMA = getEncounterIdFromMA(orderResources.medicationAdministration);
-    if (encounterIdFromMA) {
-      await manageAdditionalCptCodesForOrder(
-        oystehr,
-        encounterIdFromMA,
-        newStatus,
-        orderResources.medicationAdministration
-      );
-    } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
+    const [syncResult, cptCodesResult] = await Promise.allSettled([
+      syncInventoryForOrder(oystehr, orderId, practitionerIdCalledZambda, orderResources.medicationAdministration),
+      (async () => {
+        if (encounterIdFromMA) {
+          await manageAdditionalCptCodesForOrder(
+            oystehr,
+            encounterIdFromMA,
+            newStatus,
+            orderResources.medicationAdministration
+          );
+        } else console.log('Manage additional CPT codes for order was skipped because no encounterId was found in MA');
+      })(),
+    ]);
+    settledValueOrThrow(syncResult);
+    settledValueOrThrow(cptCodesResult);
 
     return {
       message: 'Order status was changed successfully',

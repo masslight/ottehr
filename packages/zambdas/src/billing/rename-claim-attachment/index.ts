@@ -7,6 +7,7 @@ import { RenameClaimAttachmentInputSchema } from 'utils/lib/types/data/billing/b
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { renamedAttachmentContent, RETIRED_ATTACHMENT_STATUS } from '../attachments';
@@ -15,7 +16,7 @@ import { claimEventProvenanceRequest, resolveClaimActor } from '../provenance';
 import { createBillingClient, fetchById } from '../shared';
 
 type RenameClaimAttachmentParams = ValidatedZambdaInput<typeof RenameClaimAttachmentInputSchema> & {
-  agent: ProvenanceAgent;
+  agent: ProvenanceAgent | Promise<ProvenanceAgent>;
 };
 
 let m2mToken: string;
@@ -26,22 +27,21 @@ export const index = wrapHandler(
     const params = validateWithSchema(RenameClaimAttachmentInputSchema, input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
     const oystehr = createBillingClient(m2mToken, params.secrets);
-    const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
-
     await performEffect(oystehr, {
       ...params,
-      agent,
+      agent: resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets),
     });
     return { statusCode: 200, body: JSON.stringify({ ok: true }) };
   }
 );
 
 export async function performEffect(oystehr: Oystehr, params: RenameClaimAttachmentParams): Promise<void> {
-  const documentReference = await fetchById<DocumentReference>(
-    oystehr,
-    'DocumentReference',
-    params.documentReferenceId
-  );
+  const [documentReferenceResult, agentResult] = await Promise.allSettled([
+    fetchById<DocumentReference>(oystehr, 'DocumentReference', params.documentReferenceId),
+    params.agent,
+  ]);
+  const agent = settledValueOrThrow(agentResult);
+  const documentReference = settledValueOrThrow(documentReferenceResult);
   // a deletion retires the document before removing it, and a rename in between would outlive it
   if (documentReference.status === RETIRED_ATTACHMENT_STATUS) {
     throw INVALID_INPUT_ERROR(`DocumentReference ${documentReference.id} was deleted`);
@@ -55,7 +55,7 @@ export async function performEffect(oystehr: Oystehr, params: RenameClaimAttachm
     claimId: attachedClaimId(documentReference),
     before: documentReference,
     after: renamed,
-    agent: params.agent,
+    agent,
     activity: 'update',
   });
   const requests: BatchInputRequest<FhirResource>[] = [

@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
 import {
@@ -77,20 +77,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
 
     console.log('configuring patch requests for previous resource versions');
-    const supersedeRequests = await supersedeVersionRequests({
-      url: rest.url,
-      previousId: previousId!,
-      placement: getFormPlacement(fhirQuestionnaire),
-      oystehr,
-    });
-
     console.log('checking if form is contained in any flows');
-    const flowRequests: BatchInputRequest<Questionnaire>[] = await handleFormInFlows({
-      previousVersion,
-      nextVersion,
-      url: rest.url,
-      oystehr,
-    });
+    const [supersedeRequests, flowRequests] = await Promise.all([
+      supersedeVersionRequests({
+        url: rest.url,
+        previousId: previousId!,
+        placement: getFormPlacement(fhirQuestionnaire),
+        oystehr,
+      }),
+      handleFormInFlows({
+        previousVersion,
+        nextVersion,
+        url: rest.url,
+        oystehr,
+      }),
+    ]);
     console.log(
       `Flows containing the target form that will be updated: ${
         flowRequests.length > 0 ? `${flowRequests.map((request) => request.url)}` : 'none'

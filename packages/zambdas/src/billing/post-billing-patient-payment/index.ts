@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
@@ -85,9 +85,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
 
-  const submitterRef = await practitionerRefForBillingUser(user, billingOystehr);
-
-  const notice = await performEffect({ ...params, submitterRef }, clinicalOystehr, billingOystehr);
+  const notice = await performEffect(params, user, clinicalOystehr, billingOystehr);
 
   return { statusCode: 200, body: JSON.stringify({ notice, patientId, encounterId }) };
 });
@@ -97,11 +95,12 @@ interface EffectInput extends PostBillingPatientPaymentParams {
 }
 
 const performEffect = async (
-  input: EffectInput,
+  params: PostBillingPatientPaymentParams,
+  user: User,
   clinicalOystehr: Oystehr,
   billingOystehr: Oystehr
 ): Promise<PaymentNotice> => {
-  const { encounterId, paymentDetails } = input;
+  const { encounterId, paymentDetails } = params;
   // every payment carries the identifier so billing AR picks it up; a request without a client
   // key simply cannot be replayed
   const dedupValue = `${encounterId}_${paymentDetails.idempotencyKey ?? randomUUID()}`;
@@ -110,30 +109,34 @@ const performEffect = async (
   // Idempotency guard: a replayed request (e.g. resent after a response was lost on a flaky
   // connection) returns the recorded notice instead of writing a duplicate, and for card payments
   // before charging Stripe again.
-  if (paymentDetails.idempotencyKey) {
-    const existing = (
-      await billingOystehr.fhir.search<PaymentNotice>({
-        resourceType: 'PaymentNotice',
-        params: [{ name: 'identifier', value: `${dedupIdentifier.system}|${dedupIdentifier.value}` }],
-      })
-    ).unbundle()[0];
-    if (existing) {
-      console.log('idempotent replay detected; returning existing PaymentNotice', existing.id);
-      let replayNotice = existing;
-      if (!replayNotice.request?.reference && replayNotice.id) {
-        const claim = await findBillingClaimForEncounter(billingOystehr, encounterId);
-        if (claim) {
-          await reconcilePaymentNoticesForClaim(billingOystehr, claim);
-          replayNotice = await billingOystehr.fhir.get<PaymentNotice>({
+  const [submitterRef, existing] = await Promise.all([
+    practitionerRefForBillingUser(user, billingOystehr),
+    paymentDetails.idempotencyKey
+      ? billingOystehr.fhir
+          .search<PaymentNotice>({
             resourceType: 'PaymentNotice',
-            id: replayNotice.id,
-          });
-        }
+            params: [{ name: 'identifier', value: `${dedupIdentifier.system}|${dedupIdentifier.value}` }],
+          })
+          .then((bundle) => bundle.unbundle()[0])
+      : undefined,
+  ]);
+  const input: EffectInput = { ...params, submitterRef };
+  if (existing) {
+    console.log('idempotent replay detected; returning existing PaymentNotice', existing.id);
+    let replayNotice = existing;
+    if (!replayNotice.request?.reference && replayNotice.id) {
+      const claim = await findBillingClaimForEncounter(billingOystehr, encounterId);
+      if (claim) {
+        await reconcilePaymentNoticesForClaim(billingOystehr, claim);
+        replayNotice = await billingOystehr.fhir.get<PaymentNotice>({
+          resourceType: 'PaymentNotice',
+          id: replayNotice.id,
+        });
       }
-      // A replay must finish linking and scheduling work left by the first attempt.
-      await ensurePaymentTaskForNotice(clinicalOystehr, replayNotice, encounterId);
-      return replayNotice;
     }
+    // A replay must finish linking and scheduling work left by the first attempt.
+    await ensurePaymentTaskForNotice(clinicalOystehr, replayNotice, encounterId);
+    return replayNotice;
   }
 
   let storedNotice =

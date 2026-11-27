@@ -14,6 +14,7 @@ import {
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { resolveClaimActor } from '../provenance';
@@ -35,8 +36,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const kickoffs = await complexValidation(oystehr, params);
-  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
+  const [kickoffsResult, agentResult] = await Promise.allSettled([
+    complexValidation(oystehr, params),
+    resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets),
+  ]);
+  const kickoffs = settledValueOrThrow(kickoffsResult);
+  const agent = settledValueOrThrow(agentResult);
   const response = await performEffect(oystehr, kickoffs, agent);
   return { statusCode: 200, body: JSON.stringify(response) };
 });

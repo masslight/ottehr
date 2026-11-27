@@ -91,17 +91,19 @@ export default function SendStatementToPatientDialog({
       setIsPreviewLoading(true);
       setPreviewError('');
       try {
-        const response = await oystehrZambda.zambda.execute({
-          id: 'get-statement-template',
-          template: 'statement-template',
-        });
+        const [response, statementDetailsResponse] = await Promise.all([
+          oystehrZambda.zambda.execute({
+            id: 'get-statement-template',
+            template: 'statement-template',
+          }),
+          oystehrZambda.zambda.execute({
+            id: 'get-statement-details',
+            statementType,
+            encounterId,
+          }),
+        ]);
 
         const templateResponse = chooseJson(response) as { template: string; fileName: string; logoBase64: string };
-        const statementDetailsResponse = await oystehrZambda.zambda.execute({
-          id: 'get-statement-details',
-          statementType,
-          encounterId,
-        });
         const statementDetails = chooseJson(statementDetailsResponse) as StatementDetails;
         const html = generateStatement(templateResponse.template, statementDetails);
         setGeneratedHtml(html);

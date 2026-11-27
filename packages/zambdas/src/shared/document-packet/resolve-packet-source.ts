@@ -13,7 +13,7 @@ import {
 } from 'utils/lib/types/api/document-packet.types';
 import { isReferralEditable, REFERRAL_STATUS_LABELS } from 'utils/lib/types/api/referrals/referrals.types';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { mapWithConcurrency } from '../concurrency';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { getPatientFolders } from '../patient-folders';
 import { PacketCoverSheetSubject } from '../pdf/types';
 import { getAppointmentAndRelatedResources } from '../pdf/visit-details-pdf/get-video-resources';

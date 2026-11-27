@@ -111,32 +111,32 @@ const performEffect = async (
     hasPdfBase64: Boolean(validatedInput.pdfBase64),
   });
 
-  const pdfBytes = validatedInput.sections
-    ? await createPatientEducationPdf(validatedInput.sections, language)
-    : Uint8Array.from(Buffer.from(validatedInput.pdfBase64, 'base64'));
-
   const z3Url = makeZ3Url({
     secrets,
     bucketName: BUCKET_NAMES.PATIENT_EDUCATION,
     patientID: patientId,
     fileName: 'PatientEducation.pdf',
   });
-  const presignedUploadUrl = await createPresignedUrl(token, z3Url, 'upload');
-  await uploadObjectToZ3(pdfBytes, presignedUploadUrl);
 
   // Return a download URL alongside the DocumentReference so the UI can open the newly
   // approved PDF without a second round-trip (DocumentReference fetch + presign).
-  const presignedDownloadUrl = await createPresignedUrl(token, z3Url, 'download');
-
-  const educationListRes = (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [
-        { name: 'subject', value: `Patient/${patientId}` },
-        { name: 'title', value: BUCKET_NAMES.PATIENT_EDUCATION },
-      ],
-    })
-  ).unbundle();
+  const [pdfBytes, presignedUploadUrl, presignedDownloadUrl, educationListRes] = await Promise.all([
+    validatedInput.sections
+      ? createPatientEducationPdf(validatedInput.sections, language)
+      : Uint8Array.from(Buffer.from(validatedInput.pdfBase64, 'base64')),
+    createPresignedUrl(token, z3Url, 'upload'),
+    createPresignedUrl(token, z3Url, 'download'),
+    oystehr.fhir
+      .search<List>({
+        resourceType: 'List',
+        params: [
+          { name: 'subject', value: `Patient/${patientId}` },
+          { name: 'title', value: BUCKET_NAMES.PATIENT_EDUCATION },
+        ],
+      })
+      .then((bundle) => bundle.unbundle()),
+  ]);
+  await uploadObjectToZ3(pdfBytes, presignedUploadUrl);
 
   const fileDoc: FileDocDataForDocReference = {
     url: z3Url,

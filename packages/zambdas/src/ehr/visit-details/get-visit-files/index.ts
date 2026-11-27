@@ -20,6 +20,7 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
 } from 'utils/lib/types/errors';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
@@ -28,6 +29,7 @@ import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 
 const ZAMBDA_NAME = 'get-visit-files';
+const PRESIGN_CONCURRENCY = 5;
 
 let m2mToken: string;
 
@@ -70,7 +72,7 @@ async function getFileResources(
   const documentReferenceResources = await searchDocumentReferencesForVisit(oystehr, patientId, appointmentId);
 
   // Get document info
-  const z3Documents: DocumentInfo[] = [];
+  const documentsToPresign: { docRef: DocumentReference; docRefCode: string; title: string; z3Url: string }[] = [];
 
   for (const docRef of documentReferenceResources) {
     const docRefCode = docRef.type?.coding?.[0].code;
@@ -97,28 +99,36 @@ async function getFileResources(
             continue;
           }
 
-          let presignedUrl: string | undefined;
-          try {
-            assertZ3UrlInProject(z3Url, secrets);
-            presignedUrl = await getPresignedURL(z3Url, userToken);
-          } catch (error) {
-            console.error(`[${ZAMBDA_NAME}] skipping document with un-presignable url [${z3Url}]:`, error);
-            continue;
-          }
-
-          if (presignedUrl) {
-            z3Documents.push({
-              id: docRef.id!,
-              z3Url: z3Url,
-              presignedUrl: presignedUrl,
-              type: title as DocumentType,
-              code: docRefCode,
-            });
-          }
+          documentsToPresign.push({ docRef, docRefCode, title, z3Url });
         }
       }
     }
   }
+
+  const presignedDocuments = await mapWithConcurrency(
+    documentsToPresign,
+    PRESIGN_CONCURRENCY,
+    async ({ docRef, docRefCode, title, z3Url }): Promise<DocumentInfo | undefined> => {
+      let presignedUrl: string | undefined;
+      try {
+        assertZ3UrlInProject(z3Url, secrets);
+        presignedUrl = await getPresignedURL(z3Url, userToken);
+      } catch (error) {
+        console.error(`[${ZAMBDA_NAME}] skipping document with un-presignable url [${z3Url}]:`, error);
+        return undefined;
+      }
+
+      if (!presignedUrl) return undefined;
+      return {
+        id: docRef.id!,
+        z3Url: z3Url,
+        presignedUrl: presignedUrl,
+        type: title as DocumentType,
+        code: docRefCode,
+      };
+    }
+  );
+  const z3Documents = presignedDocuments.filter((document): document is DocumentInfo => document !== undefined);
 
   if (!z3Documents) {
     return documents;

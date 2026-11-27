@@ -89,19 +89,21 @@ const performEffect = async (
 
   const objectName = makeFormTemplateObjectName(validatedInput.fileName);
   const z3Url = makeZ3ObjectUrl({ secrets, bucketName: BUCKET_NAMES.FORM_TEMPLATES, objectName });
-  const presignedUploadUrl = await createPresignedUrl(token, z3Url, 'upload');
-
   // Replacing an existing template's PDF: hand back a candidate location and change nothing. The
   // template keeps pointing at its current file until the upload has been fetched and analysed, so a
   // failed replacement leaves a working template working.
   // Compared against undefined rather than tested for truth: that is the discriminant between the two
   // input shapes, and truthiness would not narrow it because a string can itself be falsy.
   if (validatedInput.documentReferenceId !== undefined) {
-    await getFormTemplateOrThrow(oystehr, validatedInput.documentReferenceId);
+    const [presignedUploadUrl] = await Promise.all([
+      createPresignedUrl(token, z3Url, 'upload'),
+      getFormTemplateOrThrow(oystehr, validatedInput.documentReferenceId),
+    ]);
     return { documentReferenceId: validatedInput.documentReferenceId, objectName, presignedUploadUrl };
   }
 
   // Created before the bytes exist: the browser does the uploading and needs somewhere to send them.
+  const presignedUploadUrl = await createPresignedUrl(token, z3Url, 'upload');
   const createdId = await createFormTemplateDraft({
     oystehr,
     title: validatedInput.title,

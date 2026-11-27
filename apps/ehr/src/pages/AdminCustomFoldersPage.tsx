@@ -110,8 +110,10 @@ const AdminCustomFoldersPage: FC = () => {
   const handleCreate = async (name: string): Promise<void> => {
     if (!oystehrZambda) throw new Error('Client not available');
     const created = await createCustomFolder(oystehrZambda, { folderName: name });
-    await queryClient.invalidateQueries({ queryKey: ['custom-folders-catalog'] });
-    await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['custom-folders-catalog'] }),
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS] }),
+    ]);
     setHighlightedName(created.displayName);
     enqueueSnackbar(`Folder "${name}" created`, { variant: 'success' });
     setTimeout(() => setHighlightedName(null), 2000);
@@ -124,8 +126,10 @@ const AdminCustomFoldersPage: FC = () => {
       internalName: dialogState.folder.internalName,
       newName: name,
     });
-    await queryClient.invalidateQueries({ queryKey: ['custom-folders-catalog'] });
-    await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['custom-folders-catalog'] }),
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS] }),
+    ]);
     enqueueSnackbar(`Folder renamed to "${name}"`, { variant: 'success' });
   };
 
@@ -134,8 +138,10 @@ const AdminCustomFoldersPage: FC = () => {
     if (dialogState?.mode !== 'delete') return;
     const { displayName, internalName } = dialogState.folder;
     await deleteCustomFolder(oystehrZambda, { internalName });
-    await queryClient.invalidateQueries({ queryKey: ['custom-folders-catalog'] });
-    await queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['custom-folders-catalog'] }),
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS] }),
+    ]);
     enqueueSnackbar(`Folder "${displayName}" deleted`, { variant: 'success' });
   };
 

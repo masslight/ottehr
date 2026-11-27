@@ -78,8 +78,10 @@ const PaperworkFlowsAdminPage: FC = () => {
     },
     onSuccess: async () => {
       enqueueSnackbar('Flow deleted', { variant: 'success' });
-      await queryClient.invalidateQueries({ queryKey: ['paperwork-flow-list'] });
-      await queryClient.invalidateQueries({ queryKey: ['service-categories'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['paperwork-flow-list'] }),
+        queryClient.invalidateQueries({ queryKey: ['service-categories'] }),
+      ]);
     },
     onError: (err: unknown) => {
       enqueueSnackbar(`Could not delete flow: ${err instanceof Error ? err.message : 'unknown error'}`, {

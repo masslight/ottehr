@@ -88,32 +88,44 @@ export const index = wrapHandler(
     // fire there would let a caller bypass the flag by sending an incomplete
     // provider request.
     const isProviderScoped = scheduleType === 'provider' && Boolean(bookingOn);
-    const fhirResources =
+    const isGroupScoped = scheduleType === 'group' && Boolean(bookingOn);
+    const [fhirResources, prMatches, groupMatches] = await Promise.all([
       FEATURE_FLAGS_CONFIG.dynamicServiceCategoriesEnabled || isProviderScoped
-        ? (
-            await oystehr.fhir.search<HealthcareService>({
+        ? oystehr.fhir
+            .search<HealthcareService>({
               resourceType: 'HealthcareService',
               params: [
                 { name: '_tag', value: SERVICE_CATEGORY_TAG.code },
                 { name: 'active', value: 'true' },
               ],
             })
-          ).unbundle()
-        : [];
+            .then((bundle) => bundle.unbundle())
+        : Promise.resolve([]),
+      isProviderScoped
+        ? oystehr.fhir
+            .search<PractitionerRole>({
+              resourceType: 'PractitionerRole',
+              params: [
+                { name: 'identifier', value: `${SLUG_SYSTEM}|${bookingOn}` },
+                // Match get-schedule's filter: a soft-deleted PR shouldn't leak
+                // categories into the picker. `active !== false` per FHIR
+                // convention; the negated search param covers absent-and-true.
+                { name: 'active:not', value: 'false' },
+              ],
+            })
+            .then((bundle) => bundle.unbundle())
+        : Promise.resolve([]),
+      isGroupScoped
+        ? oystehr.fhir
+            .search<HealthcareService>({
+              resourceType: 'HealthcareService',
+              params: [{ name: 'identifier', value: `${SLUG_SYSTEM}|${bookingOn}` }],
+            })
+            .then((bundle) => bundle.unbundle())
+        : Promise.resolve([]),
+    ]);
 
     if (isProviderScoped) {
-      const prMatches = (
-        await oystehr.fhir.search<PractitionerRole>({
-          resourceType: 'PractitionerRole',
-          params: [
-            { name: 'identifier', value: `${SLUG_SYSTEM}|${bookingOn}` },
-            // Match get-schedule's filter: a soft-deleted PR shouldn't leak
-            // categories into the picker. `active !== false` per FHIR
-            // convention; the negated search param covers absent-and-true.
-            { name: 'active:not', value: 'false' },
-          ],
-        })
-      ).unbundle();
       const pr = prMatches[0];
       if (!pr) {
         // Provider slug resolved to nothing. Mirror the group not-found path
@@ -173,13 +185,7 @@ export const index = wrapHandler(
     // across the two branches that do consume it.
     const fullCatalog = buildCatalog(fhirResources);
 
-    if (scheduleType === 'group' && bookingOn) {
-      const groupMatches = (
-        await oystehr.fhir.search<HealthcareService>({
-          resourceType: 'HealthcareService',
-          params: [{ name: 'identifier', value: `${SLUG_SYSTEM}|${bookingOn}` }],
-        })
-      ).unbundle();
+    if (isGroupScoped) {
       const group = groupMatches[0];
       if (!group) {
         // A group was clearly requested but the slug resolved to nothing.

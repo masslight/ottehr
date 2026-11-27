@@ -10,6 +10,7 @@ import {
 } from 'utils/lib/types/api/radiology';
 import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
 import { validateJsonBody } from '../../../shared/helpers';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeValidate } from '../../../shared/validation';
 import { EnhancedBody, ValidatedCPTCode, ValidatedICD10Code, ValidatedInput } from '.';
@@ -48,9 +49,14 @@ const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<Enhan
 
   const isExternal = external === true;
 
-  const diagnoses = await validateICD10Codes(diagnosisCodes, oystehr);
-  const cpt = await validateCPTCode(cptCode, oystehr);
-  const encounter = await fetchEncounter(encounterId, oystehr);
+  const [diagnosesResult, cptResult, encounterResult] = await Promise.allSettled([
+    validateICD10Codes(diagnosisCodes, oystehr),
+    validateCPTCode(cptCode, oystehr),
+    fetchEncounter(encounterId, oystehr),
+  ]);
+  const diagnoses = settledValueOrThrow(diagnosesResult);
+  const cpt = settledValueOrThrow(cptResult);
+  const encounter = settledValueOrThrow(encounterResult);
 
   const trimmedClinicalHistory = clinicalHistory?.trim() ?? '';
 

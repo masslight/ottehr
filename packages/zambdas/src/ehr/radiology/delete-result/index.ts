@@ -9,6 +9,7 @@ import { DeleteRadiologyResultZambdaOutput } from 'utils/lib/types/api/radiology
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { deleteZ3Object } from '../../../shared/z3Utils';
 import { findExistingFolderList } from '../../shared/patient-document-folders';
@@ -46,23 +47,27 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
     throw new Error(`DocumentReference/${docRef.id} has no patient subject`);
   }
 
-  // Best-effort delete of the backing Z3 file before removing the DocumentReference.
   const fileUrl = docRef.content?.[0]?.attachment?.url;
-  if (fileUrl) {
-    try {
-      await deleteZ3Object(fileUrl, m2mToken);
-    } catch (error) {
-      console.error('Failed to delete Z3 object for radiology result, removing DocumentReference anyway:', error);
-    }
-  }
+  const [, radiologyReportsFolderResult] = await Promise.allSettled([
+    // Best-effort delete of the backing Z3 file before removing the DocumentReference.
+    (async () => {
+      if (!fileUrl) return;
+      try {
+        await deleteZ3Object(fileUrl, m2mToken);
+      } catch (error) {
+        console.error('Failed to delete Z3 object for radiology result, removing DocumentReference anyway:', error);
+      }
+    })(),
+    findExistingFolderList({
+      patientId,
+      internalName: BUCKET_NAMES.RADIOLOGY_REPORTS,
+      isCustom: false,
+      oystehr,
+    }),
+  ]);
+  const radiologyReportsFolder = settledValueOrThrow(radiologyReportsFolderResult);
 
   const docRefReference = `DocumentReference/${docRef.id}`;
-  const radiologyReportsFolder = await findExistingFolderList({
-    patientId,
-    internalName: BUCKET_NAMES.RADIOLOGY_REPORTS,
-    isCustom: false,
-    oystehr,
-  });
   if (radiologyReportsFolder?.id) {
     await patchWithOptimisticLock(oystehr, { ...radiologyReportsFolder, id: radiologyReportsFolder.id }, (folder) =>
       folder.entry?.some((entry) => entry.item.reference === docRefReference)

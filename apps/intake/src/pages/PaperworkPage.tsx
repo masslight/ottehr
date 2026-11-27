@@ -237,7 +237,6 @@ export const PaperworkHome: FC = () => {
   } = useGetPaymentMethods({
     beneficiaryPatientId: patient?.id,
     appointmentId,
-    setupCompleted: Boolean(stripeSetupData),
   });
 
   const paperworkComponentHelpers = usePaperworkComponentHelpers();

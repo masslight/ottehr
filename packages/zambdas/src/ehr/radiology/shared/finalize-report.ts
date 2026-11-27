@@ -18,18 +18,19 @@ import {
   takeMostRecentPreliminaryReport,
   takeTheBestFinalDiagnosticReport,
 } from '../../../shared/radiology';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { configReviewResultTask, parseRadiologyResourcesForTask, validateResourcesAgainstDR } from './index';
 
 export const finalizeRadiologyReport = async (
   serviceRequestId: string,
   finalReport: string,
-  author: Reference,
+  resolveAuthor: () => Promise<Reference>,
   oystehr: Oystehr
 ): Promise<void> => {
   console.group('Fetching Fhir Resources from Oystehr');
 
-  const searchResults = (
-    await oystehr.fhir.search<DiagnosticReport | ServiceRequest | Patient | Encounter | Practitioner | Location>({
+  const [searchResultsResult, authorResult] = await Promise.allSettled([
+    oystehr.fhir.search<DiagnosticReport | ServiceRequest | Patient | Encounter | Practitioner | Location>({
       resourceType: 'DiagnosticReport',
       params: [
         {
@@ -57,8 +58,11 @@ export const finalizeRadiologyReport = async (
           value: 'Encounter:location', // to get location name to record on task for displays
         },
       ],
-    })
-  ).unbundle();
+    }),
+    resolveAuthor(),
+  ]);
+  const author = settledValueOrThrow(authorResult);
+  const searchResults = settledValueOrThrow(searchResultsResult).unbundle();
 
   console.groupEnd();
   console.debug('Resources fetched successfully');

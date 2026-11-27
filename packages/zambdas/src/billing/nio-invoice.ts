@@ -13,6 +13,7 @@ import {
 } from 'utils/lib/types/errors';
 import { readInvoicingConfig } from '../rcm/invoice-config/helpers';
 import { NioInvoicePdfData } from '../shared/pdf/nio-invoice-pdf';
+import { settledValueOrThrow } from '../shared/settled';
 import { buildClaimLookups, getClaimServiceDay, mapClaimToItem } from './claim-search';
 import { INVOICE_ISSUER_CLAIM_INCLUDES, resolveClaimInvoiceIssuer } from './invoice-issuer';
 import { fetchActiveClaimInvoices } from './invoices';
@@ -40,22 +41,19 @@ const describeClaims = (claims: Claim[], resources: Resource[], nameClaims: bool
     .join('; ');
 };
 
-// Checks the claims can go on one NIO invoice together and builds what the invoice and its PDF
-// need. Nothing is saved, so preview and create both start here. A create that resumes passes the
-// invoice it already saved, so the claims aren't refused for being on it.
-export async function assembleNioInvoice({
-  oystehr,
-  claimIds,
-  resumedInvoiceId,
-  nameClaims = false,
-  now = DateTime.now(),
-}: {
-  oystehr: Oystehr;
-  claimIds: string[];
-  resumedInvoiceId?: string;
-  nameClaims?: boolean;
-  now?: DateTime;
-}): Promise<NioInvoiceDraft> {
+interface NioInvoiceClaims {
+  resources: Resource[];
+  claims: Claim[];
+  lookups: Awaited<ReturnType<typeof buildClaimLookups>>;
+  nioId: string;
+  nio: Organization;
+}
+
+async function loadNioInvoiceClaims(
+  oystehr: Oystehr,
+  claimIds: string[],
+  nameClaims: boolean
+): Promise<NioInvoiceClaims> {
   const resources = (
     await oystehr.fhir.search<Claim | Patient | Location | Organization | Practitioner>({
       resourceType: 'Claim',
@@ -99,16 +97,42 @@ export async function assembleNioInvoice({
     throw INVALID_INPUT_ERROR('All claims must have the same non-insurance payer');
   }
 
-  const [{ invoiceIssuerSource, dueDaysFromGeneration }, lookups, activeInvoices, nio] = await Promise.all([
-    readInvoicingConfig(oystehr),
+  const [lookups, nio] = await Promise.all([
     buildClaimLookups({
       oystehr,
       claims,
       includedResources: resources,
     }),
-    fetchActiveClaimInvoices(oystehr, claimIds),
     fetchById<Organization>(oystehr, 'Organization', nioId),
   ]);
+
+  return { resources, claims, lookups, nioId, nio };
+}
+
+// Checks the claims can go on one NIO invoice together and builds what the invoice and its PDF
+// need. Nothing is saved, so preview and create both start here. A create that resumes passes the
+// invoice it already saved, so the claims aren't refused for being on it.
+export async function assembleNioInvoice({
+  oystehr,
+  claimIds,
+  resumedInvoiceId,
+  nameClaims = false,
+  now = DateTime.now(),
+}: {
+  oystehr: Oystehr;
+  claimIds: string[];
+  resumedInvoiceId?: string;
+  nameClaims?: boolean;
+  now?: DateTime;
+}): Promise<NioInvoiceDraft> {
+  const [claimsResult, configResult, activeInvoicesResult] = await Promise.allSettled([
+    loadNioInvoiceClaims(oystehr, claimIds, nameClaims),
+    readInvoicingConfig(oystehr),
+    fetchActiveClaimInvoices(oystehr, claimIds),
+  ]);
+  const { resources, claims, lookups, nioId, nio } = settledValueOrThrow(claimsResult);
+  const { invoiceIssuerSource, dueDaysFromGeneration } = settledValueOrThrow(configResult);
+  const activeInvoices = settledValueOrThrow(activeInvoicesResult);
 
   const issuers = claims.map((claim) => resolveClaimInvoiceIssuer(claim, resources, invoiceIssuerSource));
   const facilityIds = new Set(

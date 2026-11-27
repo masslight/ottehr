@@ -36,6 +36,7 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, fillMeta, validateJsonBody } from '../../../shared/helpers';
 import { getMyPractitionerId } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import {
   CONTAINED_EMERGENCY_CONTACT_ID,
@@ -57,12 +58,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const userPractitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
-  const userPractitioner = await oystehr.fhir.get<Practitioner>({
-    resourceType: 'Practitioner',
-    id: userPractitionerId,
-  });
-  const response = await administerImmunizationOrder(oystehr, validatedParameters, userPractitioner);
+  const [userPractitionerResult, medicationAdministrationResult] = await Promise.allSettled([
+    getMyPractitionerId(userToken, validatedParameters.secrets).then((userPractitionerId) =>
+      oystehr.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: userPractitionerId,
+      })
+    ),
+    oystehr.fhir.get<MedicationAdministration>({
+      resourceType: 'MedicationAdministration',
+      id: validatedParameters.orderId,
+    }),
+  ]);
+  const userPractitioner = settledValueOrThrow(userPractitionerResult);
+  const medicationAdministration = settledValueOrThrow(medicationAdministrationResult);
+  const response = await administerImmunizationOrder(
+    oystehr,
+    validatedParameters,
+    userPractitioner,
+    medicationAdministration
+  );
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -72,13 +87,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 export async function administerImmunizationOrder(
   oystehr: Oystehr,
   input: AdministerImmunizationOrderRequest,
-  userPractitioner: Practitioner
+  userPractitioner: Practitioner,
+  prefetchedMedicationAdministration?: MedicationAdministration
 ): Promise<CreateUpdateImmunizationOrderResponse> {
   const { orderId, type, reason, details, administrationDetails } = input;
-  const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
-    resourceType: 'MedicationAdministration',
-    id: orderId,
-  });
+  const medicationAdministration =
+    prefetchedMedicationAdministration ??
+    (await oystehr.fhir.get<MedicationAdministration>({
+      resourceType: 'MedicationAdministration',
+      id: orderId,
+    }));
 
   const allowedStatuses = ['in-progress', 'completed', 'on-hold', 'not-done'];
   if (!allowedStatuses.includes(medicationAdministration.status)) {

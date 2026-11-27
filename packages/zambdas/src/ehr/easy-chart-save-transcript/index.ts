@@ -19,6 +19,7 @@ import { createResourcesFromAiInterview } from '../../shared/ai';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import { authorizeEasyChartRequest } from '../easy-chart-shared/authorize';
@@ -37,13 +38,27 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   // Every write below runs under the M2M token, so a signed visit has to be refused here, not just in the EHR.
-  await assertVisitIsEditable(oystehr, encounterId, ZAMBDA_NAME);
+  const [editableResult, documentResult, staleObsResult, callerProfileResult] = await Promise.allSettled([
+    assertVisitIsEditable(oystehr, encounterId, ZAMBDA_NAME),
+    documentId ? oystehr.fhir.get<DocumentReference>({ resourceType: 'DocumentReference', id: documentId }) : undefined,
+    documentId
+      ? oystehr.fhir
+          .search<Observation>({
+            resourceType: 'Observation',
+            params: [{ name: 'derived-from', value: `DocumentReference/${documentId}` }],
+          })
+          .then((bundle) => bundle.unbundle().flatMap((obs) => (obs.id ? [obs.id] : [])))
+      : [],
+    !documentId && !isServiceClient ? userMe(userToken, secrets).then((user) => user.profile) : null,
+  ]);
+  settledValueOrThrow(editableResult);
+  const fetchedDocument = settledValueOrThrow(documentResult);
 
   let existing: DocumentReference | undefined;
   let staleObservationIds: string[] = [];
   let providerUserProfile: string | null;
-  if (documentId) {
-    existing = await oystehr.fhir.get<DocumentReference>({ resourceType: 'DocumentReference', id: documentId });
+  if (documentId && fetchedDocument) {
+    existing = fetchedDocument;
     if (!existing.context?.encounter?.some((ref) => ref.reference === `Encounter/${encounterId}`)) {
       throw INVALID_INPUT_ERROR('The transcript does not belong to this visit');
     }
@@ -54,17 +69,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     providerUserProfile =
       existing.extension?.find((e) => e.url === `${PUBLIC_EXTENSION_BASE_URL}/provider`)?.valueReference?.reference ??
       null;
-    staleObservationIds = (
-      await oystehr.fhir.search<Observation>({
-        resourceType: 'Observation',
-        params: [{ name: 'derived-from', value: `DocumentReference/${documentId}` }],
-      })
-    )
-      .unbundle()
-      .flatMap((obs) => (obs.id ? [obs.id] : []));
+    staleObservationIds = settledValueOrThrow(staleObsResult);
   } else {
     // A service client has no user profile, so its transcript is stored as a chat transcript.
-    providerUserProfile = isServiceClient ? null : (await userMe(userToken, secrets)).profile;
+    providerUserProfile = settledValueOrThrow(callerProfileResult);
   }
 
   const created = await createResourcesFromAiInterview(

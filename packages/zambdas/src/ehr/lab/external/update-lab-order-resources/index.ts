@@ -45,6 +45,7 @@ import {
 } from '../../../../shared/pdf/labs-results-form-pdf';
 import { getMyPractitionerId } from '../../../../shared/practitioners';
 import { wrapHandler } from '../../../../shared/sentry';
+import { settledValueOrThrow } from '../../../../shared/settled';
 import { createOwnerReference } from '../../../../shared/tasks';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { diagnosticReportSpecificResultType, getExternalLabOrderResourcesViaServiceRequest } from '../../shared/labs';
@@ -300,18 +301,23 @@ const handleReviewedEvent = async ({
     throw new Error(`ServiceRequest/${serviceRequestId} not found for diagnostic report, ${diagnosticReportId}`);
   }
 
-  let location: Location | undefined;
   const locationReference = serviceRequest?.locationReference?.[0];
-  if (locationReference) {
-    const isActuallyLocationRef = locationReference.reference?.startsWith('Location/');
-    const locationId = locationReference.reference?.replace('Location/', '');
-    if (isActuallyLocationRef && locationId) {
-      location = await oystehr.fhir.get<Location>({
-        resourceType: 'Location',
-        id: locationId,
-      });
-    }
-  }
+  const isActuallyLocationRef = locationReference?.reference?.startsWith('Location/');
+  const locationId = locationReference?.reference?.replace('Location/', '');
+  const [location, currentUserPractitioner] = await Promise.all([
+    isActuallyLocationRef && locationId
+      ? oystehr.fhir.get<Location>({
+          resourceType: 'Location',
+          id: locationId,
+        })
+      : undefined,
+    task.owner
+      ? undefined
+      : oystehr.fhir.get<Practitioner>({
+          resourceType: 'Practitioner',
+          id: practitionerIdFromCurrentUser,
+        }),
+  ]);
 
   const tempProvenanceUuid = `urn:uuid:${crypto.randomUUID()}`;
 
@@ -381,11 +387,7 @@ const handleReviewedEvent = async ({
       : []),
   ];
 
-  if (!task.owner) {
-    const currentUserPractitioner = await oystehr.fhir.get<Practitioner>({
-      resourceType: 'Practitioner',
-      id: practitionerIdFromCurrentUser,
-    });
+  if (!task.owner && currentUserPractitioner) {
     taskPatchOperations.push({
       path: '/owner',
       op: 'add',
@@ -545,24 +547,23 @@ const handleSaveCollectionData = async (
     mostRecentSampleCollectionDate = mostRecentCollectionDate;
   }
 
-  // if aoe answers (data) are passed, patch the QR & make QR completed
-  // not every order will have an AOE
-  if (questionnaireResponse !== undefined && questionnaireResponse.id) {
-    const qrPatchRequest = await makeQrPatchRequest(questionnaireResponse, data, m2mToken);
+  const [qrPatchRequestResult, pstCompletedRequestsResult] = await Promise.allSettled([
+    // if aoe answers (data) are passed, patch the QR & make QR completed
+    // not every order will have an AOE
+    questionnaireResponse !== undefined && questionnaireResponse.id
+      ? makeQrPatchRequest(questionnaireResponse, data, m2mToken)
+      : undefined,
+    // update pst task to complete, add agent and relevant history (provenance created)
+    // and create provenance with activity PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask
+    makePstCompletePatchRequests(oystehr, preSubmissionTask, serviceRequest, practitionerIdFromCurrentUser, now),
+  ]);
+  const qrPatchRequest = settledValueOrThrow(qrPatchRequestResult);
+  if (qrPatchRequest) {
     requests.push(qrPatchRequest);
   }
 
   let presignedLabelPdfUrl: string | undefined = undefined;
-  // update pst task to complete, add agent and relevant history (provenance created)
-  // and create provenance with activity PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask
-  const pstCompletedRequests = await makePstCompletePatchRequests(
-    oystehr,
-    preSubmissionTask,
-    serviceRequest,
-    practitionerIdFromCurrentUser,
-    now
-  );
-  requests.push(...pstCompletedRequests);
+  requests.push(...settledValueOrThrow(pstCompletedRequestsResult));
 
   // make specimen label
   if (!isPSCOrder(serviceRequest)) {

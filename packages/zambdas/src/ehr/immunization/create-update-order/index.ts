@@ -17,6 +17,7 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, fillMeta, validateJsonBody } from '../../../shared/helpers';
 import { getMyPractitionerId } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import {
   applyOrderAdministrationDetails,
@@ -35,12 +36,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const userPractitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
+  const [userPractitionerIdResult, encounterResult] = await Promise.allSettled([
+    getMyPractitionerId(userToken, validatedParameters.secrets),
+    validatedParameters.orderId
+      ? undefined
+      : oystehr.fhir.get<Encounter>({
+          resourceType: 'Encounter',
+          id: validatedParameters.encounterId,
+        }),
+  ]);
+  const userPractitionerId = settledValueOrThrow(userPractitionerIdResult);
   let response;
   if (validatedParameters.orderId) {
     response = await updateImmunizationOrder(oystehr, validatedParameters);
   } else {
-    response = await createImmunizationOrder(oystehr, validatedParameters, userPractitionerId);
+    response = await createImmunizationOrder(
+      oystehr,
+      validatedParameters,
+      userPractitionerId,
+      settledValueOrThrow(encounterResult)!
+    );
   }
   return {
     statusCode: 200,
@@ -51,13 +66,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function createImmunizationOrder(
   oystehr: Oystehr,
   input: CreateUpdateImmunizationOrderRequest,
-  userPractitionerId: string
+  userPractitionerId: string,
+  encounter: Encounter
 ): Promise<CreateUpdateImmunizationOrderResponse> {
-  const { encounterId, details, administrationDetails } = input;
-  const encounter = await oystehr.fhir.get<Encounter>({
-    resourceType: 'Encounter',
-    id: encounterId,
-  });
+  const { details, administrationDetails } = input;
   if (!encounter.subject) {
     throw new Error(`Encounter ${encounter.id} has no subject`);
   }

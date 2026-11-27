@@ -1,11 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Task } from 'fhir/r4b';
+import { Claim, Encounter, Task } from 'fhir/r4b';
 import { BILLING_CLAIM_TASK_CODING } from 'utils/lib/types/data/billing/billing.constants';
 import { CreateBillingClaimTaskInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { findBillingClaimForEncounter } from '../payments';
@@ -23,8 +24,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
 
-  const encounter = await complexValidation(clinicalOystehr, params);
-  const response = await performEffect(billingOystehr, params, encounter);
+  const [encounterResult, existingClaimResult] = await Promise.allSettled([
+    complexValidation(clinicalOystehr, params),
+    findBillingClaimForEncounter(billingOystehr, params.encounterId),
+  ]);
+  const encounter = settledValueOrThrow(encounterResult);
+  const existingClaim = settledValueOrThrow(existingClaimResult);
+  const response = await performEffect(billingOystehr, params, encounter, existingClaim);
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
@@ -35,9 +41,9 @@ async function complexValidation(oystehr: Oystehr, params: CreateBillingClaimTas
 async function performEffect(
   oystehr: Oystehr,
   params: CreateBillingClaimTaskParams,
-  encounter: Encounter
+  encounter: Encounter,
+  existingClaim: Claim | undefined
 ): Promise<{ taskId: string } | { claimId: string }> {
-  const existingClaim = await findBillingClaimForEncounter(oystehr, params.encounterId);
   if (existingClaim?.id) return { claimId: existingClaim.id };
 
   // Re-signing reuses the task. Failed tasks are retried from the billing queue.

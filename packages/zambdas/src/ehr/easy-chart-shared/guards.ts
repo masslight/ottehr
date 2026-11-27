@@ -34,6 +34,7 @@ import {
   sniffVitalsFromNarrative,
   unitNotSaid,
 } from 'utils/lib/easy-chart/vitals';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { createTerminologyIcdSearch } from './icd-search';
 import { ModelActionSchema } from './model-output';
 
@@ -70,6 +71,8 @@ export interface GuardResult {
   triggers: TriggerReport[];
 }
 
+const GUARD_CONCURRENCY = 5;
+
 const isVitalField = (value: unknown): value is PlannableVitalField =>
   typeof value === 'string' && (PLANNABLE_VITAL_FIELDS as readonly string[]).includes(value);
 
@@ -86,8 +89,8 @@ export async function applyGuards(raw: unknown[], context: GuardContext): Promis
   // The model repeats identical readings; each would chart as another observation. A genuine recheck
   // has a different value and is kept.
   const seenVitals = new Set<string>();
-  for (const item of raw) {
-    const outcome = await guardOne(item, resolved);
+  const outcomes = await mapWithConcurrency(raw, GUARD_CONCURRENCY, (item) => guardOne(item, resolved));
+  for (const outcome of outcomes) {
     if ('rejected' in outcome) {
       rejected.push(outcome.rejected);
       continue;

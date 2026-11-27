@@ -42,12 +42,13 @@ const performEffect = async (
   oystehr: Oystehr
 ): Promise<GetVitalsForListOfEncountersResponseData> => {
   const { encounters, patientsById } = input;
-  const vitalsAlertConfig = await getVitalsEngineConfig(oystehr);
-
-  const { observationsByEncounter, practitioners } = await fetchVitalsForEncounters(
-    encounters.map((encounter) => encounter.id),
-    oystehr
-  );
+  const [vitalsAlertConfig, { observationsByEncounter, practitioners }] = await Promise.all([
+    getVitalsEngineConfig(oystehr),
+    fetchVitalsForEncounters(
+      encounters.map((encounter) => encounter.id),
+      oystehr
+    ),
+  ]);
 
   // Every requested encounter appears in the response, with or without vitals — same as when this
   // built the map one encounter at a time.

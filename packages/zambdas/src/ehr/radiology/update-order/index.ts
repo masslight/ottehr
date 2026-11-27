@@ -12,6 +12,7 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { makeCptModifierExtension } from '../../../shared/candid';
 import { isRadiologyOrderReviewed, savePerformedBy } from '../../../shared/radiology';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { buildRadiologyOrderContent, ValidatedCPTCode } from '../create-order';
 import {
@@ -157,13 +158,17 @@ async function updateOrderContent(
 
   // An external order is editable only until results are uploaded (spec: editable/reprintable up to the
   // time results have been entered). Once a result DocumentReference exists, the order is locked.
-  const resultDocRefs = await searchRadiologyResultDocRefs(existing.id!, oystehr);
-  if (resultDocRefs.length > 0) {
+  const [resultDocRefsResult, diagnosesResult, cptResult] = await Promise.allSettled([
+    searchRadiologyResultDocRefs(existing.id!, oystehr),
+    validateICD10Codes(edit.diagnosisCodes, oystehr),
+    validateCPTCode(edit.cptCode, oystehr),
+  ]);
+  if (settledValueOrThrow(resultDocRefsResult).length > 0) {
     throw new Error('Cannot edit a radiology order after results have been uploaded');
   }
 
-  const diagnoses = await validateICD10Codes(edit.diagnosisCodes, oystehr);
-  const cpt = await validateCPTCode(edit.cptCode, oystehr);
+  const diagnoses = settledValueOrThrow(diagnosesResult);
+  const cpt = settledValueOrThrow(cptResult);
 
   const clinicalHistory = edit.clinicalHistory?.trim() ?? '';
 

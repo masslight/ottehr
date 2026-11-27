@@ -365,29 +365,45 @@ const performEffect = async (
 
   let activeAdByUrl = new Map<string, ActivityDefinition>();
   const retiredAdByUrl = new Map<string, ActivityDefinition>();
-  if (canonicalRefs.length > 0) {
-    const urlsToSearch = Array.from(new Set(canonicalRefs.map(urlFromInstantiatesCanonical)));
-    try {
-      const ads = (
-        await oystehr.fhir.search<ActivityDefinition>({
-          resourceType: 'ActivityDefinition',
-          params: [{ name: 'url', value: urlsToSearch.join(',') }],
-        })
-      ).unbundle() as ActivityDefinition[];
-      activeAdByUrl = indexLatestActivityDefinitionsByUrl(ads.filter((ad) => ad.status === 'active'));
 
-      // we still query the inactive ads and set them aside so we can display useful info like the in-applicable test's name
-      // so a user might be able to fix it
-      ads
-        .filter((ad) => ad.status === 'retired')
-        .forEach((retiredAd) => {
-          if (!retiredAd.url) return;
-          retiredAdByUrl.set(retiredAd.url, retiredAd);
-        });
-    } catch (err) {
-      console.warn('Could not resolve ActivityDefinitions for in-house lab plans:', err);
-    }
-  }
+  // Parse external lab plans. Each plan is a ServiceRequest with intent 'plan'
+  // and the external-lab-template-plan meta tag carrying the lab + test combo,
+  // Dx, note, and PSC and stat flags. We verify each lab + test combo still resolves in
+  // the lab's current compendium so the admin UI can flag tests that would be
+  // skipped at apply time.
+  const externalLabPlans = findExternalLabPlans(templateList);
+  const externalParsedPlans = externalLabPlans.map((plan) => ({ plan, parsed: parseExternalLabPlan(plan) }));
+
+  const [, externalOrderableItemsByLabGuid] = await Promise.all([
+    (async () => {
+      if (canonicalRefs.length === 0) return;
+      const urlsToSearch = Array.from(new Set(canonicalRefs.map(urlFromInstantiatesCanonical)));
+      try {
+        const ads = (
+          await oystehr.fhir.search<ActivityDefinition>({
+            resourceType: 'ActivityDefinition',
+            params: [{ name: 'url', value: urlsToSearch.join(',') }],
+          })
+        ).unbundle() as ActivityDefinition[];
+        activeAdByUrl = indexLatestActivityDefinitionsByUrl(ads.filter((ad) => ad.status === 'active'));
+
+        // we still query the inactive ads and set them aside so we can display useful info like the in-applicable test's name
+        // so a user might be able to fix it
+        ads
+          .filter((ad) => ad.status === 'retired')
+          .forEach((retiredAd) => {
+            if (!retiredAd.url) return;
+            retiredAdByUrl.set(retiredAd.url, retiredAd);
+          });
+      } catch (err) {
+        console.warn('Could not resolve ActivityDefinitions for in-house lab plans:', err);
+      }
+    })(),
+    fetchPlanItemsByLabGuid(
+      externalParsedPlans.map((p) => p.parsed).filter((p): p is NonNullable<typeof p> => p !== null),
+      m2mToken
+    ),
+  ]);
 
   const inHouseLabs: TemplateInHouseLabPlanDetail[] = inHouseLabPlans.map((plan) => {
     const canonical = plan.instantiatesCanonical?.[0] ?? '';
@@ -432,19 +448,6 @@ const performEffect = async (
       missing: !ad,
     };
   });
-
-  // Parse external lab plans. Each plan is a ServiceRequest with intent 'plan'
-  // and the external-lab-template-plan meta tag carrying the lab + test combo,
-  // Dx, note, and PSC and stat flags. We verify each lab + test combo still resolves in
-  // the lab's current compendium so the admin UI can flag tests that would be
-  // skipped at apply time.
-  const externalLabPlans = findExternalLabPlans(templateList);
-  const externalParsedPlans = externalLabPlans.map((plan) => ({ plan, parsed: parseExternalLabPlan(plan) }));
-
-  const externalOrderableItemsByLabGuid = await fetchPlanItemsByLabGuid(
-    externalParsedPlans.map((p) => p.parsed).filter((p): p is NonNullable<typeof p> => p !== null),
-    m2mToken
-  );
 
   const externalLabs: TemplateExternalLabPlanDetail[] = externalParsedPlans.map(({ plan, parsed }) => {
     if (!parsed) {

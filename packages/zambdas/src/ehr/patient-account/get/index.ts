@@ -10,6 +10,7 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { getPatientCoverageChecks } from '../../../shared/patient-coverage-checks';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
@@ -35,13 +36,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAccountResponse> => {
   const { patientId } = input;
   console.log('performing effect for patient account get');
-  console.time('getAccountAndCoverageResourcesForPatient');
-  const accountAndCoverages = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
-  console.timeEnd('getAccountAndCoverageResourcesForPatient');
+  const [accountAndCoveragesResult, coverageChecksResult] = await Promise.allSettled([
+    (async () => {
+      console.time('getAccountAndCoverageResourcesForPatient');
+      const accountAndCoverages = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+      console.timeEnd('getAccountAndCoverageResourcesForPatient');
+      return accountAndCoverages;
+    })(),
+    getPatientCoverageChecks(patientId, oystehr),
+  ]);
+  const accountAndCoverages = settledValueOrThrow(accountAndCoveragesResult);
   const primaryCarePhysician = accountAndCoverages.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;
-  const coverageChecks = await getPatientCoverageChecks(patientId, oystehr);
+  const coverageChecks = settledValueOrThrow(coverageChecksResult);
   const { patient } = accountAndCoverages;
   const pharmacy = getPreferredPharmacyFromPatient(patient);
   return {

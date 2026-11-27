@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../../shared/validation';
 
@@ -66,16 +67,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   await assertCallerAuthorized(callerToken, secrets);
 
   // Confirm the Location exists first — a clear 404 beats a confusing empty cascade.
-  try {
-    await oystehr.fhir.get({ resourceType: 'Location', id: locationId });
-  } catch (err) {
-    if (/not found/i.test(err instanceof Error ? err.message : String(err))) {
-      throw FHIR_RESOURCE_NOT_FOUND('Location');
-    }
-    throw err;
-  }
-
-  const [schedules, practitionerRoles, appointments] = await Promise.all([
+  const [locationResult, schedulesResult, practitionerRolesResult, appointmentsResult] = await Promise.allSettled([
+    (async () => {
+      try {
+        await oystehr.fhir.get({ resourceType: 'Location', id: locationId });
+      } catch (err) {
+        if (/not found/i.test(err instanceof Error ? err.message : String(err))) {
+          throw FHIR_RESOURCE_NOT_FOUND('Location');
+        }
+        throw err;
+      }
+    })(),
     getAllFhirSearchPages<Schedule>(
       { resourceType: 'Schedule', params: [{ name: 'actor', value: `Location/${locationId}` }] },
       oystehr
@@ -89,6 +91,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       oystehr
     ),
   ]);
+  settledValueOrThrow(locationResult);
+  const schedules = settledValueOrThrow(schedulesResult);
+  const practitionerRoles = settledValueOrThrow(practitionerRolesResult);
+  const appointments = settledValueOrThrow(appointmentsResult);
 
   const dependents = {
     schedules: schedules.length,

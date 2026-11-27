@@ -1,4 +1,4 @@
-import { mapWithConcurrency } from '../concurrency';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { NamedAttachment } from './naming';
 
 export interface SizedAttachment {

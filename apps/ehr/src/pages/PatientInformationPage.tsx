@@ -180,25 +180,15 @@ const usePatientData = (
 } => {
   const apiClient = useOystehrAPIClient();
 
-  const {
-    isFetching: accountFetching,
-    data: accountData,
-    status: accountStatus,
-  } = useGetPatientAccount({
+  const { isFetching: accountFetching, data: accountData } = useGetPatientAccount({
     apiClient,
     patientId: id ?? null,
   });
 
-  const { data: insuranceData, isFetching: coveragesFetching } = useGetPatientCoverages(
-    {
-      apiClient,
-      patientId: id ?? null,
-    },
-    undefined,
-    {
-      enabled: accountStatus === 'success',
-    }
-  );
+  const { data: insuranceData, isFetching: coveragesFetching } = useGetPatientCoverages({
+    apiClient,
+    patientId: id ?? null,
+  });
 
   const coverages: CoverageWithPriority[] = useMemo(() => {
     if (!insuranceData?.coverages) return [];
@@ -518,6 +508,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     }
 
     let qrValues = values;
+    let visitDetailsInvalidation: Promise<void> | undefined;
 
     // Pre-op: persist the employer on the Encounter via update-visit-details and exclude it
     // from the patient-record QR so it is never written to the Account.
@@ -542,7 +533,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
             appointmentId,
             employerValue as Reference | null | undefined
           );
-          await queryClient.invalidateQueries({ queryKey: ['get-visit-details'] });
+          visitDetailsInvalidation = queryClient.invalidateQueries({ queryKey: ['get-visit-details'] });
         } catch {
           enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
             variant: 'error',
@@ -559,7 +550,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
         reference: 'Encounter/' + appointmentContext.encounterId,
       };
     }
-    await submitQR.mutateAsync(qr);
+    await Promise.all([visitDetailsInvalidation, submitQR.mutateAsync(qr)]);
     methods.reset(values);
     setIsAddingInsurance(false);
   };

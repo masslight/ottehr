@@ -106,7 +106,10 @@ const performEffect = async (
     return { status: 'discarded' };
   }
 
-  const { status, provenance, contentType } = await verifyAgainstChart(z3Url, patientId, token);
+  const [{ status, provenance, contentType }, author] = await Promise.all([
+    verifyAgainstChart(z3Url, patientId, token),
+    resolveAuthor(userToken, secrets, oystehr),
+  ]);
 
   if (status.status === 'patientMismatch') {
     console.error(
@@ -129,8 +132,6 @@ const performEffect = async (
     console.log(`${ZAMBDA_NAME}: upload at ${z3Url} carries no source and none was named; awaiting one.`);
     return { status: 'needsSource' };
   }
-
-  const author = await resolveAuthor(userToken, secrets, oystehr);
 
   // The attachment title is what the documents list shows, and what renaming a document edits. Storing the
   // object's own name there surfaces the storage key — a timestamp and a hash — so a readable label is

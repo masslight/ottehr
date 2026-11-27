@@ -21,6 +21,7 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import { topLevelCatch } from '../../shared/lambda';
 import { makeZ3ObjectUrl } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 import { createPresignedUrl, deleteZ3Object } from '../../shared/z3Utils';
@@ -94,11 +95,14 @@ const performEffect = async (
   // Assembled from the bucket this server chose, not from anything the caller could name.
   const candidateUrl = makeZ3ObjectUrl({ secrets, bucketName: BUCKET_NAMES.FORM_TEMPLATES, objectName });
 
-  const docRef = await getFormTemplateOrThrow(oystehr, documentReferenceId);
+  const [docRefResult, responseResult] = await Promise.allSettled([
+    getFormTemplateOrThrow(oystehr, documentReferenceId),
+    getPresignedURL(candidateUrl, token).then((downloadUrl) => fetch(downloadUrl)),
+  ]);
+  const docRef = settledValueOrThrow(docRefResult);
   const previousUrl = docRef.content?.[0]?.attachment?.url;
 
-  const downloadUrl = await getPresignedURL(candidateUrl, token);
-  const response = await fetch(downloadUrl);
+  const response = settledValueOrThrow(responseResult);
   if (!response.ok) {
     throw new Error(`Could not download the replacement PDF (${response.status} ${response.statusText})`);
   }

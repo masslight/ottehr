@@ -287,55 +287,65 @@ export const getInHouseResources = async (
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
 
-  let currentPractitioner: Practitioner | undefined;
-  let resultsPDFs: LabDocumentRelatedToDiagnosticReport[] = [];
+  const getDetailPageResources = async (
+    detailUserToken: string
+  ): Promise<{
+    currentPractitioner: Practitioner | undefined;
+    resultsPDFs: LabDocumentRelatedToDiagnosticReport[];
+  }> => {
+    const [currentPractitioner, resultsPDFs] = await Promise.all([
+      getMyPractitionerId(detailUserToken, params.secrets).then((myPractitionerId) =>
+        myPractitionerId
+          ? oystehr.fhir.get<Practitioner>({
+              resourceType: 'Practitioner',
+              id: myPractitionerId,
+            })
+          : undefined
+      ),
+      (async (): Promise<LabDocumentRelatedToDiagnosticReport[]> => {
+        // if more than one ServiceRequest is returned for when this is called from the detail page
+        // we can assume that there are related tests via the repeat test workflow OR reflex test workflow
+        // either the service request id passed was the initial test (no basedOn)
+        // or it was a repeat/reflex test (will have a baseOn property)
+        if (serviceRequests.length > 1) {
+          const relatedSrs = getRelatedServiceRequests(serviceRequests, searchBy.searchBy.value as string);
+          // we need to grab additional resources for these additional SRs that will be rendered on the detail page
+          const {
+            additionalDiagnosticReports,
+            additionalObservations,
+            additionalProvenances,
+            additionalTasks,
+            additionalSpecimens,
+            additionalActivityDefinitions,
+          } = await fetchResultResourcesForRelatedServiceRequest(oystehr, relatedSrs);
+          diagnosticReports.push(...additionalDiagnosticReports);
+          observations.push(...additionalObservations);
+          provenances.push(...additionalProvenances);
+          tasks.push(...additionalTasks);
+          specimens.push(...additionalSpecimens);
+          activityDefinitions.push(...additionalActivityDefinitions);
+        }
 
-  if (isDetailPageRequest && userToken) {
-    // if more than one ServiceRequest is returned for when this is called from the detail page
-    // we can assume that there are related tests via the repeat test workflow OR reflex test workflow
-    // either the service request id passed was the initial test (no basedOn)
-    // or it was a repeat/reflex test (will have a baseOn property)
-    if (serviceRequests.length > 1) {
-      const relatedSrs = getRelatedServiceRequests(serviceRequests, searchBy.searchBy.value as string);
-      // we need to grab additional resources for these additional SRs that will be rendered on the detail page
-      const {
-        additionalDiagnosticReports,
-        additionalObservations,
-        additionalProvenances,
-        additionalTasks,
-        additionalSpecimens,
-        additionalActivityDefinitions,
-      } = await fetchResultResourcesForRelatedServiceRequest(oystehr, relatedSrs);
-      diagnosticReports.push(...additionalDiagnosticReports);
-      observations.push(...additionalObservations);
-      provenances.push(...additionalProvenances);
-      tasks.push(...additionalTasks);
-      specimens.push(...additionalSpecimens);
-      activityDefinitions.push(...additionalActivityDefinitions);
-    }
+        if (diagnosticReports.length > 0) {
+          const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(
+            oystehr,
+            diagnosticReports
+          ); // todo i think we can get this from the big query
+          const documents = await fetchLabDocumentPresignedUrls(resultsDocumentReferences, m2mToken);
+          if (documents) return documents.resultPDFs;
+        }
+        return [];
+      })(),
+    ]);
+    return { currentPractitioner, resultsPDFs };
+  };
 
-    const myPractitionerId = await getMyPractitionerId(userToken, params.secrets);
-
-    if (myPractitionerId) {
-      currentPractitioner = await oystehr.fhir.get<Practitioner>({
-        resourceType: 'Practitioner',
-        id: myPractitionerId,
-      });
-    }
-
-    if (diagnosticReports.length > 0) {
-      const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports); // todo i think we can get this from the big query
-      const documents = await fetchLabDocumentPresignedUrls(resultsDocumentReferences, m2mToken);
-      if (documents) resultsPDFs = documents.resultPDFs;
-    }
-  }
-
-  const practitioners = await fetchPractitionersForServiceRequests(
-    oystehr,
-    serviceRequests,
-    encounters,
-    params.secrets.ENVIRONMENT
-  );
+  const [detailPageResources, practitioners] = await Promise.all([
+    isDetailPageRequest && userToken ? getDetailPageResources(userToken) : undefined,
+    fetchPractitionersForServiceRequests(oystehr, serviceRequests, encounters, params.secrets.ENVIRONMENT),
+  ]);
+  const currentPractitioner = detailPageResources?.currentPractitioner;
+  const resultsPDFs = detailPageResources?.resultsPDFs ?? [];
 
   return {
     serviceRequests,

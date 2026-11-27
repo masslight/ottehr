@@ -1,11 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
-import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
-import {
-  getStripeAccountForAppointmentOrEncounter,
-  getStripeTerminalLocationIdForAppointmentOrEncounter,
-} from 'utils/lib/fhir/payments';
+import { getScheduleOwnerFromAppointmentOrEncounter, getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
+import { getStripeAccountForScheduleOwner, getStripeTerminalLocationIdForLocation } from 'utils/lib/fhir/payments';
 import {
   InitiatePatientPaymentTerminalInput,
   InitiatePatientPaymentTerminalResponse,
@@ -22,6 +19,7 @@ import { getAuth0Token } from '../../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { lambdaResponse } from '../../../../shared/lambda';
 import { wrapHandler } from '../../../../shared/sentry';
+import { settledValueOrThrow } from '../../../../shared/settled';
 import { getStripeClient, stripeEncounterMetadata } from '../../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { safeJsonParse } from '../../../../shared/validation';
@@ -41,15 +39,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, input.secrets);
-  const { stripeCustomerId, stripeAccount } = await getStripePaymentContext(validatedParameters, oystehrClient);
+  const { stripeCustomerId, stripeAccount, terminalLocationId } = await getStripePaymentContext(
+    validatedParameters,
+    oystehrClient
+  );
 
   const stripeClient = getStripeClient(input.secrets);
 
   // Validate that the reader belongs to the encounter's configured terminal location
-  const terminalLocationId = await getStripeTerminalLocationIdForAppointmentOrEncounter(
-    { encounterId: validatedParameters.encounterId },
-    oystehrClient
-  );
   const isSimHintLocation =
     terminalLocationId && SIMULATION_TERMINAL_LOCATION_VALUES.has(terminalLocationId.toLowerCase().trim());
 
@@ -183,16 +180,26 @@ const validateRequestParameters = (input: ZambdaInput): InitiatePatientPaymentTe
 const getStripePaymentContext = async (
   input: InitiatePatientPaymentTerminalInput,
   oystehrClient: Oystehr
-): Promise<{ stripeCustomerId: string; stripeAccount?: string }> => {
-  const patientAccount = await getAccountAndCoverageResourcesForPatient(input.patientId, oystehrClient);
+): Promise<{ stripeCustomerId: string; stripeAccount?: string; terminalLocationId?: string }> => {
+  const scheduleOwnerPromise = getScheduleOwnerFromAppointmentOrEncounter(
+    { encounterId: input.encounterId },
+    oystehrClient
+  );
+  const [patientAccountResult, scheduleOwnerResult, terminalLocationIdResult] = await Promise.allSettled([
+    getAccountAndCoverageResourcesForPatient(input.patientId, oystehrClient),
+    scheduleOwnerPromise,
+    scheduleOwnerPromise.then((scheduleOwner) =>
+      scheduleOwner.resourceType === 'Location' && scheduleOwner.id
+        ? getStripeTerminalLocationIdForLocation(scheduleOwner.id, oystehrClient)
+        : undefined
+    ),
+  ]);
+  const patientAccount = settledValueOrThrow(patientAccountResult);
   if (!patientAccount.account) {
     throw FHIR_RESOURCE_NOT_FOUND('Account');
   }
 
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter(
-    { encounterId: input.encounterId },
-    oystehrClient
-  );
+  const stripeAccount = getStripeAccountForScheduleOwner(settledValueOrThrow(scheduleOwnerResult));
   const stripeCustomerId = getStripeCustomerIdFromAccount(patientAccount.account, stripeAccount);
 
   if (!stripeCustomerId) {
@@ -202,5 +209,6 @@ const getStripePaymentContext = async (
   return {
     stripeCustomerId,
     stripeAccount,
+    terminalLocationId: settledValueOrThrow(terminalLocationIdResult),
   };
 };

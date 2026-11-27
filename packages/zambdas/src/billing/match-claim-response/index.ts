@@ -11,6 +11,7 @@ import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/e
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
 import { claimMatchHistoryRequests, MATCH_FIELDS, matchFieldsPatchOperations } from '../claim-response-match';
@@ -25,11 +26,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateRequestParameters(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
-
   const response = await performEffect(oystehr, {
     ...params,
-    agent,
+    agent: resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets),
   });
 
   return {
@@ -40,17 +39,27 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export async function performEffect(
   oystehr: Oystehr,
-  params: Params & { agent: ProvenanceAgent }
+  params: Params & { agent: ProvenanceAgent | Promise<ProvenanceAgent> }
 ): Promise<ClaimResponse> {
-  const claim = await oystehr.fhir.get<Claim>({
-    resourceType: 'Claim',
-    id: params.claimId,
-  });
-  const claimResponse = await oystehr.fhir.get<ClaimResponse>({
-    resourceType: 'ClaimResponse',
-    id: params.claimResponseId,
-  });
-  await assertClaimResponseEraNotVoided(oystehr, claimResponse);
+  const [claimResult, claimResponseResult, agentResult] = await Promise.allSettled([
+    oystehr.fhir.get<Claim>({
+      resourceType: 'Claim',
+      id: params.claimId,
+    }),
+    oystehr.fhir
+      .get<ClaimResponse>({
+        resourceType: 'ClaimResponse',
+        id: params.claimResponseId,
+      })
+      .then(async (claimResponse) => {
+        await assertClaimResponseEraNotVoided(oystehr, claimResponse);
+        return claimResponse;
+      }),
+    params.agent,
+  ]);
+  const agent = settledValueOrThrow(agentResult);
+  const claim = settledValueOrThrow(claimResult);
+  const claimResponse = settledValueOrThrow(claimResponseResult);
   const matched: ClaimResponse = {
     ...claimResponse,
     request: {
@@ -71,7 +80,7 @@ export async function performEffect(
       ...claimMatchHistoryRequests({
         before: claimResponse,
         after: matched,
-        agent: params.agent,
+        agent,
       }),
     ],
   });

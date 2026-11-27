@@ -14,6 +14,7 @@ import { CreateResourcesFromAudioRecordingInput } from 'utils/lib/types/api/appo
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -33,9 +34,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
 
-  const providerUserProfile = (await userMe(userToken, secrets)).profile;
-
-  const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: visitID });
+  const [providerUserResult, encounterResult] = await Promise.allSettled([
+    userMe(userToken, secrets),
+    oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: visitID }),
+  ]);
+  const providerUserProfile = settledValueOrThrow(providerUserResult).profile;
+  const encounter = settledValueOrThrow(encounterResult);
   const patientId = assertDefined(getIdFromReference(encounter.subject?.reference), 'patientId');
 
   const pendingDocumentReference: DocumentReference = {

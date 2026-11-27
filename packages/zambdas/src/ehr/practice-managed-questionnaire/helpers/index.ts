@@ -16,7 +16,6 @@ import {
   getCanonicalUrlFromQ,
   PAPERWORK_FLOW_BASE_VERSION,
   searchActiveQuestionnairesByTag,
-  searchServiceCategoryHealthcareServices,
 } from '../../paperwork-flow/shared';
 
 export const questionnaireElements = ['id', 'title', 'status', 'url', 'version', 'meta'] as const;
@@ -109,10 +108,7 @@ interface HandleFormInFlowInput {
 }
 export async function handleFormInFlows(input: HandleFormInFlowInput): Promise<BatchInputRequest<Questionnaire>[]> {
   const { oystehr, ...additionalInput } = input;
-  const [flowQuestionnaires] = await Promise.all([
-    searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG),
-    searchServiceCategoryHealthcareServices(oystehr),
-  ]);
+  const flowQuestionnaires = await searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG);
 
   return bumpFlowFormVersionRequests({ ...additionalInput, flowQuestionnaires });
 }

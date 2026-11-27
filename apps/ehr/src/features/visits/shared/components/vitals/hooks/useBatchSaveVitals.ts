@@ -6,7 +6,7 @@ import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.
 import { invalidateChartSections } from '../../../hooks/chartSectionCache';
 import { useChartSection } from '../../../hooks/useChartSection';
 import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
-import { autoAddVisionCptCodes } from './visionCptAutoAdd';
+import { autoAddVisionCptCodes, resolveVisionCptCodes } from './visionCptAutoAdd';
 
 export type UseBatchSaveVitals = (props: {
   encounterId: string;
@@ -28,15 +28,16 @@ export const useBatchSaveVitals: UseBatchSaveVitals = ({ encounterId }) => {
         vitalsObservations: vitalEntities,
       };
 
-      await apiClient?.saveChartData?.(payload);
-
       const existingCptCodes = new Set(assessment?.cptCodes.map((code) => code.code) ?? []);
+      const [, visionCptCodes] = await Promise.all([
+        apiClient?.saveChartData?.(payload),
+        resolveVisionCptCodes({ vitals: vitalEntities, existingCptCodes, apiClient, oystehr }),
+      ]);
+
       await autoAddVisionCptCodes({
-        vitals: vitalEntities,
+        cptCodes: visionCptCodes,
         encounterId,
-        existingCptCodes,
         apiClient,
-        oystehr,
         onCptCodesAdded: () => invalidateChartSections(queryClient, encounterId, ['assessment']),
       });
     },

@@ -1,8 +1,7 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Coding, Encounter, PractitionerRole } from 'fhir/r4b';
 import { userMe } from 'utils/lib/auth/user-me.helper';
-import { Secrets } from 'utils/lib/secrets';
 import {
   AssignPractitionerInput,
   AssignPractitionerResponse,
@@ -11,6 +10,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { assignPractitionerIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -24,14 +24,14 @@ export const index = wrapHandler('assign-practitioner', async (input: ZambdaInpu
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
   console.log('Created Oystehr client');
 
-  const validatedData = await complexValidation(oystehr, validatedParameters);
+  const [validatedDataResult, userResult] = await Promise.allSettled([
+    complexValidation(oystehr, validatedParameters),
+    userMe(validatedParameters.userToken, validatedParameters.secrets),
+  ]);
+  const validatedData = settledValueOrThrow(validatedDataResult);
+  const user = settledValueOrThrow(userResult);
 
-  const response = await performEffect(
-    oystehr,
-    validatedParameters.userToken,
-    validatedParameters.secrets,
-    validatedData
-  );
+  const response = await performEffect(oystehr, user, validatedData);
   return {
     statusCode: 200,
     body: JSON.stringify(response),
@@ -70,8 +70,7 @@ export const complexValidation = async (
 
 export const performEffect = async (
   oystehr: Oystehr,
-  token: string,
-  secrets: Secrets | null,
+  user: User,
   validatedData: {
     encounter: Encounter;
     appointment: Appointment;
@@ -81,7 +80,6 @@ export const performEffect = async (
 ): Promise<AssignPractitionerResponse> => {
   const { encounter, appointment, practitionerId, userRole } = validatedData;
 
-  const user = await userMe(token, secrets);
   await assignPractitionerIfPossible(oystehr, encounter, appointment, practitionerId, userRole, user);
 
   return {

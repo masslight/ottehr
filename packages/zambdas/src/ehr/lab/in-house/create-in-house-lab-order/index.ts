@@ -24,6 +24,7 @@ import {
 import { gatherInHouseLabOrderContext } from '../../../../shared/in-house-lab/gather-context';
 import { parseCreatedResourcesBundle } from '../../../../shared/resources.helpers';
 import { wrapHandler } from '../../../../shared/sentry';
+import { settledValueOrThrow } from '../../../../shared/settled';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -58,19 +59,34 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const testItemRequests = (): Promise<TestItemRequestData[]> => {
       return Promise.all(
         testItems.map(async (item) => {
-          const activityDefs = await oystehr.fhir
-            .search({
-              resourceType: 'ActivityDefinition',
-              params: [
-                { name: 'url', value: item.adUrl },
-                { name: 'status', value: 'active' },
-                {
-                  name: '_tag',
-                  value: `${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.system}|${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.code}`, // we care less about the version and more that it is latest
-                },
-              ],
-            })
-            .then((result) => result.unbundle() as ActivityDefinition[]);
+          const [activityDefsResult, repeatServiceRequestsResult] = await Promise.allSettled([
+            oystehr.fhir
+              .search({
+                resourceType: 'ActivityDefinition',
+                params: [
+                  { name: 'url', value: item.adUrl },
+                  { name: 'status', value: 'active' },
+                  {
+                    name: '_tag',
+                    value: `${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.system}|${IN_HOUSE_LAB_LATEST_TAG_DEFINITION.code}`, // we care less about the version and more that it is latest
+                  },
+                ],
+              })
+              .then((result) => result.unbundle() as ActivityDefinition[]),
+            item.orderMode === 'repeat'
+              ? oystehr.fhir
+                  .search({
+                    resourceType: 'ServiceRequest',
+                    params: [
+                      { name: 'encounter', value: `Encounter/${encounterId}` },
+                      { name: 'instantiates-canonical', value: `${item.adUrl}|${item.adVersion}` },
+                      { name: 'status:not', value: 'revoked' },
+                    ],
+                  })
+                  .then((result) => result.unbundle() as ServiceRequest[])
+              : undefined,
+          ]);
+          const activityDefs = settledValueOrThrow(activityDefsResult);
 
           if (activityDefs.length !== 1) {
             throw Error(
@@ -101,16 +117,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             console.log('run as repeat for', item.name);
             // tests being run as repeat need to be linked via basedOn to the original test that was run
             // so we are looking for a test with the same instantiatesCanonical that does not have any value in basedOn - this will be the initialServiceRequest
-            serviceRequests = await oystehr.fhir
-              .search({
-                resourceType: 'ServiceRequest',
-                params: [
-                  { name: 'encounter', value: `Encounter/${encounterId}` },
-                  { name: 'instantiates-canonical', value: `${item.adUrl}|${item.adVersion}` },
-                  { name: 'status:not', value: 'revoked' },
-                ],
-              })
-              .then((result) => result.unbundle() as ServiceRequest[]);
+            serviceRequests = settledValueOrThrow(repeatServiceRequestsResult);
           } else if (parentTestCanonicalUrl) {
             console.log('searching for parent test', parentTestCanonicalUrl);
             // we should be able to search service request by this but looks like a fhir bug so will need to do some more round about searching here

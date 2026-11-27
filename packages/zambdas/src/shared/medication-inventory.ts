@@ -256,11 +256,16 @@ async function resolveAdministrationStockTarget(
   const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
   if (!contained || !lotNumber || !name || dose === undefined || !units || !encounterId) return undefined;
 
-  const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
-  const locationId = getEncounterLocationId(encounter);
+  const [encounterResult, catalogResult] = await Promise.allSettled([
+    oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId }),
+    findOrderCatalogMedication(oystehr, contained, name),
+  ]);
+  if (encounterResult.status === 'rejected') throw encounterResult.reason;
+  const locationId = getEncounterLocationId(encounterResult.value);
   if (!locationId) return undefined;
 
-  const catalog = await findOrderCatalogMedication(oystehr, contained, name);
+  if (catalogResult.status === 'rejected') throw catalogResult.reason;
+  const catalog = catalogResult.value;
   const inventory = catalog ? getMedicationInventoryConfig(catalog) : undefined;
   if (!catalog?.id || !inventory) return undefined;
 

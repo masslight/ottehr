@@ -5,6 +5,7 @@ import { PresignBillingInvoicePaymentAttachmentInputSchema } from 'utils/lib/typ
 import { PresignBillingInvoicePaymentAttachmentResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { INVOICE_ATTACHMENT_PATH_PREFIX, newAttachmentLocation, presignAttachment } from '../attachments';
@@ -46,10 +47,14 @@ export async function performEffect({
   params: ValidatedZambdaInput<typeof PresignBillingInvoicePaymentAttachmentInputSchema>;
 }): Promise<PresignBillingInvoicePaymentAttachmentResponse> {
   const { invoiceId, fileName, secrets } = params;
-  assertInvoiceTakesRecordedPayments(await fetchById<Invoice>(oystehr, 'Invoice', invoiceId));
   const location = newAttachmentLocation(secrets['PROJECT_ID'], INVOICE_ATTACHMENT_PATH_PREFIX, invoiceId, fileName);
+  const [invoiceResult, uploadUrlResult] = await Promise.allSettled([
+    fetchById<Invoice>(oystehr, 'Invoice', invoiceId),
+    presignAttachment(oystehr, location, 'upload'),
+  ]);
+  assertInvoiceTakesRecordedPayments(settledValueOrThrow(invoiceResult));
   return {
-    uploadUrl: await presignAttachment(oystehr, location, 'upload'),
+    uploadUrl: settledValueOrThrow(uploadUrlResult),
     path: location.path,
   };
 }

@@ -13,6 +13,7 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { resolveCallerPractitionerRef } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
 
@@ -54,10 +55,15 @@ async function performEffect(
 
   // Get the existing service request from Oystehr
   console.group('Fetching service request from Oystehr');
-  const serviceRequest: ServiceRequest = await oystehr.fhir.get({
-    resourceType: 'ServiceRequest',
-    id: serviceRequestId,
-  });
+  const [serviceRequestResult, sentByResult] = await Promise.allSettled([
+    oystehr.fhir.get<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      id: serviceRequestId,
+    }),
+    // Who sent it, recorded alongside when — the "pending final" history row's own performer.
+    resolveCallerPractitionerRef(validatedInput.callerAccessToken, secrets, oystehr),
+  ]);
+  const serviceRequest = settledValueOrThrow(serviceRequestResult);
   console.groupEnd();
   console.debug('Service request fetched successfully');
 
@@ -79,8 +85,7 @@ async function performEffect(
     throw new Error('Service request has already been sent for final read');
   }
 
-  // Who sent it, recorded alongside when — the "pending final" history row's own performer.
-  const sentBy = await resolveCallerPractitionerRef(validatedInput.callerAccessToken, secrets, oystehr);
+  const sentBy = settledValueOrThrow(sentByResult);
 
   // Built explicitly rather than through getPatchOperationToUpdateExtension: that helper mutates the
   // resource's extension array in place, so two calls against one resource alias each other's output.

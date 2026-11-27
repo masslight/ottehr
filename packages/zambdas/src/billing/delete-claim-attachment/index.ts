@@ -11,6 +11,7 @@ import { DeleteClaimAttachmentInputSchema } from 'utils/lib/types/data/billing/b
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
@@ -46,12 +47,12 @@ export const index = wrapHandler(
 
 export async function performEffect(oystehr: Oystehr, params: DeleteClaimAttachmentParams): Promise<void> {
   const { documentReference, location } = await withVersionConflictRetries(async () => {
-    const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
-    const documentReference = await fetchById<DocumentReference>(
-      oystehr,
-      'DocumentReference',
-      params.documentReferenceId
-    );
+    const [claimResult, documentReferenceResult] = await Promise.allSettled([
+      fetchById<Claim>(oystehr, 'Claim', params.claimId),
+      fetchById<DocumentReference>(oystehr, 'DocumentReference', params.documentReferenceId),
+    ]);
+    const claim = settledValueOrThrow(claimResult);
+    const documentReference = settledValueOrThrow(documentReferenceResult);
     const location = ownedAttachmentLocation(documentReference, claimAttachmentOwner(claim.id, params.secrets));
     // retired by an earlier deletion that failed before removing it, so only the removal is left
     if (documentReference.status !== RETIRED_ATTACHMENT_STATUS) {

@@ -41,6 +41,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fhirValidationErrorToApiError } from '../../shared/errors';
 import { removeExtension, updateExtension } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { resolvePayerOrganization } from '../custom-insurance-org.helpers';
@@ -238,9 +239,24 @@ async function attachClaimResources(
   params: Extract<UpdateBillingClaimParams, { resourceType: 'Claim' }>,
   agent: ProvenanceAgent
 ): Promise<{ id: string | undefined }> {
-  const claim = await fetchById<Claim>(oystehr, 'Claim', params.resourceId);
-  const before = structuredClone(claim);
   const { fields } = params;
+  const orderingProviders = fields.serviceLines?.map((line) => line.orderingProvider);
+  const [claimResult, payerOrgResult, nonInsurancePayerOrgResult, orderingProvidersResult] = await Promise.allSettled([
+    fetchById<Claim>(oystehr, 'Claim', params.resourceId),
+    fields.payerId ? resolvePayerOrganization(oystehr, fields.payerId) : undefined,
+    fields.nonInsurancePayer
+      ? fetchById<Organization>(oystehr, 'Organization', fields.nonInsurancePayer.id)
+      : undefined,
+    orderingProviders ? assertOrderingProvidersExist(oystehr, orderingProviders) : undefined,
+  ]);
+  const claim = settledValueOrThrow(claimResult);
+  settledValueOrThrow(orderingProvidersResult);
+  const payerOrg = settledValueOrThrow(payerOrgResult);
+  const nonInsurancePayerOrg = settledValueOrThrow(nonInsurancePayerOrgResult);
+  if (nonInsurancePayerOrg && !isNonInsuranceOrganization(nonInsurancePayerOrg)) {
+    throw INVALID_INPUT_ERROR('nonInsurancePayer must reference a non-insurance organization');
+  }
+  const before = structuredClone(claim);
   const claimReference = `Claim/${params.resourceId}`;
   // Side-effect writes (e.g. re-pointing the attached coverage's payer) and their Provenances commit
   // in the same transaction as the claim update.
@@ -366,9 +382,10 @@ async function attachClaimResources(
       revenue: line.revenueCode ? codeableConcept(line.revenueCode, CODE_SYSTEM_NUBC_REVENUE) : undefined,
       detail: buildClaimItemDrugDetail(line.drug),
     }));
-    const orderingProviders = fields.serviceLines.map((line) => line.orderingProvider);
-    await assertOrderingProvidersExist(oystehr, orderingProviders);
-    setClaimItemOrderingProviders(claim, orderingProviders);
+    setClaimItemOrderingProviders(
+      claim,
+      fields.serviceLines.map((line) => line.orderingProvider)
+    );
     claim.total = { value: fields.serviceLines.reduce((sum, l) => sum + l.charges, 0), currency: 'USD' };
   } else if (fields.diagnoses) {
     // Diagnoses changed without lines: re-point items whose pointers no longer exist.
@@ -392,7 +409,6 @@ async function attachClaimResources(
   claim.insurance = ensureClaimInsurance(claim.insurance);
 
   if (fields.payerId || fields.planType) {
-    const payerOrg = fields.payerId ? await resolvePayerOrganization(oystehr, fields.payerId) : undefined;
     const payerReference = payerOrg ? buildPayorReference(payerOrg) : undefined;
     const display = payerOrg ? payerDisplay(payerOrg) : undefined;
     // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
@@ -411,14 +427,13 @@ async function attachClaimResources(
   }
 
   if (fields.nonInsurancePayer !== undefined) {
-    if (fields.nonInsurancePayer) {
-      const org = await fetchById<Organization>(oystehr, 'Organization', fields.nonInsurancePayer.id);
-      if (!isNonInsuranceOrganization(org)) {
-        throw INVALID_INPUT_ERROR('nonInsurancePayer must reference a non-insurance organization');
-      }
+    if (nonInsurancePayerOrg && fields.nonInsurancePayer) {
       updateExtension(
         claim,
-        claimNonInsurancePayerExtension({ reference: `Organization/${org.id}`, display: org.name })
+        claimNonInsurancePayerExtension({
+          reference: `Organization/${nonInsurancePayerOrg.id}`,
+          display: nonInsurancePayerOrg.name,
+        })
       );
       applyClaimNonInsurancePayerTag(claim, fields.nonInsurancePayer.id);
     } else {

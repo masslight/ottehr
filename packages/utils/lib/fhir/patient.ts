@@ -55,11 +55,7 @@ export async function createUserResourcesForPatient(
   patientID: string,
   phoneNumber: string
 ): Promise<{ relatedPerson: RelatedPerson; person: Person; newUser: boolean }> {
-  let newUser = false;
-
   console.log(`[UserCreate] Start for patient=${patientID} phone=${phoneNumber}`);
-
-  let person: Person | undefined;
 
   const findPerson = async (): Promise<Person[]> =>
     (
@@ -69,22 +65,24 @@ export async function createUserResourcesForPatient(
       })
     ).unbundle();
 
-  let personResults = await findPerson();
+  const resolvePerson = async (): Promise<{ person: Person | undefined; newUser: boolean }> => {
+    let personResults = await findPerson();
 
-  if (personResults.length > 0) {
-    person = personResults[0];
-    console.log(`[UserCreate] Found existing Person ${person.id}`);
-  } else {
+    if (personResults.length > 0) {
+      const person = personResults[0];
+      console.log(`[UserCreate] Found existing Person ${person.id}`);
+      return { person, newUser: false };
+    }
     try {
       console.log(`[UserCreate] Creating Person for phone=${phoneNumber}`);
 
-      person = (await oystehr.fhir.create({
+      const person = (await oystehr.fhir.create({
         resourceType: 'Person',
         telecom: [{ system: 'phone', value: phoneNumber }],
       })) as Person;
 
-      newUser = true;
       console.log(`[UserCreate] Created Person ${person.id}`);
+      return { person, newUser: true };
     } catch (e) {
       console.log(`[UserCreate] Person create failed, retrying search`);
 
@@ -94,18 +92,11 @@ export async function createUserResourcesForPatient(
         throw e;
       }
 
-      person = personResults[0];
+      const person = personResults[0];
       console.log(`[UserCreate] Person resolved after race ${person.id}`);
+      return { person, newUser: false };
     }
-  }
-
-  if (!person) {
-    throw new Error('Failed to resolve Person');
-  }
-
-  let resolvedPerson: Person = person;
-
-  let relatedPerson: RelatedPerson | undefined;
+  };
 
   const findRelated = async (): Promise<RelatedPerson[]> =>
     (
@@ -119,16 +110,18 @@ export async function createUserResourcesForPatient(
       })
     ).unbundle();
 
-  let relatedResults = await findRelated();
+  const resolveRelatedPerson = async (): Promise<RelatedPerson | undefined> => {
+    let relatedResults = await findRelated();
 
-  if (relatedResults.length > 0) {
-    relatedPerson = relatedResults[0];
-    console.log(`[UserCreate] Found existing RelatedPerson ${relatedPerson.id}`);
-  } else {
+    if (relatedResults.length > 0) {
+      const relatedPerson = relatedResults[0];
+      console.log(`[UserCreate] Found existing RelatedPerson ${relatedPerson.id}`);
+      return relatedPerson;
+    }
     try {
       console.log(`[UserCreate] Creating RelatedPerson for patient=${patientID}`);
 
-      relatedPerson = (await oystehr.fhir.create({
+      const relatedPerson = (await oystehr.fhir.create({
         resourceType: 'RelatedPerson',
         patient: { reference: `Patient/${patientID}` },
         relationship: [
@@ -148,6 +141,7 @@ export async function createUserResourcesForPatient(
       })) as RelatedPerson;
 
       console.log(`[UserCreate] Created RelatedPerson ${relatedPerson.id}`);
+      return relatedPerson;
     } catch (e) {
       console.log(`[UserCreate] RelatedPerson create failed, retrying search`);
 
@@ -157,10 +151,23 @@ export async function createUserResourcesForPatient(
         throw e;
       }
 
-      relatedPerson = relatedResults[0];
+      const relatedPerson = relatedResults[0];
       console.log(`[UserCreate] RelatedPerson resolved after race ${relatedPerson.id}`);
+      return relatedPerson;
     }
+  };
+
+  const [personResult, relatedPersonResult] = await Promise.allSettled([resolvePerson(), resolveRelatedPerson()]);
+  if (personResult.status === 'rejected') throw personResult.reason;
+  if (relatedPersonResult.status === 'rejected') throw relatedPersonResult.reason;
+  const { person: foundPerson, newUser } = personResult.value;
+  const relatedPerson = relatedPersonResult.value;
+
+  if (!foundPerson) {
+    throw new Error('Failed to resolve Person');
   }
+
+  let resolvedPerson: Person = foundPerson;
 
   if (!relatedPerson) {
     throw new Error('Failed to resolve RelatedPerson');
@@ -221,11 +228,10 @@ export async function createUserResourcesForPatient(
       }
     }
   }
-  person = resolvedPerson;
 
   console.log(`[UserCreate] Completed successfully`);
 
-  return { relatedPerson, person, newUser };
+  return { relatedPerson, person: resolvedPerson, newUser };
 }
 
 export async function getRelatedPersonsForPhoneNumber(

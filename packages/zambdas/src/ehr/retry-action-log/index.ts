@@ -39,6 +39,7 @@ import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-detail
 import { markReferralSent } from '../../shared/referrals/mark-referral-sent';
 import { deliverFaxAttempt, SendFaxAttemptInput } from '../../shared/send-fax-attempt';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { buildVisitNoteEmailTemplate, deliverVisitNoteEmailAttempt } from '../../shared/visit-note-email';
 import { getNameForOwner } from '../schedules/shared';
@@ -64,11 +65,15 @@ export async function performEffect(
   user: User,
   accessToken: string
 ): Promise<RetryActionLogOutput> {
-  const original = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: parameters.attemptId });
+  const [originalResult, retryChildExistsResult] = await Promise.allSettled([
+    oystehr.fhir.get<Task>({ resourceType: 'Task', id: parameters.attemptId }),
+    hasRetryChild(parameters.attemptId, oystehr),
+  ]);
+  const original = settledValueOrThrow(originalResult);
   const channel = getOutboundDeliveryChannel(original);
   if (!channel) throw new Error('Task is not an outbound delivery attempt');
   if (!(await isRetryable(original, channel, oystehr))) throw new Error('Only failed delivery attempts can be retried');
-  if (await hasRetryChild(parameters.attemptId, oystehr)) {
+  if (settledValueOrThrow(retryChildExistsResult)) {
     throw new Error('This delivery attempt has already been retried');
   }
   if (channel === 'fax') await assertBasedOnReferralFaxable(original, oystehr);
@@ -91,13 +96,21 @@ export async function performEffect(
   const packetSnapshot = getOutboundDeliveryPacketSnapshot(original);
   const recipientAddress = requireOutboundDeliveryValue(recipient.address, 'recipient address');
   const recipientName = recipient.name;
-  const documentReference = await resolveDocumentReference(original, appointmentId, oystehr);
+  const [documentReferenceResult, userPractitionerResult] = await Promise.allSettled([
+    resolveDocumentReference(original, appointmentId, oystehr),
+    (async () =>
+      oystehr.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: requireOutboundDeliveryValue(
+          getIdFromReference(user.profile, 'Practitioner'),
+          'user practitioner reference'
+        ),
+      }))(),
+  ]);
+  const documentReference = settledValueOrThrow(documentReferenceResult);
   const documentReferenceId = requireOutboundDeliveryValue(documentReference.id, 'DocumentReference id');
   const media = requireOutboundDeliveryValue(documentReference.content[0]?.attachment.url, 'document URL');
-  const userPractitioner = await oystehr.fhir.get<Practitioner>({
-    resourceType: 'Practitioner',
-    id: requireOutboundDeliveryValue(getIdFromReference(user.profile, 'Practitioner'), 'user practitioner reference'),
-  });
+  const userPractitioner = settledValueOrThrow(userPractitionerResult);
   const requesterReference = userPractitioner.id ? `Practitioner/${userPractitioner.id}` : undefined;
   const senderDisplay = getFullestAvailableName(userPractitioner);
 
@@ -153,9 +166,13 @@ export async function performEffect(
   } else {
     if (!emailClient) throw new Error('Visit note email client was not initialized');
     const emailAppointmentId = requireOutboundDeliveryValue(appointmentId, 'appointment reference');
-    const visit = await getAppointmentAndRelatedResources(oystehr, emailAppointmentId, true);
+    const [visitResult, visitNoteUrlResult] = await Promise.allSettled([
+      getAppointmentAndRelatedResources(oystehr, emailAppointmentId, true),
+      getPresignedURL(media, accessToken),
+    ]);
+    const visit = settledValueOrThrow(visitResult);
     if (!visit?.patient || !visit.location) throw new Error('Visit resources are incomplete');
-    const visitNoteUrl = await getPresignedURL(media, accessToken);
+    const visitNoteUrl = settledValueOrThrow(visitNoteUrlResult);
     const locationName = getNameForOwner(visit.location);
     const isInPerson = Boolean(visit.appointment.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.IP));
     const emailTemplate = buildVisitNoteEmailTemplate({

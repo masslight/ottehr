@@ -258,7 +258,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
   console.log('building location information');
   //const locationInformation: AvailableLocationInformation = getLocationInformation(oystehr, scheduleResource);
 
-  if (!silent) {
+  const sendCancellationEmail = async (): Promise<void> => {
     if (email) {
       console.group('sendCancellationEmail');
       try {
@@ -291,7 +291,9 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
     } else {
       console.log('No email found. Skipping sending email.');
     }
+  };
 
+  const sendCancellationText = async (): Promise<void> => {
     console.group('Send cancel message request');
     const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
 
@@ -331,11 +333,20 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
       });
     }
     console.groupEnd();
-  } else {
+  };
+
+  if (silent) {
     console.log('Cancelling silently. Skipping email and text.');
   }
 
-  await createAuditEvent(AuditableZambdaEndpoints.appointmentCancel, oystehr, input, patient.id || '', secrets);
+  const postCommitResults = await Promise.allSettled([
+    ...(silent ? [] : [sendCancellationEmail(), sendCancellationText()]),
+    createAuditEvent(AuditableZambdaEndpoints.appointmentCancel, oystehr, input, patient.id || '', secrets),
+  ]);
+  const postCommitFailure = postCommitResults.find(
+    (result): result is PromiseRejectedResult => result.status === 'rejected'
+  );
+  if (postCommitFailure) throw postCommitFailure.reason;
 
   const response: CancelAppointmentZambdaOutput = {};
 

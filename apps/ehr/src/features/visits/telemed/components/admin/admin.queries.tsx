@@ -148,54 +148,62 @@ export const useInsuranceMutation = (
     }) => {
       const name = data.name?.trim();
       const note = data.note?.trim();
-      if (data.showInPaperwork) {
-        if (!data.existingName && name) {
-          await oystehrZambda?.zambda.execute({
-            id: 'add-payer-to-insurance-override-list',
-            listName: 'patient',
-            payerId,
-            payerNameOverride: name,
-          });
-        }
-        if (data.existingName && name && data.existingName !== name) {
-          await oystehrZambda?.zambda.execute({
-            id: 'edit-payer-in-insurance-override-list',
-            listName: 'patient',
-            payerId,
-            payerNameOverride: name,
-          });
-        }
-      }
-      if (!data.showInPaperwork) {
-        await oystehrZambda?.zambda.execute({
-          id: 'remove-payer-from-insurance-override-list',
-          listName: 'patient',
-          payerId,
-        });
-      }
-      if (!data.existingNote && note) {
-        await oystehrZambda?.zambda.execute({
-          id: 'add-payer-to-insurance-override-list',
-          listName: 'ehr',
-          payerId,
-          payerNote: note,
-        });
-      }
-      if (data.existingNote && note && data.existingNote !== note) {
-        await oystehrZambda?.zambda.execute({
-          id: 'edit-payer-in-insurance-override-list',
-          listName: 'ehr',
-          payerId,
-          payerNote: note,
-        });
-      }
-      if (data.existingNote && !note) {
-        await oystehrZambda?.zambda.execute({
-          id: 'remove-payer-from-insurance-override-list',
-          listName: 'ehr',
-          payerId,
-        });
-      }
+      const results = await Promise.allSettled([
+        (async () => {
+          if (data.showInPaperwork) {
+            if (!data.existingName && name) {
+              await oystehrZambda?.zambda.execute({
+                id: 'add-payer-to-insurance-override-list',
+                listName: 'patient',
+                payerId,
+                payerNameOverride: name,
+              });
+            }
+            if (data.existingName && name && data.existingName !== name) {
+              await oystehrZambda?.zambda.execute({
+                id: 'edit-payer-in-insurance-override-list',
+                listName: 'patient',
+                payerId,
+                payerNameOverride: name,
+              });
+            }
+          }
+          if (!data.showInPaperwork) {
+            await oystehrZambda?.zambda.execute({
+              id: 'remove-payer-from-insurance-override-list',
+              listName: 'patient',
+              payerId,
+            });
+          }
+        })(),
+        (async () => {
+          if (!data.existingNote && note) {
+            await oystehrZambda?.zambda.execute({
+              id: 'add-payer-to-insurance-override-list',
+              listName: 'ehr',
+              payerId,
+              payerNote: note,
+            });
+          }
+          if (data.existingNote && note && data.existingNote !== note) {
+            await oystehrZambda?.zambda.execute({
+              id: 'edit-payer-in-insurance-override-list',
+              listName: 'ehr',
+              payerId,
+              payerNote: note,
+            });
+          }
+          if (data.existingNote && !note) {
+            await oystehrZambda?.zambda.execute({
+              id: 'remove-payer-from-insurance-override-list',
+              listName: 'ehr',
+              payerId,
+            });
+          }
+        })(),
+      ]);
+      const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+      if (failure) throw failure.reason;
     },
   });
 };

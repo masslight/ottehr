@@ -11,6 +11,7 @@ import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -46,9 +47,12 @@ export const index = wrapHandler('payment-list', async (input: ZambdaInput): Pro
 
   const stripeClient = getStripeClient(secrets);
 
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient);
-
-  const accountResources = await getAccountAndCoverageResourcesForPatient(beneficiaryPatientId, oystehrClient);
+  const [stripeAccountResult, accountResourcesResult] = await Promise.allSettled([
+    getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient),
+    getAccountAndCoverageResourcesForPatient(beneficiaryPatientId, oystehrClient),
+  ]);
+  const stripeAccount = settledValueOrThrow(stripeAccountResult);
+  const accountResources = settledValueOrThrow(accountResourcesResult);
   const account: Account | undefined = accountResources.account;
 
   if (!account?.id) {
@@ -60,26 +64,27 @@ export const index = wrapHandler('payment-list', async (input: ZambdaInput): Pro
   // we're performing effect at this point...
   try {
     if (customerId !== undefined) {
-      const customer = await stripeClient.customers.retrieve(
-        customerId,
-        {
-          expand: ['invoice_settings.default_payment_method', 'sources'],
-        },
-        {
-          stripeAccount, // Connected account ID if any
-        }
-      );
-      const paymentMethods = (
-        await stripeClient.customers.listPaymentMethods(
-          customer.id,
+      const [customer, paymentMethodsResponse] = await Promise.all([
+        stripeClient.customers.retrieve(
+          customerId,
+          {
+            expand: ['invoice_settings.default_payment_method', 'sources'],
+          },
+          {
+            stripeAccount, // Connected account ID if any
+          }
+        ),
+        stripeClient.customers.listPaymentMethods(
+          customerId,
           {
             type: 'card',
           },
           {
             stripeAccount, // Connected account ID if any
           }
-        )
-      )?.data;
+        ),
+      ]);
+      const paymentMethods = paymentMethodsResponse?.data;
       console.log('payment methods', paymentMethods, JSON.stringify(customer, null, 2));
       if (
         customer !== undefined &&

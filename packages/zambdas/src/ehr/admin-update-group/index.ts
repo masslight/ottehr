@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../shared/validation';
 
@@ -138,10 +139,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, parsed.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, parsed.secrets);
 
-  const currentGroup = await oystehr.fhir.get<HealthcareService>({
-    resourceType: 'HealthcareService',
-    id: parsed.groupId,
-  });
+  const [currentGroupResult, slugClashResult, supportedCategoryHsBundleResult] = await Promise.allSettled([
+    oystehr.fhir.get<HealthcareService>({
+      resourceType: 'HealthcareService',
+      id: parsed.groupId,
+    }),
+    parsed.slug !== undefined && parsed.slug.length > 0
+      ? oystehr.fhir.search<HealthcareService>({
+          resourceType: 'HealthcareService',
+          params: [{ name: 'identifier', value: `${SLUG_SYSTEM}|${parsed.slug}` }],
+        })
+      : undefined,
+    parsed.supportedCategoryHsIds !== undefined && parsed.supportedCategoryHsIds.length > 0
+      ? oystehr.fhir.search<HealthcareService>({
+          resourceType: 'HealthcareService',
+          params: [{ name: '_id', value: parsed.supportedCategoryHsIds.join(',') }],
+        })
+      : undefined,
+  ]);
+  const currentGroup = settledValueOrThrow(currentGroupResult);
 
   // Groups and service categories share resourceType='HealthcareService';
   // SERVICE_CATEGORY_TAG is the only wire-level discriminator, so the
@@ -156,12 +172,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Slug uniqueness — a second Group already using this slug would silently
   // start winning URL routing depending on FHIR search order. Check before
   // writing so the caller gets a clear error instead of a corrupted UX.
-  if (parsed.slug !== undefined && parsed.slug.length > 0) {
-    const clash = await oystehr.fhir.search<HealthcareService>({
-      resourceType: 'HealthcareService',
-      params: [{ name: 'identifier', value: `${SLUG_SYSTEM}|${parsed.slug}` }],
-    });
-    const conflicting = clash.unbundle().find((hs) => hs.id && hs.id !== parsed.groupId);
+  const slugClash = settledValueOrThrow(slugClashResult);
+  if (slugClash) {
+    const conflicting = slugClash.unbundle().find((hs) => hs.id && hs.id !== parsed.groupId);
     if (conflicting) {
       throw INVALID_INPUT_ERROR(
         `Slug "${parsed.slug}" is already used by another Group (${conflicting.id}). Slugs must be unique.`
@@ -222,11 +235,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Group's category allow-list.
   if (parsed.supportedCategoryHsIds !== undefined) {
     const newType: CodeableConcept[] = [];
-    if (parsed.supportedCategoryHsIds.length > 0) {
-      const hsBundle = await oystehr.fhir.search<HealthcareService>({
-        resourceType: 'HealthcareService',
-        params: [{ name: '_id', value: parsed.supportedCategoryHsIds.join(',') }],
-      });
+    const hsBundle = settledValueOrThrow(supportedCategoryHsBundleResult);
+    if (hsBundle) {
       const hsById = new Map<string, HealthcareService>();
       for (const hs of hsBundle.unbundle()) {
         if (hs.id) hsById.set(hs.id, hs);

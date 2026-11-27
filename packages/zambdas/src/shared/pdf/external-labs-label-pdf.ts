@@ -14,6 +14,7 @@ import {
 } from 'utils/lib/types/data/labs/labs.constants';
 import { ExternalLabsLabelConfig } from 'utils/lib/types/data/labs/labs.types';
 import { makeZ3Url } from '../presigned-file-urls/helpers';
+import { settledValueOrThrow } from '../settled';
 import { createPresignedUrl } from './../z3Utils';
 import { getLabListResource } from './lab-pdf-utils';
 import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';
@@ -175,6 +176,9 @@ export const getSampleCollectionTimestampForLabelDisplay = (
   return zonedSampleCollectionDate ? zonedSampleCollectionDate.toFormat('MM/dd/yyyy') : '';
 };
 
+const getExternalLabsLabelFileName = (input: ExternalLabsLabelConfig): string =>
+  `${EXTERNAL_LAB_LABEL_PDF_BASE_NAME}-${input.content.orderNumber}.pdf`;
+
 async function createExternalLabsLabelPDFHelper(
   input: ExternalLabsLabelConfig,
   patientUuid: string,
@@ -189,7 +193,7 @@ async function createExternalLabsLabelPDFHelper(
 
   console.log(`Created external labs label pdf bytes`);
 
-  const fileName = `${EXTERNAL_LAB_LABEL_PDF_BASE_NAME}-${input.content.orderNumber}.pdf`;
+  const fileName = getExternalLabsLabelFileName(input);
 
   console.log(`Creating base file url for file ${fileName}`);
 
@@ -224,11 +228,14 @@ export async function createExternalLabsLabelPDF(
   token: string,
   oystehr: Oystehr
 ): Promise<{ docRef: DocumentReference; presignedURL: string }> {
-  const pdfInfo = await createExternalLabsLabelPDFHelper(labelConfig, patientUuid, secrets, token);
+  const [pdfInfoResult, labListResourceResult] = await Promise.allSettled([
+    createExternalLabsLabelPDFHelper(labelConfig, patientUuid, secrets, token),
+    getLabListResource(oystehr, patientUuid, secrets, getExternalLabsLabelFileName(labelConfig)),
+  ]);
+  const pdfInfo = settledValueOrThrow(pdfInfoResult);
+  const labListResource = settledValueOrThrow(labListResourceResult);
 
   console.log(`This is the made pdfInfo`, JSON.stringify(pdfInfo));
-
-  const labListResource = await getLabListResource(oystehr, patientUuid, secrets, pdfInfo.title);
 
   const { docRefs } = await createFilesDocumentReferences({
     files: [{ url: pdfInfo.uploadURL, title: pdfInfo.title }],

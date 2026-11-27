@@ -41,13 +41,13 @@ describe('video-chat-waiting-room-notification performEffect', () => {
   it('does not create a task for an in-person appointment (no video encounter)', async () => {
     const result = await run([appointment('booked'), encounter('enc-in-person', 'planned', false), patient]);
     expect(result.taskCreated).toBe(false);
-    expect(client.fhir.create).not.toHaveBeenCalled();
+    expect(client.fhir.transaction).not.toHaveBeenCalled();
   });
 
   it('does not create a task for a finished visit', async () => {
     const result = await run([appointment('fulfilled'), encounter('enc-video', 'finished', true), patient]);
     expect(result.taskCreated).toBe(false);
-    expect(client.fhir.create).not.toHaveBeenCalled();
+    expect(client.fhir.transaction).not.toHaveBeenCalled();
   });
 
   it('creates a task for a visit already with the provider (fulfilled appointment, in-progress encounter)', async () => {
@@ -63,6 +63,9 @@ describe('video-chat-waiting-room-notification performEffect', () => {
       patient,
     ]);
     expect(result.taskCreated).toBe(true);
-    expect(client.fhir.create.mock.calls[0][0].encounter).toEqual({ reference: 'Encounter/enc-video' });
+    const taskRequest = client.fhir.transaction.mock.calls[0][0].requests.find(
+      (request: { url: string }) => request.url === '/Task'
+    );
+    expect(taskRequest.resource.encounter).toEqual({ reference: 'Encounter/enc-video' });
   });
 });

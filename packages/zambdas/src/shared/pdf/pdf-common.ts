@@ -273,7 +273,7 @@ export const renderPdf = async <TData extends PdfData>(
   console.log('Creating PDF client...');
   const pdfClient = await createPdfClient(PDF_CLIENT_STYLES);
   console.log('Loading PDF assets...');
-  const baseAssets = await loadPdfAssets(pdfClient, config.assetPaths);
+  const baseAssets = await loadPdfAssets(pdfClient, config.assetPaths, { withLogo: !!config.header.logo });
   console.log('Base assets loaded:', Object.keys(baseAssets));
   const allSections = [
     ...(config.header.leftSection ? [config.header.leftSection] : []),
@@ -466,25 +466,33 @@ const renderBodySections = <TData extends PdfData>(
   pdfClient.setY(finalY);
 };
 
-export const loadPdfAssets = async (pdfClient: PdfClient, paths: AssetPaths): Promise<PdfAssets> => {
+export const loadPdfAssets = async (
+  pdfClient: PdfClient,
+  paths: AssetPaths,
+  { withLogo = true }: { withLogo?: boolean } = {}
+): Promise<PdfAssets> => {
   const fonts: PdfAssets['fonts'] = {};
   let icons: PdfAssets['icons'];
   let logo: PdfAssets['logo'];
 
-  if (paths.fonts) {
-    for (const [key, path] of Object.entries(paths.fonts)) {
-      fonts[key] = await pdfClient.embedFont(fs.readFileSync(path));
-    }
-  }
+  const [logoBuffer] = await Promise.all([
+    withLogo ? getPdfLogo() : undefined,
+    (async () => {
+      if (paths.fonts) {
+        for (const [key, path] of Object.entries(paths.fonts)) {
+          fonts[key] = await pdfClient.embedFont(fs.readFileSync(path));
+        }
+      }
 
-  if (paths.icons) {
-    icons = {};
-    for (const [key, path] of Object.entries(paths.icons)) {
-      icons[key] = await pdfClient.embedImage(fs.readFileSync(path));
-    }
-  }
+      if (paths.icons) {
+        icons = {};
+        for (const [key, path] of Object.entries(paths.icons)) {
+          icons[key] = await pdfClient.embedImage(fs.readFileSync(path));
+        }
+      }
+    })(),
+  ]);
 
-  const logoBuffer = await getPdfLogo();
   if (logoBuffer) {
     logo = await pdfClient.embedImage(logoBuffer);
   }

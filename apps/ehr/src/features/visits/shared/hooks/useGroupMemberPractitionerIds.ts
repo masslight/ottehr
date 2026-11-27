@@ -24,29 +24,33 @@ export function useGroupMemberPractitionerIds(group: HealthcareService | undefin
     queryFn: async () => {
       if (!oystehr || !group?.id) return [];
       const allLocationsFlag = getGroupAllLocations(group) === true;
-      const bundle = (
-        await oystehr.fhir.search<HealthcareService | Location | PractitionerRole>({
-          resourceType: 'HealthcareService',
-          params: [
-            { name: '_id', value: group.id },
-            { name: '_include', value: 'HealthcareService:location' },
-            { name: '_revinclude:iterate', value: 'PractitionerRole:service' },
-            { name: '_revinclude:iterate', value: 'PractitionerRole:location' },
-          ],
-        })
-      ).unbundle();
+      const [bundle, widened] = await Promise.all([
+        oystehr.fhir
+          .search<HealthcareService | Location | PractitionerRole>({
+            resourceType: 'HealthcareService',
+            params: [
+              { name: '_id', value: group.id },
+              { name: '_include', value: 'HealthcareService:location' },
+              { name: '_revinclude:iterate', value: 'PractitionerRole:service' },
+              { name: '_revinclude:iterate', value: 'PractitionerRole:location' },
+            ],
+          })
+          .then((searchBundle) => searchBundle.unbundle()),
+        allLocationsFlag
+          ? oystehr.fhir
+              .search<PractitionerRole>({
+                resourceType: 'PractitionerRole',
+                params: [
+                  { name: 'active', value: 'true' },
+                  { name: '_count', value: '1000' },
+                ],
+              })
+              .then((searchBundle) => searchBundle.unbundle())
+          : Promise.resolve<PractitionerRole[]>([]),
+      ]);
       // allLocations widening: every active PR in the project counts as a member.
       // Pull them in and dedupe before walking membership.
       if (allLocationsFlag) {
-        const widened = (
-          await oystehr.fhir.search<PractitionerRole>({
-            resourceType: 'PractitionerRole',
-            params: [
-              { name: 'active', value: 'true' },
-              { name: '_count', value: '1000' },
-            ],
-          })
-        ).unbundle();
         const seen = new Set(bundle.map((r) => `${r.resourceType}/${r.id}`));
         for (const r of widened) {
           const key = `${r.resourceType}/${r.id}`;

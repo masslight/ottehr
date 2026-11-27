@@ -9,6 +9,7 @@ import {
   SearchLegacyRecordsOutput,
 } from 'utils/lib/types/data/legacy-data/legacy-data.types';
 import { MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
@@ -93,9 +94,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const offset = (page - 1) * pageSize;
   const pageFolderEntries = allFolderEntries.slice(offset, offset + pageSize);
 
-  // Build results for this page, generating presigned URLs in bounded batches
+  // Build results for this page, generating presigned URLs with bounded concurrency
+  const pageFolders = pageFolderEntries.map(([patientFolder, { patientId, keys }]) => ({
+    patientFolder,
+    patientId,
+    cappedKeys: keys.slice(0, maxFilesPerRecord),
+  }));
+  const presignedFiles: LegacyFile[] = await mapWithConcurrency(
+    pageFolders.flatMap(({ cappedKeys }) => cappedKeys),
+    PRESIGNED_URL_CONCURRENCY,
+    async (key) => {
+      const fileName = key.split('/').pop() ?? key;
+      const lowerKey = key.toLowerCase();
+
+      const fileType = getFileTypeFromKey(lowerKey);
+
+      const presignedResponse = await oystehr.z3.getPresignedUrl({
+        action: 'download',
+        bucketName,
+        'objectPath+': key,
+      });
+      return { key, fileName, fileType, presignedUrl: presignedResponse.signedUrl };
+    }
+  );
+
   const results: LegacyPatientRecord[] = [];
-  for (const [patientFolder, { patientId, keys }] of pageFolderEntries) {
+  let presignedFileOffset = 0;
+  for (const { patientFolder, patientId, cappedKeys } of pageFolders) {
     const folderParts = patientFolder.split('_');
     const displayLastName = folderParts[0] ? capitalize(folderParts[0]) : '';
     const firstNameParts = folderParts.slice(1, -1);
@@ -103,27 +128,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const displayDob = folderParts[folderParts.length - 1] || '';
     const displayName = `${displayLastName}, ${displayFirstName}${displayDob ? ` (DOB: ${displayDob})` : ''}`;
 
-    const cappedKeys = keys.slice(0, maxFilesPerRecord);
-    const files: LegacyFile[] = [];
-    for (let i = 0; i < cappedKeys.length; i += PRESIGNED_URL_CONCURRENCY) {
-      const batch = cappedKeys.slice(i, i + PRESIGNED_URL_CONCURRENCY);
-      const batchResults = await Promise.all(
-        batch.map(async (key) => {
-          const fileName = key.split('/').pop() ?? key;
-          const lowerKey = key.toLowerCase();
-
-          const fileType = getFileTypeFromKey(lowerKey);
-
-          const presignedResponse = await oystehr.z3.getPresignedUrl({
-            action: 'download',
-            bucketName,
-            'objectPath+': key,
-          });
-          return { key, fileName, fileType, presignedUrl: presignedResponse.signedUrl };
-        })
-      );
-      files.push(...batchResults);
-    }
+    const files = presignedFiles.slice(presignedFileOffset, presignedFileOffset + cappedKeys.length);
+    presignedFileOffset += cappedKeys.length;
 
     results.push({ patientFolder, patientId, displayName, files });
   }

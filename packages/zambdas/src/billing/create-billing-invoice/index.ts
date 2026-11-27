@@ -37,6 +37,7 @@ import { getOrCreateInvoicingConfig } from '../../rcm/invoice-config/helpers';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { sendErrors } from '../../shared/errors';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { getStripeClient, STRIPE_METADATA_KEYS, stripeEncounterMetadata } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { INVOICE_ISSUER_CLAIM_INCLUDES, resolveClaimInvoiceIssuer } from '../invoice-issuer';
@@ -58,9 +59,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
-
-  const response = await performEffect(oystehr, getStripeClient(params.secrets), params, agent);
+  const response = await performEffect(
+    oystehr,
+    getStripeClient(params.secrets),
+    params,
+    resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets)
+  );
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
@@ -68,14 +72,17 @@ export async function performEffect(
   oystehr: Oystehr,
   stripe: Stripe,
   params: CreateBillingInvoiceParams,
-  agent: ProvenanceAgent
+  callerAgent: ProvenanceAgent | Promise<ProvenanceAgent>
 ): Promise<CreateBillingInvoiceResponse> {
-  const resources = (
-    await oystehr.fhir.search<Claim | Location | Organization | Practitioner>({
+  const [claimBundleResult, agentResult] = await Promise.allSettled([
+    oystehr.fhir.search<Claim | Location | Organization | Practitioner>({
       resourceType: 'Claim',
       params: [{ name: '_id', value: params.claimId }, ...INVOICE_ISSUER_CLAIM_INCLUDES],
-    })
-  ).unbundle();
+    }),
+    callerAgent,
+  ]);
+  const agent = settledValueOrThrow(agentResult);
+  const resources = settledValueOrThrow(claimBundleResult).unbundle();
   const claim = resources.find((resource): resource is Claim => resource.resourceType === 'Claim');
   if (!claim) throw FHIR_RESOURCE_NOT_FOUND('Claim');
   const encounterId = getInvoiceableEncounterId(claim);

@@ -41,14 +41,16 @@ export const checkInPatient = async (
   encounterId: string,
   user: EvolveUser | undefined
 ): Promise<void> => {
-  const appointmentToUpdate = await oystehr.fhir.get<Appointment>({
-    resourceType: 'Appointment',
-    id: appointmentId,
-  });
-  const encounterToUpdate = await oystehr.fhir.get<Encounter>({
-    resourceType: 'Encounter',
-    id: encounterId,
-  });
+  const [appointmentToUpdate, encounterToUpdate] = await Promise.all([
+    oystehr.fhir.get<Appointment>({
+      resourceType: 'Appointment',
+      id: appointmentId,
+    }),
+    oystehr.fhir.get<Encounter>({
+      resourceType: 'Encounter',
+      id: encounterId,
+    }),
+  ]);
   const checkedInBy = getStaffCriticalUpdateBy(user);
   const metaPatchOperations = getAppointmentMetaTagOpForStatusUpdate(appointmentToUpdate, 'arrived', {
     updatedByOverride: checkedInBy,

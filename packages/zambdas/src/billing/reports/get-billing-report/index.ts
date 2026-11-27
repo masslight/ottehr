@@ -5,6 +5,7 @@ import { GetBillingReportHistoryResponse, ReportRefreshStatus } from 'utils/lib/
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeValidate } from '../../../shared/validation';
 import { createBillingClient } from '../../shared';
@@ -61,13 +62,14 @@ export async function performEffect(
   if (rawDrilldown !== undefined) {
     if (!definition.drilldown) throw INVALID_INPUT_ERROR(`Report kind '${kind}' does not support drilldown`);
     const drillParams = safeValidate(definition.drilldown.paramsSchema, rawDrilldown);
-    const [cachedDetail, meta] = await Promise.all([
+    const [cachedDetail, meta, active] = await Promise.all([
       loadReportCacheWithSize<ReportDetailEnvelope<unknown>>(oystehr, secrets, detailCacheKey(definition, params)),
       loadReportCacheMeta(oystehr, cacheKey),
+      findActiveRefreshTask(oystehr, cacheKey),
     ]);
     // status anchors on the main report snapshot so a missing detail doesn't surface
     // historical failures as errors or drop lastCompletedAt
-    const status = await statusOf(oystehr, cacheKey, meta?.generatedAt ?? cachedDetail?.payload.generatedAt, undefined);
+    const status = await statusOf(oystehr, cacheKey, meta?.generatedAt ?? cachedDetail?.payload.generatedAt, active);
     if (!cachedDetail) {
       return { ...definition.drilldown.empty(), generatedAt: '', fromCache: false, status };
     }
@@ -80,19 +82,27 @@ export async function performEffect(
     };
   }
 
-  const active = refresh
-    ? await kickOffRefreshTask(oystehr, { kind, params, cacheKey })
-    : await findActiveRefreshTask(oystehr, cacheKey);
-  const meta = await loadReportCacheMeta(oystehr, cacheKey);
+  const [activeResult, metaResult] = await Promise.allSettled([
+    refresh ? kickOffRefreshTask(oystehr, { kind, params, cacheKey }) : findActiveRefreshTask(oystehr, cacheKey),
+    loadReportCacheMeta(oystehr, cacheKey),
+  ]);
+  const active = settledValueOrThrow(activeResult);
+  const meta = settledValueOrThrow(metaResult);
 
-  const status = await statusOf(oystehr, cacheKey, meta?.generatedAt, active);
   // never computed: serve the empty shape; a build runs only on an explicit refresh
   if (!meta) {
-    return { ...definition.emptyPayload(), fromCache: false, status };
+    return {
+      ...definition.emptyPayload(),
+      fromCache: false,
+      status: await statusOf(oystehr, cacheKey, undefined, active),
+    };
   }
+  const [status, downloadUrl] = await Promise.all([
+    statusOf(oystehr, cacheKey, meta.generatedAt, active),
+    // minted fresh per request; the frontend downloads the payload directly from Z3
+    getReportDownloadUrl(oystehr, secrets, definition, meta),
+  ]);
   status.cacheSizeBytes = meta.sizeBytes;
-  // minted fresh per request; the frontend downloads the payload directly from Z3
-  const downloadUrl = await getReportDownloadUrl(oystehr, secrets, definition, meta);
   return { downloadUrl, generatedAt: meta.generatedAt, fromCache: true, status };
 }
 
@@ -100,9 +110,8 @@ async function statusOf(
   oystehr: Oystehr,
   cacheKey: string,
   generatedAt: string | undefined,
-  knownActive: Awaited<ReturnType<typeof findActiveRefreshTask>>
+  active: Awaited<ReturnType<typeof findActiveRefreshTask>>
 ): Promise<ReportRefreshStatus> {
-  const active = knownActive ?? (await findActiveRefreshTask(oystehr, cacheKey));
   const lastCompletedAt = generatedAt ? { lastCompletedAt: generatedAt } : {};
   if (active) {
     return { state: 'running', ...lastCompletedAt, progress: active.businessStatus?.text ?? 'queued' };

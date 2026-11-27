@@ -8,6 +8,7 @@ import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { truncateForLog } from '../../shared/logging';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
@@ -48,12 +49,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function complexValidation(oystehr: Oystehr, params: UpdateInsuranceOrgParams): Promise<Organization> {
-  const existing = await fetchById<Organization>(oystehr, 'Organization', params.insuranceOrgId);
+  const [existingResult, duplicateResult] = await Promise.allSettled([
+    fetchById<Organization>(oystehr, 'Organization', params.insuranceOrgId),
+    findCustomInsuranceOrgByBusinessId(oystehr, params.orgId, params.insuranceOrgId),
+  ]);
+  const existing = settledValueOrThrow(existingResult);
   if (!isCustomInsuranceOrganization(existing)) {
     throw INVALID_INPUT_ERROR(`Organization ${params.insuranceOrgId} is not an insurance organization`);
   }
-  const duplicate = await findCustomInsuranceOrgByBusinessId(oystehr, params.orgId, params.insuranceOrgId);
-  if (duplicate) {
+  if (settledValueOrThrow(duplicateResult)) {
     throw INVALID_INPUT_ERROR(`Insurance organization id "${params.orgId}" is already in use`);
   }
   return existing;

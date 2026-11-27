@@ -90,14 +90,10 @@ export async function getQuestionnaireAndValueSets(
   oystehr: Oystehr
 ): Promise<{ questionnaire: Questionnaire; valueSets: ValueSet[] }> {
   console.log(`searching for a questionnaire with canonical ${questionnaireUrl}`);
-  const questionnaire = await getCanonicalQuestionnaire(
-    { version: questionnaireVersion, url: questionnaireUrl },
-    oystehr
-  );
-
   console.log(`searching for value sets with reference ${valueSetRef}`);
-  const valueSets = (
-    await oystehr.fhir.search<ValueSet>({
+  const [questionnaireResult, valueSetBundleResult] = await Promise.allSettled([
+    getCanonicalQuestionnaire({ version: questionnaireVersion, url: questionnaireUrl }, oystehr),
+    oystehr.fhir.search<ValueSet>({
       resourceType: 'ValueSet',
       params: [
         {
@@ -105,10 +101,13 @@ export async function getQuestionnaireAndValueSets(
           value: valueSetRef,
         },
       ],
-    })
-  ).unbundle();
+    }),
+  ]);
+  if (questionnaireResult.status === 'rejected') throw questionnaireResult.reason;
+  if (valueSetBundleResult.status === 'rejected') throw valueSetBundleResult.reason;
+  const valueSets = valueSetBundleResult.value.unbundle();
   console.log(`${valueSets.length} value sets found`);
-  return { questionnaire, valueSets };
+  return { questionnaire: questionnaireResult.value, valueSets };
 }
 
 const getPreferredElement = (extension: Extension[]): FormElement | undefined => {

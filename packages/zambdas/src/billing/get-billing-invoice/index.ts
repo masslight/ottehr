@@ -22,6 +22,7 @@ import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/er
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import {
@@ -80,46 +81,52 @@ export async function performEffect({
   secrets: Secrets;
   today?: string;
 }): Promise<BillingInvoiceDetail> {
-  const resources = (
-    await oystehr.fhir.search<Invoice | Organization | Patient>({
-      resourceType: 'Invoice',
-      params: [
-        {
-          name: '_id',
-          value: invoiceId,
-        },
-        {
-          name: '_include',
-          value: 'Invoice:recipient',
-        },
-      ],
-    })
-  ).unbundle();
-  const invoice = resources.find((resource): resource is Invoice => resource.resourceType === 'Invoice');
-  if (!invoice) throw FHIR_RESOURCE_NOT_FOUND('Invoice');
-  if (getBillingInvoiceKind(invoice) !== 'nio') {
-    throw INVALID_INPUT_ERROR('Only non-insurance payer invoices have a details view');
-  }
-
-  const [claims, notices, pdfUrl] = await Promise.all([
-    fetchInvoiceClaimLines(oystehr, invoice),
-    fetchInvoicePaymentNotices(oystehr, [invoiceId]),
+  const [invoiceResult, noticesResult, pdfUrlResult] = await Promise.allSettled([
+    oystehr.fhir
+      .search<Invoice | Organization | Patient>({
+        resourceType: 'Invoice',
+        params: [
+          {
+            name: '_id',
+            value: invoiceId,
+          },
+          {
+            name: '_include',
+            value: 'Invoice:recipient',
+          },
+        ],
+      })
+      .then(async (invoiceBundle) => {
+        const resources = invoiceBundle.unbundle();
+        const invoice = resources.find((resource): resource is Invoice => resource.resourceType === 'Invoice');
+        if (!invoice) throw FHIR_RESOURCE_NOT_FOUND('Invoice');
+        if (getBillingInvoiceKind(invoice) !== 'nio') {
+          throw INVALID_INPUT_ERROR('Only non-insurance payer invoices have a details view');
+        }
+        return { resources, invoice, claims: await fetchInvoiceClaimLines(oystehr, invoice) };
+      }),
+    fetchInvoicePaymentNotices(oystehr, [invoiceId]).then(async (notices) => ({
+      notices,
+      payments: await buildInvoicePayments({
+        oystehr,
+        invoiceId,
+        notices,
+        secrets,
+      }),
+    })),
     findInvoicePdfDownloadUrl({
       oystehr,
       invoiceId,
       secrets,
     }),
   ]);
+  const { resources, invoice, claims } = settledValueOrThrow(invoiceResult);
+  const { notices, payments } = settledValueOrThrow(noticesResult);
+  const pdfUrl = settledValueOrThrow(pdfUrlResult);
   const organization = resources.find(
     (resource): resource is Organization =>
       resource.resourceType === 'Organization' && `Organization/${resource.id}` === invoice.recipient?.reference
   );
-  const payments = await buildInvoicePayments({
-    oystehr,
-    invoiceId,
-    notices,
-    secrets,
-  });
 
   return {
     ...getInvoiceStatusDatesAndAmount(invoice),

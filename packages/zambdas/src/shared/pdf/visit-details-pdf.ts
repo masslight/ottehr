@@ -193,7 +193,8 @@ export const createVisitDetailsPdf = async (
   secrets: Secrets | null,
   token: string
 ): Promise<PdfResult> => {
-  const serviceCategories = await fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets));
+  const serviceCategories =
+    input.serviceCategories ?? (await fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets)));
 
   const visitDate = DateTime.fromISO(input.appointment.start ?? '').setZone(input.timezone);
   const title = visitDate.isValid ? `Visit Details: ${visitDate.toFormat('MM-dd-yyyy')}` : 'Visit Details';

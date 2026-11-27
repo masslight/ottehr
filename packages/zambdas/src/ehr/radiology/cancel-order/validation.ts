@@ -9,7 +9,7 @@ import { safeValidate } from '../../../shared/validation';
 import { ValidatedInput } from '.';
 
 export const validateInput = async (input: ZambdaInput, oystehr: Oystehr): Promise<ValidatedInput> => {
-  const validatedBody = await validateBody(input, oystehr);
+  const { body: validatedBody, serviceRequest } = await validateBody(input, oystehr);
 
   const callerAccessToken = input.headers.Authorization.replace('Bearer ', '');
   if (callerAccessToken == null) {
@@ -19,10 +19,14 @@ export const validateInput = async (input: ZambdaInput, oystehr: Oystehr): Promi
   return {
     body: validatedBody,
     callerAccessToken,
+    serviceRequest,
   };
 };
 
-const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<CancelRadiologyOrderZambdaInput> => {
+const validateBody = async (
+  input: ZambdaInput,
+  oystehr: Oystehr
+): Promise<{ body: CancelRadiologyOrderZambdaInput; serviceRequest: ServiceRequest }> => {
   const { serviceRequestId } = safeValidate(CancelRadiologyOrderZambdaInputSchema, validateJsonBody(input));
 
   let serviceRequest: ServiceRequest;
@@ -43,7 +47,8 @@ const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<Cance
   }
 
   return {
-    serviceRequestId,
+    body: { serviceRequestId },
+    serviceRequest,
   };
 };
 

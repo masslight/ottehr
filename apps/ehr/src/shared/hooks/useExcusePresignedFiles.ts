@@ -2,6 +2,9 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { useEffect, useState } from 'react';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { SchoolWorkNoteExcuseDocFileDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
+
+const PRESIGN_CONCURRENCY = 5;
 
 type SchoolWorkNoteExcuseDocFilePresigned = SchoolWorkNoteExcuseDocFileDTO & { presignedUrl?: string };
 
@@ -27,16 +30,18 @@ export const useExcusePresignedFiles = (
         return;
       }
 
-      const urls: SchoolWorkNoteExcuseDocFilePresigned[] = [];
-
-      for (const item of schoolWorkNotes) {
-        try {
-          urls.push({ ...item, presignedUrl: await getPresignedURL(item.url!, authToken) });
-        } catch (error) {
-          console.error(`Failed to presign school/work note ${item.url}`, error);
-          urls.push({ ...item });
+      const urls = await mapWithConcurrency(
+        schoolWorkNotes,
+        PRESIGN_CONCURRENCY,
+        async (item): Promise<SchoolWorkNoteExcuseDocFilePresigned> => {
+          try {
+            return { ...item, presignedUrl: await getPresignedURL(item.url!, authToken) };
+          } catch (error) {
+            console.error(`Failed to presign school/work note ${item.url}`, error);
+            return { ...item };
+          }
         }
-      }
+      );
 
       setPresignedFiles(urls);
     };

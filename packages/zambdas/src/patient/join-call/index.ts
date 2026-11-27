@@ -1,6 +1,6 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, RelatedPerson } from 'fhir/r4b';
+import { Encounter, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
 import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
 import { getAppointmentResourceById, getVirtualServiceResourceExtension } from 'utils/lib/fhir/appointments';
@@ -18,6 +18,7 @@ import { getAuth0Token } from '../../shared/getAuth0Token';
 import { reportMissingUserRelatedPerson } from '../../shared/invariants';
 import { lambdaResponse } from '../../shared/lambda';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import { addUserToVideoEncounterIfNeeded } from './helpers';
@@ -99,7 +100,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   );
 
   console.log(`getting appointment resource for id ${appointmentId}`);
-  const appointment: Appointment | undefined = await getAppointmentResourceById(appointmentId, oystehr);
+  const [appointmentResult, appointmentVideoEncounterResult] = await Promise.allSettled([
+    getAppointmentResourceById(appointmentId, oystehr),
+    getVideoEncounterForAppointment(appointmentId, oystehr),
+  ]);
+  const appointment = settledValueOrThrow(appointmentResult);
 
   if (!appointment) {
     console.log('Appointment is not found');
@@ -118,7 +123,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw new Error(`Appointment resource returned without id for appointment ${appointmentId}`);
   }
 
-  let videoEncounter: Encounter | undefined = await getVideoEncounterForAppointment(appointment.id, oystehr);
+  let videoEncounter: Encounter | undefined = settledValueOrThrow(appointmentVideoEncounterResult);
 
   console.log('Encounter status:', videoEncounter?.status);
 

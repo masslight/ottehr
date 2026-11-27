@@ -391,9 +391,8 @@ export async function resolveFlowCanonicalForServiceMode(input: {
   const { serviceCategoryCode, serviceMode, oystehr, secrets } = input;
   if (!serviceCategoryCode) return;
 
-  const flows = await searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG);
-
   if (isBookingConfigServiceCategoryCode(serviceCategoryCode)) {
+    const flows = await searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG);
     // Ottehr-managed service category: the assignment lives as a meta.tag on the flow Questionnaire.
     const match = flows.find(
       (flow) =>
@@ -406,7 +405,10 @@ export async function resolveFlowCanonicalForServiceMode(input: {
   }
 
   // FHIR-backed service category: the assignment lives as a per-mode extension on the HealthcareService.
-  const services = await searchServiceCategoryHealthcareServices(oystehr);
+  const [flows, services] = await Promise.all([
+    searchActiveQuestionnairesByTag(oystehr, PAPERWORK_FLOW_TAG),
+    searchServiceCategoryHealthcareServices(oystehr),
+  ]);
   const service = services.find((hs) => getCoding(hs.type, SERVICE_CATEGORY_SYSTEM)?.code === serviceCategoryCode);
   if (!service) return;
 

@@ -47,8 +47,11 @@ import { ScheduleOwnerFhirResource } from '../types/api/schedules';
 import { Closure, ClosureType, OVERRIDE_DATE_FORMAT, ScheduleType, ServiceMode, Timezone } from '../types/common';
 import { TIMEZONES } from '../types/constants';
 import { VisitType } from '../types/data/telemed/appointments/create-appointment.types';
+import { mapWithConcurrency } from './concurrency';
 import { getDateTimeFromDateAndTime } from './date';
 import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
+
+const SCHEDULE_BUSY_SLOTS_CONCURRENCY = 5;
 
 export interface WaitTimeRange {
   low: number;
@@ -988,7 +991,8 @@ export const getAvailableSlotsForSchedules = async (
   // there are no schedules to tally, loadScore stays at 0 for all and we fall
   // back to stable id-based tiebreak.
   const tallyIds = Object.keys(loadScore);
-  if (tallyIds.length > 0) {
+  const tallyLoadScores = async (): Promise<void> => {
+    if (tallyIds.length === 0) return;
     try {
       const tallyFrom = now.toISO() ?? '';
       const tallyTo = now.plus({ days: numDays ?? SCHEDULE_NUM_DAYS }).toISO() ?? '';
@@ -1008,7 +1012,7 @@ export const getAvailableSlotsForSchedules = async (
     } catch {
       // ignore — fall back to uniform scoring
     }
-  }
+  };
 
   const getSlotScheduleId = (s: SlotListItem): string => s.slot.schedule?.reference?.split('/')?.[1] ?? '';
 
@@ -1033,33 +1037,40 @@ export const getAvailableSlotsForSchedules = async (
   };
 
   if (selectedDate) {
-    for (const scheduleTemp of scheduleList) {
-      try {
-        const schedule = scheduleTemp.schedule;
-        const tz = getTimezone(schedule);
+    const [, slotsBySchedule] = await Promise.all([
+      tallyLoadScores(),
+      mapWithConcurrency(scheduleList, SCHEDULE_BUSY_SLOTS_CONCURRENCY, async (scheduleTemp) => {
+        try {
+          const schedule = scheduleTemp.schedule;
+          const tz = getTimezone(schedule);
 
-        const dayStart = DateTime.fromISO(selectedDate, { zone: tz }).startOf('day').toUTC();
-        const dayEnd = dayStart.plus({ days: 1 }).toUTC();
+          const dayStart = DateTime.fromISO(selectedDate, { zone: tz }).startOf('day').toUTC();
+          const dayEnd = dayStart.plus({ days: 1 }).toUTC();
 
-        const busySlots = await fetchBusySlotsForSchedule(schedule.id!, dayStart.toISO()!, dayEnd.toISO()!);
+          const busySlots = await fetchBusySlotsForSchedule(schedule.id!, dayStart.toISO()!, dayEnd.toISO()!);
 
-        const { available, telemed } = generateSlotsForSchedule({
-          scheduleTemp,
-          startTime: DateTime.fromISO(selectedDate, { zone: tz }).startOf('day'),
-          numDays: 1,
-          busySlots,
-          serviceCategories,
-        });
+          return generateSlotsForSchedule({
+            scheduleTemp,
+            startTime: DateTime.fromISO(selectedDate, { zone: tz }).startOf('day'),
+            numDays: 1,
+            busySlots,
+            serviceCategories,
+          });
+        } catch (err) {
+          console.error(
+            `Error trying to get slots for schedule item: Schedule/${scheduleTemp.schedule.id}`,
+            JSON.stringify(err, null, 2),
+            err
+          );
+          return undefined;
+        }
+      }),
+    ]);
 
-        availableSlots.push(...available);
-        telemedAvailable.push(...telemed);
-      } catch (err) {
-        console.error(
-          `Error trying to get slots for schedule item: Schedule/${scheduleTemp.schedule.id}`,
-          JSON.stringify(err, null, 2),
-          err
-        );
-      }
+    for (const slots of slotsBySchedule) {
+      if (!slots) continue;
+      availableSlots.push(...slots.available);
+      telemedAvailable.push(...slots.telemed);
     }
 
     return {
@@ -1085,25 +1096,28 @@ export const getAvailableSlotsForSchedules = async (
       telemedAvailable: [],
     };
   }
-  const allBusy = await getSlotsInWindow(
-    {
-      scheduleIds,
-      fromISO,
-      toISO,
-      status: ['busy', 'busy-tentative', 'busy-unavailable'],
-      filter: (slot: Slot) => {
-        const thisMoment = DateTime.now().plus({ seconds: input.slotExpirationBiasInSeconds ?? 0 });
-        if (slot.status === 'busy-tentative') {
-          const lastUpdated = DateTime.fromISO(slot.meta?.lastUpdated || '');
-          if (!lastUpdated.isValid) return true;
-          const minutesSinceLastUpdate = thisMoment.diff(lastUpdated, 'minutes').minutes;
-          return minutesSinceLastUpdate <= SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES;
-        }
-        return true;
+  const [, allBusy] = await Promise.all([
+    tallyLoadScores(),
+    getSlotsInWindow(
+      {
+        scheduleIds,
+        fromISO,
+        toISO,
+        status: ['busy', 'busy-tentative', 'busy-unavailable'],
+        filter: (slot: Slot) => {
+          const thisMoment = DateTime.now().plus({ seconds: input.slotExpirationBiasInSeconds ?? 0 });
+          if (slot.status === 'busy-tentative') {
+            const lastUpdated = DateTime.fromISO(slot.meta?.lastUpdated || '');
+            if (!lastUpdated.isValid) return true;
+            const minutesSinceLastUpdate = thisMoment.diff(lastUpdated, 'minutes').minutes;
+            return minutesSinceLastUpdate <= SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES;
+          }
+          return true;
+        },
       },
-    },
-    oystehr
-  );
+      oystehr
+    ),
+  ]);
 
   for (const scheduleTemp of scheduleList) {
     try {
@@ -2113,26 +2127,26 @@ export const slotAvailableAgainstBusy = (input: {
 };
 
 export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr: Oystehr): Promise<boolean> => {
-  if (!input.schedule.id) return false;
+  const scheduleId = input.schedule.id;
+  if (!scheduleId) return false;
   // Peer-aware busy lookup. For PR-actored Schedules, fold in busy slots
   // on every Schedule actor'd by the same Practitioner — one human, one
   // calendar (matches the rule getAvailableSlotsForSchedules uses at
   // vending time). For Location/HS-actored Schedules,
   // getPractitionerSchedulePeerIds returns just the input id; behaviour
   // is unchanged for those cases.
-  const peerScheduleIds = await getPractitionerSchedulePeerIds(input.schedule.id, oystehr);
-  let busySlots = await getSlotsInWindow(
-    {
-      scheduleIds: peerScheduleIds,
-      fromISO: input.slot.start,
-      toISO: input.slot.end,
-      status: ['busy', 'busy-tentative', 'busy-unavailable'],
-    },
-    oystehr
-  );
-  if (input.excludeSlotId) {
-    busySlots = busySlots.filter((s) => s.id !== input.excludeSlotId);
-  }
+  const fetchBusySlots = async (): Promise<Slot[]> => {
+    const peerScheduleIds = await getPractitionerSchedulePeerIds(scheduleId, oystehr);
+    return getSlotsInWindow(
+      {
+        scheduleIds: peerScheduleIds,
+        fromISO: input.slot.start,
+        toISO: input.slot.end,
+        status: ['busy', 'busy-tentative', 'busy-unavailable'],
+      },
+      oystehr
+    );
+  };
   // Resolve the slot's serviceCategory to recover the configured cadence.
   // Without it, slotAvailableAgainstBusy regenerates the day's grid at the
   // default cadence (`gcd(slotLength, 60)`) and silently rejects every
@@ -2146,16 +2160,17 @@ export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr
   // validator, which checks the same slot against N candidate schedules
   // during anonymous-mode group fallback) should pass it via input to skip
   // the per-call catalog fetch.
-  let cadenceMinutes = input.cadenceMinutes;
-  if (cadenceMinutes === undefined) {
+  const resolveCadenceMinutes = async (): Promise<number | undefined> => {
+    if (input.cadenceMinutes !== undefined) return input.cadenceMinutes;
     const slotCategoryCode = (input.slot.serviceCategory ?? [])
       .flatMap((cc) => cc.coding ?? [])
       .find((c) => c.system === SERVICE_CATEGORY_SYSTEM)?.code;
-    if (slotCategoryCode) {
-      const resolved = await resolveServiceCategory(slotCategoryCode, oystehr);
-      cadenceMinutes = resolved?.cadenceMinutes;
-    }
-  }
+    if (!slotCategoryCode) return undefined;
+    const resolved = await resolveServiceCategory(slotCategoryCode, oystehr);
+    return resolved?.cadenceMinutes;
+  };
+  const [allBusySlots, cadenceMinutes] = await Promise.all([fetchBusySlots(), resolveCadenceMinutes()]);
+  const busySlots = input.excludeSlotId ? allBusySlots.filter((s) => s.id !== input.excludeSlotId) : allBusySlots;
   return slotAvailableAgainstBusy({
     slot: input.slot,
     schedule: input.schedule,

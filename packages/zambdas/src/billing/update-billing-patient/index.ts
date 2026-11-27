@@ -4,6 +4,7 @@ import { Patient, ProvenanceAgent } from 'fhir/r4b';
 import { UpdateBillingPatientInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { commitClaimResourceChange, resolveClaimActor } from '../provenance';
@@ -19,9 +20,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  const agent = await complexValidation(oystehr, params, input.headers?.Authorization);
-
-  const response = await performEffect(oystehr, params, agent);
+  const response = await performEffect(
+    oystehr,
+    params,
+    complexValidation(oystehr, params, input.headers?.Authorization)
+  );
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
@@ -40,9 +43,14 @@ async function complexValidation(
 export async function performEffect(
   oystehr: Oystehr,
   params: UpdateBillingPatientParams,
-  agent?: ProvenanceAgent
+  callerAgent?: ProvenanceAgent | Promise<ProvenanceAgent | undefined>
 ): Promise<{ id: string }> {
-  const patient = await fetchById<Patient>(oystehr, 'Patient', params.patientId);
+  const [patientResult, agentResult] = await Promise.allSettled([
+    fetchById<Patient>(oystehr, 'Patient', params.patientId),
+    callerAgent,
+  ]);
+  const agent = settledValueOrThrow(agentResult);
+  const patient = settledValueOrThrow(patientResult);
   const before = structuredClone(patient);
 
   patient.name = [{ family: params.lastName, given: [params.firstName] }];

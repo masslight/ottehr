@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Questionnaire } from 'fhir/r4b';
 import {
@@ -168,21 +168,22 @@ async function importNewVersion(
     },
   };
 
-  // retire the existing version
-  const retireRequests = await supersedeVersionRequests({
-    url: questionnaireUrl,
-    previousId: existingQuestionnaireId,
-    placement: getFormPlacement(questionnaire),
-    oystehr,
-  });
-
   console.log('checking if form is contained in any flows');
-  const flowRequests: BatchInputRequest<Questionnaire>[] = await handleFormInFlows({
-    previousVersion,
-    nextVersion,
-    url: questionnaireUrl,
-    oystehr,
-  });
+  const [retireRequests, flowRequests] = await Promise.all([
+    // retire the existing version
+    supersedeVersionRequests({
+      url: questionnaireUrl,
+      previousId: existingQuestionnaireId,
+      placement: getFormPlacement(questionnaire),
+      oystehr,
+    }),
+    handleFormInFlows({
+      previousVersion,
+      nextVersion,
+      url: questionnaireUrl,
+      oystehr,
+    }),
+  ]);
   console.log(
     `Flows containing the target form that will be updated: ${
       flowRequests.length > 0 ? `${flowRequests.map((request) => request.url)}` : 'none'

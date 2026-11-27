@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Appointment, Encounter, List } from 'fhir/r4b';
+import { Encounter, List } from 'fhir/r4b';
 import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
@@ -8,6 +8,7 @@ import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -26,7 +27,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createOystehrClient(m2mToken, fhirAPI, projectAPI);
 
-  const appointment: Appointment | undefined = await getAppointmentResourceById(appointmentID, oystehr);
+  const [appointmentResult, appointmentEncountersResult] = await Promise.allSettled([
+    getAppointmentResourceById(appointmentID, oystehr),
+    oystehr.fhir
+      .search<Encounter>({
+        resourceType: 'Encounter',
+        params: [{ name: 'appointment', value: `Appointment/${appointmentID}` }],
+      })
+      .then((bundle) => bundle.unbundle()),
+  ]);
+  const appointment = settledValueOrThrow(appointmentResult);
   if (!appointment) {
     return { statusCode: 404, body: JSON.stringify({ message: `Appointment ${appointmentID} not found` }) };
   }
@@ -38,14 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
   const patientID = patientReference.replace('Patient/', '');
 
-  const encounter = (
-    await oystehr.fhir.search<Encounter>({
-      resourceType: 'Encounter',
-      params: [{ name: 'appointment', value: `Appointment/${appointmentID}` }],
-    })
-  )
-    .unbundle()
-    .find((enc) => enc.id);
+  const encounter = settledValueOrThrow(appointmentEncountersResult).find((enc) => enc.id);
   if (!encounter?.id) {
     return {
       statusCode: 404,

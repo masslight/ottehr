@@ -49,7 +49,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const stripeClient = getStripeClient(secrets);
 
-    const account = await stripeClient.accounts.retrieve(stripeAccountId);
+    const [accountResult, terminalLocationsResult] = await Promise.allSettled([
+      stripeClient.accounts.retrieve(stripeAccountId),
+      stripeClient.terminal.locations.list({ limit: 100 }, { stripeAccount: stripeAccountId }),
+    ]);
+    if (accountResult.status === 'rejected') throw accountResult.reason;
+    const account = accountResult.value;
 
     const businessName = account.business_profile?.name ?? null;
     const dbaName = account.settings?.dashboard?.display_name ?? null;
@@ -68,10 +73,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }
       : null;
 
-    const terminalLocationsResponse = await stripeClient.terminal.locations.list(
-      { limit: 100 },
-      { stripeAccount: stripeAccountId }
-    );
+    if (terminalLocationsResult.status === 'rejected') throw terminalLocationsResult.reason;
+    const terminalLocationsResponse = terminalLocationsResult.value;
 
     const terminalLocations: StripeTerminalLocationInfo[] = terminalLocationsResponse.data.map((loc) => ({
       id: loc.id,

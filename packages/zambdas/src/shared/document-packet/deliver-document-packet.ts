@@ -19,6 +19,7 @@ import {
 import { getLocationContactPhone } from 'utils/lib/utils/support-dialog';
 import { getPcpPatchOpsFromDetails } from '../../ehr/shared/harvest';
 import { sendDocumentLinkEmailAttempt } from '../document-link-email';
+import { getPatientFolders } from '../patient-folders';
 import { PacketCoverSheetData } from '../pdf/types';
 import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
 import { markReferralSent } from '../referrals/mark-referral-sent';
@@ -96,6 +97,7 @@ export const deliverDocumentPacket = async (args: {
   }
 
   const results: DocumentPacketRecipientResult[] = [];
+  let uploadAttempted = false;
   for (const [index, recipient] of recipients.entries()) {
     const base: DocumentPacketRecipientResult = {
       name: formatRecipientName(recipient),
@@ -111,6 +113,9 @@ export const deliverDocumentPacket = async (args: {
       continue;
     }
     try {
+      // Each upload patches the folder List, so later uploads must start from its current entries.
+      const listResources = uploadAttempted ? await getPatientFolders(oystehr, patientId) : plan.listResources;
+      uploadAttempted = true;
       const uploaded = await uploadDocumentPacket({
         oystehr,
         token,
@@ -119,7 +124,7 @@ export const deliverDocumentPacket = async (args: {
         patientId,
         appointmentId,
         encounterId,
-        listResources: plan.listResources,
+        listResources,
       });
 
       await sendPacketToRecipient({

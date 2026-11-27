@@ -1,6 +1,5 @@
 import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment } from 'fhir/r4b';
 import { JSONPath } from 'jsonpath-plus';
 import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
@@ -17,6 +16,7 @@ import { searchInvitedParticipantResourcesByEncounterId } from '../../../shared/
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -67,7 +67,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   );
 
   console.log(`getting appointment resource for id ${appointmentId}`);
-  const appointment: Appointment | undefined = await getAppointmentResourceById(appointmentId, oystehr);
+  const [appointmentResult, encounterResult] = await Promise.allSettled([
+    getAppointmentResourceById(appointmentId, oystehr),
+    getVideoEncounterForAppointment(appointmentId, oystehr),
+  ]);
+  const appointment = settledValueOrThrow(appointmentResult);
   if (!appointment) {
     console.log('Appointment is not found');
     return lambdaResponse(404, APPOINTMENT_NOT_FOUND_ERROR);
@@ -77,7 +81,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw new Error(`Appointment resource returned without id for appointment ${appointmentId}`);
   }
 
-  const encounter = await getVideoEncounterForAppointment(appointment.id, oystehr);
+  const encounter = settledValueOrThrow(encounterResult);
   if (!encounter || !encounter.id) {
     if (isTelemedAppointment(appointment)) {
       throw new Error('Encounter not found.'); // 500
