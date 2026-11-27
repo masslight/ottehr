@@ -37,7 +37,11 @@ vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => ({
   getStripeClient: vi.fn().mockReturnValue({}),
 }));
 vi.mock('utils/lib/helpers/candidApi', () => ({ getOrCreateCandidApiClient: vi.fn() }));
-// transitive imports of shared/candid that pull heavy modules
+// transitive imports of shared/candid that pull heavy modules; pin the flag so candid-only
+// tests are not rejected by the shouldUseCandid guard when the env overlay enables NIOs
+vi.mock('utils/lib/ottehr-config/feature-flags', () => ({
+  FEATURE_FLAGS_CONFIG: { customOrganizationsEnabled: false },
+}));
 vi.mock('../../../src/ehr/shared/harvest', () => ({ getAccountAndCoverageResourcesForPatient: vi.fn() }));
 vi.mock('../../../src/shared/chart-data', () => ({ chartDataResourceHasMetaTagByCode: vi.fn() }));
 
