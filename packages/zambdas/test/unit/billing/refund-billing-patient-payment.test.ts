@@ -37,6 +37,11 @@ vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => ({
   getStripeClient: vi.fn().mockReturnValue({}),
 }));
 vi.mock('utils/lib/helpers/candidApi', () => ({ getOrCreateCandidApiClient: vi.fn() }));
+// candid-only billing (BILLING_INTEGRATION='candid') requires customOrganizationsEnabled=false;
+// pin the flag so the guard in shouldUseCandid doesn't throw regardless of runtime overlay.
+vi.mock('utils/lib/ottehr-config/feature-flags', () => ({
+  FEATURE_FLAGS_CONFIG: { customOrganizationsEnabled: false },
+}));
 // transitive imports of shared/candid that pull heavy modules
 vi.mock('../../../src/ehr/shared/harvest', () => ({ getAccountAndCoverageResourcesForPatient: vi.fn() }));
 vi.mock('../../../src/shared/chart-data', () => ({ chartDataResourceHasMetaTagByCode: vi.fn() }));
