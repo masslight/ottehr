@@ -106,6 +106,11 @@ describe('cellOf', () => {
     expect(cellOf(row(VitalFieldNames.VitalHeight), height, 'imperial')?.text).toBe('70.08');
   });
 
+  it('converts a temperature from the saved value, not from a rounded one', () => {
+    const temperature = visit(MORNING, { [VitalFieldNames.VitalTemperature]: [{ time: MORNING, values: [36.472] }] });
+    expect(cellOf(row(VitalFieldNames.VitalTemperature), temperature, 'imperial')?.text).toBe('97.6');
+  });
+
   it('shows a saved 2.345 kg as 2.35', () => {
     const weight = visit(MORNING, { [VitalFieldNames.VitalWeight]: [{ time: MORNING, values: [2.345] }] });
     expect(cellOf(row(VitalFieldNames.VitalWeight), weight, 'metric')?.text).toBe('2.35');

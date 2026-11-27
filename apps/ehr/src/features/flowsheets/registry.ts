@@ -4,7 +4,6 @@ import {
   HEIGHT_INCHES_DISPLAY_PRECISION,
   HeightMeasurement,
 } from 'utils/lib/helpers/vitals/vitals-height.helper';
-import { celsiusToFahrenheit } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
 import { kgToLbs, WEIGHT_DISPLAY_PRECISION } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { FlowsheetId, FlowsheetMeasureKey, FlowsheetVitalField } from 'utils/lib/types/api/flowsheets.types';
@@ -60,7 +59,7 @@ const VITALS: Record<FlowsheetVitalField, FlowsheetMeasure> = {
     VitalFieldNames.VitalTemperature,
     'Temperature',
     { label: '°C', hoverLabel: 'C', digits: 1 },
-    { label: '°F', hoverLabel: 'F', digits: 1, fromMetric: celsiusToFahrenheit }
+    { label: '°F', hoverLabel: 'F', digits: 1, fromMetric: (celsius) => (celsius * 9) / 5 + 32 }
   ),
   [VitalFieldNames.VitalHeartbeat]: measure(VitalFieldNames.VitalHeartbeat, 'Heart rate', PER_MINUTE),
   [VitalFieldNames.VitalRespirationRate]: measure(VitalFieldNames.VitalRespirationRate, 'Respiratory rate', PER_MINUTE),

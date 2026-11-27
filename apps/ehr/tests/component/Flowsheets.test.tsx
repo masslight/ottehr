@@ -193,6 +193,14 @@ describe('the values by visit table', () => {
     expect(screen.getByText('11/14/2026 2:10 PM 92 /min')).toBeInTheDocument();
   });
 
+  it('opens the readings from the keyboard too', async () => {
+    renderPage();
+    const value = within(gridRow('Heart rate (/min)')).getByText('92');
+    expect(value).toHaveAttribute('tabindex', '0');
+    while (document.activeElement !== value) await userEvent.tab();
+    expect(await screen.findByText('11/14/2026 2:10 PM 92 /min')).toBeInTheDocument();
+  });
+
   it('names the flag on hover of its icon', async () => {
     renderPage();
     await userEvent.hover(within(gridRow('Heart rate (/min)')).getByLabelText('Critical'));

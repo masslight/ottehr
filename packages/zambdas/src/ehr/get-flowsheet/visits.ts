@@ -15,7 +15,7 @@ import { FlowsheetValues, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.
 import { ServiceMode } from 'utils/lib/types/common';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
-import { followUpVisitHistoryRowFromEncounter } from '../patient-visit-history/get';
+import { followUpVisitHistoryRowFromEncounter, getFollowUpTypeFromEncounter } from '../patient-visit-history/get';
 
 export interface VisitResources {
   appointments: Appointment[];
@@ -128,6 +128,11 @@ export const describeVisit = (encounterId: string, resources: VisitResources): V
           appointments: resources.appointments,
         })
       : undefined;
+  const followUpType =
+    followUpRow?.type ?? (encounter && isFollowUp ? getFollowUpTypeFromEncounter(encounter) : undefined);
+  const reason = isFollowUp
+    ? followUpRow?.visitReason ?? encounter?.reasonCode?.[0]?.text
+    : getReasonForVisitFromAppointment(appointment);
 
   return {
     appointmentId: appointment?.id,
@@ -142,11 +147,11 @@ export const describeVisit = (encounterId: string, resources: VisitResources): V
           originalAppointmentId: getIdFromReference(original?.appointment?.[0]?.reference, 'Appointment'),
         }
       : {}),
-    ...(followUpRow ? { followUpType: followUpRow.type } : {}),
+    ...(followUpType ? { followUpType } : {}),
     appointmentType: appointment && appointmentTypeForAppointment(appointment),
     serviceMode: appointment && (isTelemedAppointment(appointment) ? ServiceMode.virtual : ServiceMode['in-person']),
     serviceCategory: followUpRow ? followUpRow.serviceCategory : serviceCategoryOf(appointment),
-    reason: (followUpRow ? followUpRow.visitReason : getReasonForVisitFromAppointment(appointment)) ?? '',
+    reason: reason ?? '',
     primaryDiagnosis: coding ? [coding.code, coding.display].filter(Boolean).join(': ') : '',
     provider: attending ? `${getFirstName(attending)} ${getLastName(attending)}` : '',
   };
@@ -183,7 +188,7 @@ export const buildVisitColumns = (
     const start = visit.start ?? firstReadingTime(values);
     if (!start) return;
     const isCurrent = encounter.id === currentEncounterId;
-    const isHidden = isNotHeld(encounter, resources) || (!isCurrent && startsAfterToday({ ...visit, start }, now));
+    const isHidden = !isCurrent && (isNotHeld(encounter, resources) || startsAfterToday({ ...visit, start }, now));
     if (!hasReadings && isHidden) return;
     visits.push({ ...visit, start, values });
   });

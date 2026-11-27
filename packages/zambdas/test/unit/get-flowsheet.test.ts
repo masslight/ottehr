@@ -267,6 +267,16 @@ describe('buildVitalsFlowsheet columns', () => {
     expect(visits.map((v) => v.encounterId)).toEqual(['e2', 'e1']);
   });
 
+  test('the opened visit keeps its column even when it was cancelled', () => {
+    const resources = {
+      observations: [],
+      appointments: [...appointments, appointment('a3', '2026-10-01T14:00:00.000Z', { status: 'cancelled' as const })],
+      encounters: [...encounters, encounter('e3', 'a3')],
+    };
+    expect(build(resources).map((v) => v.encounterId)).toEqual(['e2', 'e1']);
+    expect(build(resources, 'e3').map((v) => v.encounterId)).toEqual(['e2', 'e3', 'e1']);
+  });
+
   test('a cancelled visit that has vitals keeps its column', () => {
     const visits = build({
       appointments: [...appointments, appointment('a3', '2026-10-01T14:00:00.000Z', { status: 'cancelled' })],
@@ -403,6 +413,26 @@ describe('describeVisit', () => {
       reason: '',
       primaryDiagnosis: '',
       provider: '',
+    });
+  });
+
+  test('a free-form encounter, which has no original visit, still reads its own type and reason', () => {
+    const resources: VisitResources = {
+      ...baseResources,
+      encounters: [
+        ...encounters,
+        encounter('ff', undefined, {
+          type: buildFollowupEncounterType('free-form'),
+          reasonCode: [{ text: 'Phone call' }],
+        }),
+      ],
+    };
+    expect(describeVisit('ff', resources)).toMatchObject({
+      isFollowUp: true,
+      followupSubtype: 'free-form',
+      followUpType: 'Follow-up Encounter',
+      reason: 'Phone call',
+      start: undefined,
     });
   });
 

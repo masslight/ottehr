@@ -60,7 +60,7 @@ const CellValue = ({ cell }: { cell: FlowsheetCell }): ReactElement => (
         </Stack>
       }
     >
-      <Box component="span">
+      <Box component="span" tabIndex={0}>
         {cell.text}
         {cell.moreCount > 0 && (
           <Box component="span" sx={{ color: 'text.secondary', fontWeight: 'normal' }}>
