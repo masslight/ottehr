@@ -157,8 +157,10 @@ export const defaultNotificationRowPref = (
 });
 
 const UNSET_TASK_CATEGORY_ROWS: Partial<Record<UiTaskCategoryId, Partial<NotificationRowPref>>> = {
-  referrals: { enabled: true, assignedTo: 'me' },
+  referrals: { enabled: true, assignedTo: 'me', method: ProviderNotificationMethod.computer },
 };
+
+export const taskCategoryHasDefaultRow = (id: UiTaskCategoryId): boolean => id in UNSET_TASK_CATEGORY_ROWS;
 
 export const buildDefaultTaskCategoryPrefs = (
   enabled: boolean,

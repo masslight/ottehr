@@ -1,12 +1,17 @@
 import { Appointment, Location, Practitioner, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  getProviderNotificationPreferencesV2,
+  getProviderNotificationSettingsForPractitioner,
+} from 'utils/lib/fhir/patient';
+import {
   CATEGORY_NOTIFICATION_TAG_CODE,
   CATEGORY_NOTIFICATION_TAG_SYSTEM,
   ProviderNotificationMethod,
   ProviderNotificationSettings,
 } from 'utils/lib/types/api/practitioner.types';
 import { normalizeNotificationPreferencesV2, NotificationRowPref } from 'utils/lib/types/api/provider-notifications';
+import { REFERRAL_TASK } from 'utils/lib/types/api/referrals/referrals.types';
 import { FAX_TASK, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { describe, expect, it } from 'vitest';
 import {
@@ -365,6 +370,41 @@ describe('inbound fax notifications', () => {
     it('stays silent when the Inbound Fax row is off, even with the legacy task flag on', () => {
       expect(resolveAssignmentDelivery({ ...baseInput, prefs: prefsWithFaxRow({ enabled: false }) })).toEqual({
         notify: false,
+      });
+    });
+
+    describe('for staff who never saved the new settings', () => {
+      // A practitioner who never configured notifications: the legacy task flag reads as off.
+      const unconfigured: Practitioner = { resourceType: 'Practitioner', id: 'prac-1' };
+      const referralTask: Task = {
+        ...createTask({
+          category: REFERRAL_TASK.category,
+          title: 'Referral: Orthopedics',
+          code: { system: REFERRAL_TASK.system, code: REFERRAL_TASK.code.awaitResponse },
+        }),
+        id: 'referral-task-1',
+        owner: { reference: 'Practitioner/prac-1' },
+      };
+      const unconfiguredInput = {
+        recipient: unconfigured,
+        hasExplicitPrefs: false,
+        prefs: getProviderNotificationPreferencesV2(unconfigured),
+        legacySettings: getProviderNotificationSettingsForPractitioner(unconfigured),
+        categoryNotifiedThisRun: new Set<string>(),
+        taskLocationId: undefined,
+      };
+
+      it('tells the referring provider about their own referral task, in the app only, by default', () => {
+        expect(resolveAssignmentDelivery({ ...unconfiguredInput, task: referralTask })).toEqual({
+          notify: true,
+          method: ProviderNotificationMethod.computer,
+        });
+      });
+
+      // Their other derived rows only copy the legacy flag, as "assigned to anyone"; honouring those would notify
+      // everyone with that flag on about every task, so the legacy flag still decides for every other category.
+      it('keeps every other category on the legacy flag', () => {
+        expect(resolveAssignmentDelivery({ ...unconfiguredInput, task: assignedFaxTask })).toEqual({ notify: false });
       });
     });
   });
