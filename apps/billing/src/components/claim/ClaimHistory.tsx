@@ -11,6 +11,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
@@ -155,7 +156,16 @@ function HistoryDetail({ entry }: { entry: ClaimHistoryEntry }): ReactElement {
           ) : (
             <></>
           )}
-          <HistoryValue value={change.newValue} link={change.newLink} />
+          {change.detail ? (
+            // The read API rewrote the stored text for billers; keep the original reachable for support.
+            <Tooltip title={change.detail}>
+              <Box component="span" sx={{ textDecoration: 'underline dotted', cursor: 'help' }}>
+                <HistoryValue value={change.newValue} />
+              </Box>
+            </Tooltip>
+          ) : (
+            <HistoryValue value={change.newValue} link={change.newLink} />
+          )}
           <RuleSuffix rule={change.rule} />
         </Typography>
       ))}

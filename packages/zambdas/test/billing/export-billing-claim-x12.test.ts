@@ -122,7 +122,7 @@ describe('export-billing-claim-x12 handler', () => {
     expect(JSON.parse(result.body)).toEqual({ x12: 'ISA*00*~ST*837*' });
   });
 
-  it('surfaces the RCM reason for an incomplete-claim (400) error', async () => {
+  it('describes the RCM reason for an incomplete-claim (400) error in billing terms', async () => {
     const reason =
       '"Claim.insurance[0].coverage.extension[https://extensions.fhir.oystehr.com/rcm-claim-insurance-type]" is undefined';
     claimToX12Mock.mockRejectedValue(
@@ -144,7 +144,7 @@ describe('export-billing-claim-x12 handler', () => {
       })
     ).rejects.toMatchObject({
       code: APIErrorCode.RESOURCE_INCOMPLETE_FOR_OPERATION,
-      message: reason,
+      message: 'Primary insurance: Plan Type is missing',
     });
   });
 

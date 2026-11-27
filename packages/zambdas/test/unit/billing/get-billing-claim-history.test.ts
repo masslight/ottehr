@@ -9,6 +9,7 @@ import {
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
+  CLAIM_SUBMISSION_ERROR_FIELD,
   ClaimFieldChange,
   ClaimHistoryRuleRef,
 } from 'utils/lib/types/data/billing/claim-history';
@@ -140,6 +141,38 @@ describe('get-billing-claim-history performEffect', () => {
     const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
 
     expect(entries[0].message).toBeUndefined();
+  });
+
+  it('describes a stored claim-submission error in billing terms and keeps the raw text as detail', async () => {
+    const raw =
+      '"Claim.insurance[sequence=1].coverage.extension[https://extensions.fhir.oystehr.com/rcm-claim-insurance-type]" is undefined';
+    const provenance: Provenance = {
+      ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
+      activity: { coding: [CLAIM_PROVENANCE_ACTIVITY.submit] },
+      extension: [
+        diffExtension([
+          { field: CLAIM_SUBMISSION_ERROR_FIELD, label: 'Error', previousValue: null, newValue: raw },
+          { field: CLAIM_SUBMISSION_ERROR_FIELD, label: 'Error', previousValue: null, newValue: 'Duplicate code' },
+          { field: 'memberId', label: 'Member ID', previousValue: null, newValue: '"Claim.x" is undefined' },
+        ]),
+      ],
+    };
+    const oystehr = makeOystehr({ Provenance: () => pagedBundle([provenance], []) });
+
+    const { entries } = await performEffect(oystehr, { claimId: 'c1', secrets: {} });
+
+    expect(entries[0].changes).toEqual([
+      {
+        field: CLAIM_SUBMISSION_ERROR_FIELD,
+        label: 'Error',
+        previousValue: null,
+        newValue: 'Primary insurance: Plan Type is missing',
+        detail: raw,
+      },
+      // Text the mapping doesn't recognize, and non-error fields, pass through untouched.
+      { field: CLAIM_SUBMISSION_ERROR_FIELD, label: 'Error', previousValue: null, newValue: 'Duplicate code' },
+      { field: 'memberId', label: 'Member ID', previousValue: null, newValue: '"Claim.x" is undefined' },
+    ]);
   });
 
   it('passes a stored rule attribution through to the entry verbatim', async () => {

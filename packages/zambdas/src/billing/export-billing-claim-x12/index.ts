@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { describeClaimSubmissionError } from 'utils/lib/helpers/rcm/claim-submission-error';
 import { ExportClaimX12InputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { ExportClaimX12Response } from 'utils/lib/types/data/billing/billing.types';
 import { CLAIM_NOT_READY_FOR_X12_EXPORT, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
@@ -48,8 +49,10 @@ async function performEffect(params: ExportClaimX12Params, oystehr: Oystehr): Pr
   } catch (error) {
     console.error(`X12 generation failed for claim ${claimId}`, error);
     if (error instanceof Oystehr.OystehrSdkError && String(error.code) === '4006') {
-      // i want the user to see the actual fhir error (e.g. missing extension)
-      throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR(error.message || CLAIM_NOT_READY_FOR_X12_EXPORT.message);
+      // Tell the user which value the claim is missing, in billing-app terms rather than as a FHIR path.
+      throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR(
+        error.message ? describeClaimSubmissionError(error.message) : CLAIM_NOT_READY_FOR_X12_EXPORT.message
+      );
     }
     throw error;
   }

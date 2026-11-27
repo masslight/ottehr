@@ -4,6 +4,7 @@ import { Device, Location, Organization, Practitioner, Provenance } from 'fhir/r
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { isPayerUrl } from 'utils/lib/helpers/helpers';
+import { describeClaimSubmissionError } from 'utils/lib/helpers/rcm/claim-submission-error';
 import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
 import { GetClaimHistoryInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
@@ -15,6 +16,7 @@ import {
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
   CLAIM_PROVENANCE_NOTE_EXTENSION_URL,
   CLAIM_RULES_ENGINE_DEVICE_NAME,
+  CLAIM_SUBMISSION_ERROR_FIELD,
   ClaimAcknowledgmentEvent,
   ClaimFieldChange,
   ClaimHistoryEntry,
@@ -112,12 +114,24 @@ function parseChanges(provenance: Provenance, environment: string): ClaimFieldCh
     }
     const changes = parsed as ClaimFieldChange[];
     attachEntityRefs(provenance, changes, environment);
+    changes.forEach(describeSubmissionError);
     return changes;
   } catch (err) {
     // One malformed record shouldn't blank the whole history view, but we want to know it happened.
     reportAnomaly(`Malformed change set on Provenance/${provenance.id}`, environment, err);
     return [];
   }
+}
+
+// Claim-submission errors are stored as the claim service returned them (FHIR paths); rewrite them
+// for billers here, on read, so records written before this mapping existed read well too. The
+// stored text is kept as detail for support.
+function describeSubmissionError(change: ClaimFieldChange): void {
+  if (change.field !== CLAIM_SUBMISSION_ERROR_FIELD || !change.newValue) return;
+  const described = describeClaimSubmissionError(change.newValue);
+  if (described === change.newValue) return;
+  change.detail = change.newValue;
+  change.newValue = described;
 }
 
 function parseAcknowledgment(provenance: Provenance, environment: string): ClaimAcknowledgmentEvent | undefined {

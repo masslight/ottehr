@@ -139,6 +139,33 @@ describe('ClaimHistory', () => {
     expect(within(row).getByText(/via/)).toBeInTheDocument();
   });
 
+  it('shows a described submission error with the original text behind a tooltip', async () => {
+    const raw = '"Claim.insurance[sequence=2].coverage" is undefined';
+    getBillingClaimHistoryMock.mockResolvedValue({
+      entries: [
+        {
+          ...changeEntry,
+          activity: 'Submit Claim',
+          changes: [
+            {
+              field: 'error',
+              label: 'Error',
+              previousValue: null,
+              newValue: 'Secondary insurance: Coverage is missing',
+              detail: raw,
+            },
+          ],
+        },
+      ],
+    });
+    renderHistory();
+
+    const row = (await screen.findByText('Submit Claim')).closest('tr')!;
+    expect(within(row).getByText('Secondary insurance: Coverage is missing')).toBeInTheDocument();
+    expect(within(row).getByLabelText(raw)).toBeInTheDocument();
+    expect(within(row).queryByText(raw)).not.toBeInTheDocument();
+  });
+
   it('renders no rule link when the stored attribution is missing a field', async () => {
     getBillingClaimHistoryMock.mockResolvedValue({
       entries: [
