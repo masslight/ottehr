@@ -193,7 +193,7 @@ describe('toColumns', () => {
       'e1'
     );
     expect(columns.map((column) => column.isCurrent)).toEqual([false, true, false, false]);
-    expect(columns[1].url).toBe('/in-person/a1/review-and-sign');
+    expect(columns[1].url).toBe('/in-person/a1/review-and-sign?encounterId=e1');
     expect(columns[3].url).toBeUndefined();
   });
 });
@@ -313,6 +313,11 @@ describe('yAxisBounds', () => {
     expect(bounds(VitalFieldNames.VitalHeartbeat, [76])).toEqual({ min: 50, max: 100, interval: 10 });
     expect(bounds(VitalFieldNames.VitalRespirationRate, [14, 16])).toEqual({ min: 5, max: 25, interval: 5 });
     expect(bounds(VitalFieldNames.VitalHeartbeat, [72, 130])).toEqual({ min: 60, max: 140, interval: 20 });
+  });
+
+  it('keep that span for a low reading, whose axis starts at 0', () => {
+    expect(bounds(VitalFieldNames.VitalRespirationRate, [5])).toEqual({ min: 0, max: 20, interval: 5 });
+    expect(bounds(VitalFieldNames.VitalHeartbeat, [10])).toEqual({ min: 0, max: 40, interval: 10 });
   });
 
   it('weight, BMI and blood pressure run 10% either side of the median, widened to fit every value', () => {

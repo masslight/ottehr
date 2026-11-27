@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
+import { withEncounterIdParam } from 'src/features/visits/in-person/routing/helpers';
 import { DATE_FORMAT } from 'src/helpers/formatDateTime';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
 import { getFollowUpProgressNotePathSegment } from 'utils/lib/fhir/encounter';
@@ -87,10 +87,8 @@ export interface VisitColumn extends FlowsheetVisit {
 const headerUrl = (visit: FlowsheetVisit): string | undefined => {
   const id = visit.isFollowUp ? visit.originalAppointmentId : visit.appointmentId;
   if (!id) return undefined;
-  return getInPersonUrlByAppointmentType(
-    { id, encounterId: visit.encounterId ?? '', isFollowUp: visit.isFollowUp },
-    visit.isFollowUp ? getFollowUpProgressNotePathSegment(visit.followupSubtype) : REVIEW_AND_SIGN_PATH
-  );
+  const note = visit.isFollowUp ? getFollowUpProgressNotePathSegment(visit.followupSubtype) : REVIEW_AND_SIGN_PATH;
+  return withEncounterIdParam(`/in-person/${id}/${note}`, visit.encounterId);
 };
 
 export const toColumns = (visits: FlowsheetVisit[], currentEncounterId?: string): VisitColumn[] => {

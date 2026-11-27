@@ -166,7 +166,7 @@ describe('the values by visit table', () => {
     renderPage();
     expect(within(grid()).getByRole('link', { name: '09/03/2026' })).toHaveAttribute(
       'href',
-      '/in-person/a3/review-and-sign'
+      '/in-person/a3/review-and-sign?encounterId=e3'
     );
   });
 

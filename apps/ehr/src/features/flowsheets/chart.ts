@@ -66,7 +66,8 @@ const roundOut = (low: number, high: number, dataMin: number, dataMax: number): 
   let max = exact(Math.ceil(exact(high / interval)) * interval);
   if (min === dataMin) min = exact(min - interval);
   if (max === dataMax) max = exact(max + interval);
-  return { min: dataMin >= 0 ? Math.max(0, min) : min, max, interval };
+  if (dataMin >= 0 && min < 0) return { min: 0, max: exact(max - min), interval };
+  return { min, max, interval };
 };
 
 export const yAxisBounds = (range: FlowsheetChartRange, unit: FlowsheetUnit, values: number[]): AxisBounds => {
