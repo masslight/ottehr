@@ -785,6 +785,12 @@ const REMOVABLE_FIELDS = [
   'employer-contact-email',
   'employer-contact-phone',
   'employer-contact-fax',
+  'pcp-first',
+  'pcp-last',
+  'pcp-practice',
+  'pcp-address',
+  'pcp-number',
+  'pcp-fax',
 ];
 
 /**

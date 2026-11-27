@@ -38,8 +38,9 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
   console.time('getAccountAndCoverageResourcesForPatient');
   const accountAndCoverages = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
   console.timeEnd('getAccountAndCoverageResourcesForPatient');
+  const pcpReference = accountAndCoverages.patient?.generalPractitioner?.[0]?.reference;
   const primaryCarePhysician = accountAndCoverages.patient?.contained?.find(
-    (resource) => resource.resourceType === 'Practitioner' && resource.active === true
+    (resource) => resource.resourceType === 'Practitioner' && `#${resource.id}` === pcpReference
   ) as Practitioner;
   const coverageChecks = await getPatientCoverageChecks(patientId, oystehr);
   const { patient } = accountAndCoverages;

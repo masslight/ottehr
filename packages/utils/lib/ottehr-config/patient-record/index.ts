@@ -603,9 +603,7 @@ const FormFields: PatientRecordFormFields = {
         key: 'pcp-practice',
         type: 'string',
         label: 'Practice name',
-        triggers: [
-          { targetQuestionLinkId: 'pcp-active', effect: ['require', 'enable'], operator: '=', answerBoolean: true },
-        ],
+        triggers: [{ targetQuestionLinkId: 'pcp-active', effect: ['enable'], operator: '=', answerBoolean: true }],
         disabledDisplay: 'hidden',
       },
       firstName: {

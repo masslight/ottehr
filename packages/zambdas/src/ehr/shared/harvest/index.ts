@@ -1282,15 +1282,6 @@ export const getPCPPatchOps = (
 
   const hasSomeValue = firstName || lastName || practiceName || pcpAddress || phone || fax;
 
-  const hasAnyPCPFields = flattenedItems.some((field) => PCP_FIELDS.includes(field.linkId));
-  const shouldClearAllData = hasAnyPCPFields && !hasSomeValue;
-
-  if (!shouldDeactivate && !hasSomeValue) {
-    return [];
-  }
-
-  const operations: Operation[] = [];
-
   const currentPCPRef = patient.generalPractitioner?.[0];
   const currentContainedPCP = currentPCPRef?.reference
     ? patient.contained?.find(
@@ -1298,6 +1289,16 @@ export const getPCPPatchOps = (
           `#${resource.id}` === currentPCPRef?.reference && resource.resourceType === 'Practitioner'
       )
     : undefined;
+
+  const isNoPcpConfirmed = currentContainedPCP?.active === false;
+  const shouldClearAllData =
+    isActive === true && !hasSomeValue && (flattenedItems.some(isFieldExplicitlyCleared) || isNoPcpConfirmed);
+
+  if (!shouldDeactivate && !hasSomeValue && !shouldClearAllData) {
+    return [];
+  }
+
+  const operations: Operation[] = [];
 
   if (shouldClearAllData) {
     if (currentPCPRef) {
@@ -1367,15 +1368,17 @@ export const getPCPPatchOps = (
       ];
     }
 
-    const newPCP: Practitioner = {
-      resourceType: 'Practitioner',
-      id: 'primary-care-physician',
-      name,
-      telecom,
-      address,
-      extension,
-      active: !shouldDeactivate,
-    };
+    const newPCP: Practitioner = hasSomeValue
+      ? {
+          resourceType: 'Practitioner',
+          id: 'primary-care-physician',
+          name,
+          telecom,
+          address,
+          extension,
+          active: !shouldDeactivate,
+        }
+      : { resourceType: 'Practitioner', id: 'primary-care-physician', active: false };
 
     if (_.isEqual(newPCP, currentContainedPCP)) {
       return operations;

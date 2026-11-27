@@ -16,24 +16,29 @@
           "linkId": "pcp-active",
           "answer": [
             {
-              "valueBoolean": false
+              "valueBoolean": true
             }
           ]
         },
         {
-          "linkId": "pcp-first"
+          "linkId": "pcp-first",
+          "answer": []
         },
         {
-          "linkId": "pcp-last"
+          "linkId": "pcp-last",
+          "answer": []
         },
         {
-          "linkId": "pcp-practice"
+          "linkId": "pcp-practice",
+          "answer": []
         },
         {
-          "linkId": "pcp-address"
+          "linkId": "pcp-address",
+          "answer": []
         },
         {
-          "linkId": "pcp-number"
+          "linkId": "pcp-number",
+          "answer": []
         }
       ]
     }

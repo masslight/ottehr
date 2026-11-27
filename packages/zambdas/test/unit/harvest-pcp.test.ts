@@ -1,4 +1,5 @@
 import { Patient, Practitioner, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
+import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
 import { describe, expect, it } from 'vitest';
 import { createMasterRecordPatchOperations, getPCPPatchOps } from '../../src/ehr/shared/harvest';
 
@@ -106,6 +107,15 @@ describe('createMasterRecordPatchOperations PCP page', () => {
   });
 });
 
+const NO_PCP_CONFIRMED: Practitioner = { resourceType: 'Practitioner', id: 'primary-care-physician', active: false };
+
+const patientWithNoPcpConfirmed = (): Patient => ({
+  resourceType: 'Patient',
+  id: 'patient-1',
+  generalPractitioner: [{ reference: '#primary-care-physician', type: 'Practitioner' }],
+  contained: [{ ...NO_PCP_CONFIRMED }],
+});
+
 const patientWithUnknownPcp = (): Patient => ({ resourceType: 'Patient', id: 'patient-1' });
 
 const pcpActive = (value?: boolean): QuestionnaireResponseItem =>
@@ -117,7 +127,54 @@ const untouchedEmptyEhrPcpFields = EHR_PCP_DETAIL_LINK_IDS.map((linkId) => answe
 
 const clearedEhrPcpFields = EHR_PCP_DETAIL_LINK_IDS.map((linkId) => ({ linkId, answer: [] }));
 
+const removesPcp = [
+  { op: 'remove', path: '/generalPractitioner' },
+  { op: 'remove', path: '/contained' },
+];
+
 describe('getPCPPatchOps PCP states', () => {
+  it('confirms no PCP as an inactive Practitioner without the previous details', () => {
+    expect(getPCPPatchOps([pcpActive(false)], patientWithPcp())).toEqual([
+      { op: 'replace', path: '/contained', value: [NO_PCP_CONFIRMED] },
+    ]);
+  });
+
+  it('confirms no PCP for a patient with nothing on file', () => {
+    expect(getPCPPatchOps([pcpActive(false)], patientWithUnknownPcp())).toEqual([
+      { op: 'add', path: '/contained', value: [NO_PCP_CONFIRMED] },
+      {
+        op: 'add',
+        path: '/generalPractitioner',
+        value: [{ reference: '#primary-care-physician', resourceType: 'Practitioner' }],
+      },
+    ]);
+  });
+
+  it.each([
+    ['confirmed again', pcpActive(false)],
+    ['still ticked but unchanged (bare item)', pcpActive()],
+  ])('keeps a confirmed no-PCP when the box is %s', (_label, item) => {
+    expect(getPCPPatchOps([item], patientWithNoPcpConfirmed())).toEqual([]);
+  });
+
+  it('returns a confirmed no-PCP to unknown when the box is unticked with no details', () => {
+    expect(getPCPPatchOps([pcpActive(true), ...untouchedEmptyEhrPcpFields], patientWithNoPcpConfirmed())).toEqual(
+      removesPcp
+    );
+  });
+
+  it('returns an active PCP to unknown when staff clear every detail', () => {
+    expect(getPCPPatchOps([pcpActive(true), ...clearedEhrPcpFields], patientWithPcp())).toEqual(removesPcp);
+  });
+
+  it('leaves an active PCP alone when an untouched, empty PCP section is saved (stale unknown form)', () => {
+    expect(getPCPPatchOps([pcpActive(true), ...untouchedEmptyEhrPcpFields], patientWithPcp())).toEqual([]);
+  });
+
+  it('leaves unknown alone when the box stays unticked and the details stay empty', () => {
+    expect(getPCPPatchOps([pcpActive(true), ...untouchedEmptyEhrPcpFields], patientWithUnknownPcp())).toEqual([]);
+  });
+
   it.each([
     ['first name', 'pcp-first', { given: ['Sam'] }],
     ['last name', 'pcp-last', { family: 'Sam' }],
@@ -130,6 +187,34 @@ describe('getPCPPatchOps PCP states', () => {
       name: [expectedName],
       active: true,
     });
+  });
+
+  it('leaves a PCP stored without an active flag alone when the box arrives unticked with no details', () => {
+    const patient = patientWithPcp();
+    delete (patient.contained?.[0] as Practitioner).active;
+
+    expect(getPCPPatchOps([pcpActive(true), ...untouchedEmptyEhrPcpFields], patient)).toEqual([]);
+  });
+
+  it.each([
+    ['a confirmed no-PCP', patientWithNoPcpConfirmed],
+    ['an active PCP', patientWithPcp],
+  ])('leaves %s alone when Save All sends only other sections', (_label, patient) => {
+    const ops = createMasterRecordPatchOperations(
+      {
+        questionnaireResponseItems: [
+          {
+            linkId: 'patient-contact-info-section',
+            item: [{ linkId: 'patient-email', answer: [{ valueString: 'new@example.com' }] }],
+          },
+        ],
+        sourceQuestionnaire: PATIENT_RECORD_QUESTIONNAIRE(),
+        options: { filterByEnableWhen: true },
+      },
+      patient()
+    ).patient.patchOpsForDirectUpdate;
+
+    expect(ops.filter((op) => op.path === '/contained' || op.path === '/generalPractitioner')).toEqual([]);
   });
 
   it('keeps an active PCP when staff clear every detail except the first name', () => {
