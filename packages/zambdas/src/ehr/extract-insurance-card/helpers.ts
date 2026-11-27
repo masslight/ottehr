@@ -31,16 +31,15 @@ If it is an insurance card, extract exactly these fields, using ONLY values that
 - insuranceType: the plan type if printed (e.g. PPO, HMO, EPO, POS, Medicaid, Medicare)
 - effectiveDate: the coverage effective date, formatted YYYY-MM-DD
 
-TRICARE / U.S. military ID cards:
-A TRICARE beneficiary usually shows a U.S. Department of Defense / Uniformed Services Identification and Privilege Card (a "Uniformed Services ID card", often with a CAC-style layout) instead of a card printed with an insurer's name. Treat such a card as a health insurance card (isInsuranceCard = true) and set payer to "TRICARE" and insuranceType to "TRICARE". It has two sides:
-- FRONT: the cardholder's photo, printed name (usually "LAST, FIRST MIDDLE"), relationship (Spouse, Child, ...), sponsor status, pay grade, rank, branch, and an expiration date. There is NO benefits number on the front.
-- BACK: a barcode, the sponsor's name and "Sponsor DoD ID", the cardholder's date of birth, "Beneficiary DoD ID", the "Benefits Number" (also called the DoD Benefits Number or DBN), and an "Effective Date".
-Rules for these cards:
-- memberId is ONLY the "Benefits Number" printed on the back (11 digits, sometimes printed with a hyphen before the last two digits, e.g. 123456789-02). Return its digits only, with no hyphen or spaces (e.g. 12345678902). If the image is the front, or the Benefits Number is not clearly printed, set memberId to null.
-- NEVER use the "Beneficiary DoD ID", the "Sponsor DoD ID", an EDIPI, a Social Security number or the sponsor's number as memberId; they are 10-digit identity numbers, not benefits numbers, and a claim filed with them is denied.
-- Member name (memberFirstName / memberMiddleName / memberLastName) is the cardholder's own printed name, taken from the FRONT. The "Sponsor Name" on the back is a different person (the service member) — do not use it as the member name. On the back, set the member name fields to null.
-- effectiveDate comes from the back's "Effective Date" and is printed like 2019JUL01 — convert it to YYYY-MM-DD (2019-07-01). The "Expires" date on the front is NOT an effective date; do not use it.
-- groupNumber, payerId, rxBin, rxPcn and rxGroup are not printed on these cards: set them to null.
+TRICARE cards:
+TRICARE is the U.S. military health program. A TRICARE beneficiary shows either (a) a U.S. Department of Defense / Uniformed Services Identification and Privilege Card (a military ID with a photo and a barcode), or (b) a card branded "TRICARE" (for example "TRICARE Health Care Program" / "Military Health Insurance"). Treat both as health insurance cards (isInsuranceCard = true) and set payer to "TRICARE". The layout varies, so rely on the printed LABELS, not on which side they are on:
+- memberId is the number labeled "DoD Benefits Number", "Benefits Number" or "DBN" — on whichever side it is printed. It is 11 digits, printed either plain (98765432101) or with a hyphen before the last two digits (123456789-02). Return its digits only, with no hyphen or spaces. If no benefits number is clearly printed on this image, set memberId to null. On a branded card the same number is often repeated in text under the barcode; that is also the benefits number.
+- NEVER use the number labeled "DoD Identification Number", "DoD ID", "Beneficiary DoD ID", "Sponsor DoD ID", an EDIPI, a Social Security number or any sponsor number as memberId. They are 10-digit identity numbers, not benefits numbers; a claim filed with them is denied. One side of a card commonly shows ONLY a DoD Identification Number — then memberId must be null for that image.
+- Member name (memberFirstName / memberMiddleName / memberLastName) is the beneficiary's own name, labeled "Member Name" or printed as the cardholder name next to the photo. A "Sponsor Name" is a DIFFERENT person (the service member) — never use it as the member name. If the image shows only a sponsor name, set the member name fields to null.
+- insuranceType: the plan printed on the card, e.g. "TRICARE Select", "TRICARE Prime", "TRICARE For Life"; otherwise "TRICARE".
+- groupNumber: extract it when a "Group Number" is printed (e.g. T0001); otherwise null.
+- effectiveDate: the date labeled "Effective Date", converted to YYYY-MM-DD. It may be printed like 01 JAN 2025 (-> 2025-01-01) or 2019JUL01 (-> 2019-07-01). An "Expires" / expiration date is NOT an effective date; do not use it.
+- payerId, rxBin, rxPcn and rxGroup are normally not printed on these cards: set them to null unless clearly printed.
 
 Also judge the card's orientation:
 - readable: is the card RIGHT-SIDE-UP — is its printed text in a normal, upright, human-readable orientation (not rotated sideways or upside-down)? Return true if it is right-side-up, false if it is not.
