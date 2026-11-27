@@ -246,13 +246,42 @@ export async function getRelatedPersonsForPhoneNumber(
   return resources;
 }
 
-export async function getPatientResourceWithVerifiedPhoneNumber(
+export type VerifiedPhoneResolution =
+  | { status: 'verified'; phone: string }
+  | { status: 'no-account' }
+  | { status: 'ambiguous'; phones: string[] };
+
+export function resolveVerifiedPhone(resources: (Patient | Person | RelatedPerson)[]): VerifiedPhoneResolution {
+  const loginRelatedPersons = resources.filter(
+    (res): res is RelatedPerson =>
+      res.resourceType === 'RelatedPerson' &&
+      getCoding(res.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson'
+  );
+  if (!loginRelatedPersons.length) return { status: 'no-account' };
+
+  const loginRpRefs = new Set(loginRelatedPersons.map((rp) => `RelatedPerson/${rp.id}`));
+  const loginPersons = resources.filter(
+    (res): res is Person =>
+      res.resourceType === 'Person' && (res.link ?? []).some((link) => loginRpRefs.has(link.target?.reference ?? ''))
+  );
+  const verifiedPhoneNumbers = Array.from(
+    new Set(
+      loginPersons.flatMap((person) =>
+        (person.telecom ?? [])
+          .filter((tc) => tc.system === 'phone' && tc.value && tc.period?.end == undefined)
+          .map((tc) => tc.value as string)
+      )
+    )
+  );
+  if (verifiedPhoneNumbers.length === 1) return { status: 'verified', phone: verifiedPhoneNumbers[0] };
+  if (verifiedPhoneNumbers.length > 1) return { status: 'ambiguous', phones: verifiedPhoneNumbers };
+  return { status: 'no-account' };
+}
+
+export async function getPatientWithPhoneResolution(
   patientID: string,
   oystehr: Oystehr
-): Promise<{
-  patient: Patient | undefined;
-  verifiedPhoneNumber: string | undefined;
-}> {
+): Promise<{ patient: Patient | undefined; phoneResolution: VerifiedPhoneResolution }> {
   const response = (
     await oystehr.fhir.search<Patient | Person | RelatedPerson>({
       resourceType: 'Patient',
@@ -272,46 +301,24 @@ export async function getPatientResourceWithVerifiedPhoneNumber(
       ],
     })
   ).unbundle();
-
   const patient = response.find((res): res is Patient => res.resourceType === 'Patient');
+  return { patient, phoneResolution: resolveVerifiedPhone(response) };
+}
 
-  const loginRelatedPersons = response.filter(
-    (res): res is RelatedPerson =>
-      res.resourceType === 'RelatedPerson' &&
-      getCoding(res.relationship, `${PRIVATE_EXTENSION_BASE_URL}/relationship`)?.code === 'user-relatedperson'
-  );
-
-  if (!loginRelatedPersons.length) {
-    return { patient, verifiedPhoneNumber: undefined };
-  }
-
-  const loginRpRefs = new Set(loginRelatedPersons.map((rp) => `RelatedPerson/${rp.id}`));
-  const loginPersons = response.filter(
-    (res): res is Person =>
-      res.resourceType === 'Person' && (res.link ?? []).some((link) => loginRpRefs.has(link.target?.reference ?? ''))
-  );
-
-  const verifiedPhoneNumbers = Array.from(
-    new Set(
-      loginPersons.flatMap((person) =>
-        (person.telecom ?? [])
-          .filter((tc) => tc.system === 'phone' && tc.value && tc.period?.end == undefined)
-          .map((tc) => tc.value as string)
-      )
-    )
-  );
-
-  if (verifiedPhoneNumbers.length === 1) {
-    return { patient, verifiedPhoneNumber: verifiedPhoneNumbers[0] };
-  }
-
-  if (verifiedPhoneNumbers.length > 1) {
+export async function getPatientResourceWithVerifiedPhoneNumber(
+  patientID: string,
+  oystehr: Oystehr
+): Promise<{
+  patient: Patient | undefined;
+  verifiedPhoneNumber: string | undefined;
+}> {
+  const { patient, phoneResolution } = await getPatientWithPhoneResolution(patientID, oystehr);
+  if (phoneResolution.status === 'ambiguous') {
     console.log(
-      `getPatientResourceWithVerifiedPhoneNumber: patient ${patientID} has ${verifiedPhoneNumbers.length} verified login phones; returning undefined so the caller resolves deliberately`
+      `getPatientResourceWithVerifiedPhoneNumber: patient ${patientID} has ${phoneResolution.phones.length} verified login phones; returning undefined so the caller resolves deliberately`
     );
   }
-
-  return { patient, verifiedPhoneNumber: undefined };
+  return { patient, verifiedPhoneNumber: phoneResolution.status === 'verified' ? phoneResolution.phone : undefined };
 }
 
 export function getPatientFirstName(patient: Patient): string | undefined {

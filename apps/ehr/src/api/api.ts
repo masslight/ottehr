@@ -57,6 +57,10 @@ import {
 import { MigrateExamDataInput, MigrateExamDataOutput } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GetChatDataInput, GetChatDataResponse } from 'utils/lib/types/api/chat-data.types';
 import {
+  CheckDuplicatePatientsInput,
+  CheckDuplicatePatientsResponse,
+} from 'utils/lib/types/api/check-duplicate-patients.types';
+import {
   CreateEmCodeInput,
   DeleteEmCodeInput,
   EmCodeOutput,
@@ -487,6 +491,7 @@ const VISITS_OVERVIEW_REPORT_ZAMBDA_ID = 'visits-overview-report';
 const RECENT_PATIENTS_REPORT_ZAMBDA_ID = 'recent-patients-report';
 const CREATE_APPOINTMENT_ZAMBDA_ID = 'create-appointment';
 const CREATE_PATIENT_ZAMBDA_ID = 'create-patient';
+const CHECK_DUPLICATE_PATIENTS_ZAMBDA_ID = 'check-duplicate-patients';
 const CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID = 'telemed-cancel-appointment';
 const INVITE_PARTICIPANT_ZAMBDA_ID = 'video-chat-invites-create';
 const CREATE_USER_ZAMBDA_ID = 'create-user';
@@ -1014,6 +1019,22 @@ export const createAppointment = async (
 
     const response = await oystehr.zambda.execute({
       id: CREATE_APPOINTMENT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const checkDuplicatePatients = async (
+  oystehr: Oystehr,
+  parameters: CheckDuplicatePatientsInput
+): Promise<CheckDuplicatePatientsResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: CHECK_DUPLICATE_PATIENTS_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

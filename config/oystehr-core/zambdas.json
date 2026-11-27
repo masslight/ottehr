@@ -2199,6 +2199,13 @@
       "src": "src/ehr/create-patient/index",
       "zip": ".dist/zips/create-patient.zip"
     },
+    "CHECK-DUPLICATE-PATIENTS": {
+      "name": "check-duplicate-patients",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/check-duplicate-patients/index",
+      "zip": ".dist/zips/check-duplicate-patients.zip"
+    },
     "CREATE-FEE-SCHEDULE": {
       "name": "create-fee-schedule",
       "type": "http_auth",

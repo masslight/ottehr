@@ -3,7 +3,7 @@ import { render, screen, waitFor, waitForElementToBeRemoved } from '@testing-lib
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createPatient } from '../../src/api/api';
+import { checkDuplicatePatients, createPatient } from '../../src/api/api';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import AddPatient from '../../src/pages/AddPatient';
 
@@ -20,6 +20,7 @@ vi.mock('notistack', () => ({
 vi.mock('../../src/api/api', async () => ({
   ...(await vi.importActual('../../src/api/api')),
   createPatient: vi.fn(),
+  checkDuplicatePatients: vi.fn(),
   listServiceCategories: vi.fn().mockResolvedValue({ serviceCategories: [] }),
 }));
 
@@ -74,6 +75,7 @@ const enterNewPatient = async (
 describe('Add Patient: blank names', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(checkDuplicatePatients).mockResolvedValue({ candidates: [] });
     vi.mocked(useNavigate).mockReturnValue(vi.fn());
   });
 
