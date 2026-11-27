@@ -284,6 +284,18 @@ describe('describeClaimSubmissionError', () => {
     expect(describeClaimSubmissionError(undefinedAt('Claim.diagnosis[0]'))).toBe('Diagnosis at position 1 is missing');
   });
 
+  it('rewrites claim-level errors inside a joined list or a longer message', () => {
+    expect(
+      describeWithClaim('Unknown claim type "oral", Claim has no items with service dates, Duplicate diagnosis code')
+    ).toBe(
+      'Claim type "oral" is not supported; it must be professional or institutional, ' +
+        'No service line has a Date of Service, Duplicate diagnosis code'
+    );
+    expect(describeWithClaim('Rule "Submit" failed: Claim has no items with service dates')).toBe(
+      'Rule "Submit" failed: No service line has a Date of Service'
+    );
+  });
+
   it('leaves "<x> or <y> must be present" errors alone unless they name claim or payer-ID paths', () => {
     for (const message of [
       'username or password must be present',

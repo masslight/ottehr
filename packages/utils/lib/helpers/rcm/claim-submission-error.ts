@@ -487,9 +487,9 @@ const RULES: Rule[] = [
     withDescription((d) => `${d} could not be found; re-select it`),
   ],
   [/Contained resource \S+ referenced at (\S+) not found/g, withDescription((d) => `${d} could not be found`)],
-  [/^Claim has no items with service dates$/g, () => 'No service line has a Date of Service'],
+  [/\bClaim has no items with service dates\b/g, () => 'No service line has a Date of Service'],
   [
-    /^Unknown claim type "([^"]*)"$/g,
+    /\bUnknown claim type "([^"]*)"/g,
     (_claim, type) =>
       type === '' || type === 'undefined'
         ? 'Claim type is missing'
