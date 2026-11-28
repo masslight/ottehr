@@ -57,8 +57,11 @@ const draft: NioInvoiceDraft = {
       {
         claimId: 'claim-1',
         patientName: 'Pruitt, Jordan',
+        patientFriendlyId: 'PT-1001',
         serviceDate: '2026-09-14',
-        service: 'Office Visit',
+        facilityName: 'Main Clinic',
+        serviceLines: [{ description: 'Office Visit', unitPriceCents: 18000, quantity: 1, totalCents: 18000 }],
+        billedCents: 18000,
         amountCents: 18000,
       },
     ],

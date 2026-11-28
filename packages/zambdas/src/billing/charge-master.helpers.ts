@@ -49,19 +49,20 @@ const entryModifier = (pc: ChargeMasterPriceComponent): string | undefined =>
   pc.extension?.find((ext) => ext.url === EXTENSION_URL_CPT_MODIFIER)?.valueCode;
 
 /**
- * The charge master's price for a CPT code with the given modifiers, or undefined when the charge
- * master has no matching entry (callers choose their own fallback).
+ * The charge master's entry for a CPT code with the given modifiers: its CPT description (the
+ * coding display) and price. Undefined when the charge master has no matching entry (callers choose
+ * their own fallback).
  *
  * Modifier semantics are exact both ways: a line with modifiers is priced only by an entry whose
  * modifier is one of the line's, and a line without modifiers only by an entry without a modifier —
  * a modifier-specific price never applies to a modifier-less line, and vice versa. Ties (several
  * matching entries) resolve to the charge master's first, so lookups are deterministic.
  */
-export function getChargeMasterPrice(
+export function getChargeMasterEntry(
   chargeMaster: ChargeItemDefinition,
   cptCode: string,
   modifiers: string[]
-): number | undefined {
+): { description?: string; price?: number } | undefined {
   const entries = (chargeMaster.propertyGroup ?? [])
     .map((pg) => pg.priceComponent?.[0])
     .filter(
@@ -76,7 +77,18 @@ export function getChargeMasterPrice(
         return modifier != null && modifiers.includes(modifier);
       })
     : entries.find((pc) => entryModifier(pc) == null);
-  return match?.amount?.value;
+  if (!match) return undefined;
+  const description = match.code?.coding?.find((coding) => coding.system === CPT_CODE_SYSTEM)?.display;
+  return { description, price: match.amount?.value };
+}
+
+/** The charge master's price for a CPT code with the given modifiers; see getChargeMasterEntry. */
+export function getChargeMasterPrice(
+  chargeMaster: ChargeItemDefinition,
+  cptCode: string,
+  modifiers: string[]
+): number | undefined {
+  return getChargeMasterEntry(chargeMaster, cptCode, modifiers)?.price;
 }
 
 const hasDefaultTag = (cid: ChargeItemDefinition, kind: ChargeItemDefinitionDefault): boolean =>

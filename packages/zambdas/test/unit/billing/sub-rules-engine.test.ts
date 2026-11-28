@@ -1156,7 +1156,7 @@ describe('sub-rules-engine charge master pricing', () => {
     });
     expect(calls[0].params).toContainEqual({
       name: '_tag',
-      value: `${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|insurance,${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|self-pay`,
+      value: `${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|insurance,${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|self-pay,${CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM}|non-insurance`,
     });
     expect(calls[0].params).toContainEqual({ name: 'status', value: 'active' });
   });

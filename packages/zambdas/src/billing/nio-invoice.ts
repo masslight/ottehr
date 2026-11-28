@@ -1,10 +1,11 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { ChargeItemDefinition, Claim, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
 import { BuildBillingInvoiceInput, getBillingInvoiceClaims, isSameInvoiceIssuer } from 'utils/lib/fhir/billing-invoice';
+import { getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
-import { AR_STAGE, formatAntCaseString, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import { AR_STAGE, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import {
   BILLING_INVOICE_CONFLICT_ERROR,
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
@@ -12,10 +13,16 @@ import {
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
 } from 'utils/lib/types/errors';
 import { readInvoicingConfig } from '../rcm/invoice-config/helpers';
-import { NioInvoicePdfData } from '../shared/pdf/nio-invoice-pdf';
+import { NioInvoicePdfData, NioInvoicePdfServiceLine } from '../shared/pdf/nio-invoice-pdf';
+import {
+  activeDefaultChargeMasterSearchParams,
+  getChargeMasterEntry,
+  selectBestChargeMaster,
+} from './charge-master.helpers';
 import { buildClaimLookups, getClaimServiceDay, mapClaimToItem } from './claim-search';
 import { INVOICE_ISSUER_CLAIM_INCLUDES, resolveClaimInvoiceIssuer } from './invoice-issuer';
 import { fetchActiveClaimInvoices } from './invoices';
+import { readServiceLineProperty } from './rules-engine/claim-model';
 import { copySourceId, fetchById, fhirName, findRef } from './shared';
 
 export interface NioInvoiceDraft {
@@ -28,6 +35,42 @@ const ISSUER_SOURCE_LABELS = {
   'service-facility': 'service facility',
   'billing-provider': 'billing provider',
 } as const;
+
+// Service lines for the invoice. The charge master supplies the CPT description and unit price when it has
+// an entry for the line's CPT code and modifiers, and the line total is quantity x unit price. Otherwise the
+// claim line's total is used and the unit price is that total divided by quantity.
+const serviceLinesFor = (claim: Claim, chargeMaster: ChargeItemDefinition | undefined): NioInvoicePdfServiceLine[] =>
+  (claim.item ?? []).map((line) => {
+    const cptValue = readServiceLineProperty(line, 'cptCode');
+    const cptCode = typeof cptValue === 'string' ? cptValue : undefined;
+    const modifiers = readServiceLineProperty(line, 'modifiers');
+    const modifierList = Array.isArray(modifiers) ? modifiers : [];
+    let entry = cptCode && chargeMaster ? getChargeMasterEntry(chargeMaster, cptCode, modifierList) : undefined;
+    if (cptCode && chargeMaster && entry?.price == null && modifierList.length) {
+      // Retry without modifiers, as the rules engine does.
+      entry = getChargeMasterEntry(chargeMaster, cptCode, []);
+    }
+    const price = entry?.price;
+    const chargeMasterPrice = price != null && Number.isFinite(price) && price >= 0 ? price : undefined;
+    const claimDisplay = line.productOrService?.coding?.[0]?.display ?? line.productOrService?.coding?.[0]?.code;
+    const quantity = line.quantity?.value && line.quantity.value > 0 ? line.quantity.value : 1;
+    if (chargeMasterPrice != null) {
+      const unitPriceCents = Math.round(chargeMasterPrice * 100);
+      return {
+        description: entry?.description || claimDisplay || '',
+        unitPriceCents,
+        quantity,
+        totalCents: Math.round(unitPriceCents * quantity),
+      };
+    }
+    const totalCents = Math.round((line.net?.value ?? 0) * 100);
+    return {
+      description: entry?.description || claimDisplay || '',
+      unitPriceCents: Math.round(totalCents / quantity),
+      quantity,
+      totalCents,
+    };
+  });
 
 // Names match the claims list rows. Off by default: thrown errors get logged, so names leak PHI.
 const describeClaims = (claims: Claim[], resources: Resource[], nameClaims: boolean): string => {
@@ -99,16 +142,23 @@ export async function assembleNioInvoice({
     throw INVALID_INPUT_ERROR('All claims must have the same non-insurance payer');
   }
 
-  const [{ invoiceIssuerSource, dueDaysFromGeneration }, lookups, activeInvoices, nio] = await Promise.all([
-    readInvoicingConfig(oystehr),
-    buildClaimLookups({
-      oystehr,
-      claims,
-      includedResources: resources,
-    }),
-    fetchActiveClaimInvoices(oystehr, claimIds),
-    fetchById<Organization>(oystehr, 'Organization', nioId),
-  ]);
+  const [{ invoiceIssuerSource, dueDaysFromGeneration }, lookups, activeInvoices, nio, chargeMasters] =
+    await Promise.all([
+      readInvoicingConfig(oystehr),
+      buildClaimLookups({
+        oystehr,
+        claims,
+        includedResources: resources,
+      }),
+      fetchActiveClaimInvoices(oystehr, claimIds),
+      fetchById<Organization>(oystehr, 'Organization', nioId),
+      oystehr.fhir
+        .search<ChargeItemDefinition>({
+          resourceType: 'ChargeItemDefinition',
+          params: activeDefaultChargeMasterSearchParams(['non-insurance']),
+        })
+        .then((result) => result.unbundle()),
+    ]);
 
   const issuers = claims.map((claim) => resolveClaimInvoiceIssuer(claim, resources, invoiceIssuerSource));
   const facilityIds = new Set(
@@ -142,13 +192,26 @@ export async function assembleNioInvoice({
   const [facilityId] = facilityIds;
   const issueDate = now.toISODate()!;
   const dueDate = now.plus({ days: dueDaysFromGeneration }).toISODate()!;
-  const lines = items.map((item) => ({
-    claimId: item.id,
-    patientName: item.patientName,
-    serviceDate: item.serviceDate,
-    service: formatAntCaseString(item.service),
-    amountCents: Math.round(item.claimBalance * 100),
-  }));
+  const lines = items.map((item, index) => {
+    const serviceLines = serviceLinesFor(
+      claims[index],
+      selectBestChargeMaster(chargeMasters, 'non-insurance', getClaimServiceDay(claims[index]))
+    );
+    const patient = findRef<Patient>(resources, claims[index].patient?.reference);
+    return {
+      claimId: item.id,
+      patientName: item.patientName,
+      patientFriendlyId: patient ? getPatientFriendlyId(patient) || patient.id || '' : '',
+      serviceDate: item.serviceDate,
+      facilityName: item.facility,
+      serviceLines,
+      // The claim total is the sum of the priced service lines.
+      billedCents: serviceLines.length
+        ? serviceLines.reduce((sum, serviceLine) => sum + serviceLine.totalCents, 0)
+        : Math.round(item.billed * 100),
+      amountCents: Math.round(item.claimBalance * 100),
+    };
+  });
 
   return {
     nioId,

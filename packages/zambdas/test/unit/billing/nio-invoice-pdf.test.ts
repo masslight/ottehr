@@ -29,8 +29,11 @@ vi.mock('../../../src/shared/pdf/pdf-utils', async (importActual) => {
 const line = (overrides: Partial<NioInvoicePdfLine> = {}): NioInvoicePdfLine => ({
   claimId: 'claim-1',
   patientName: 'Jordan Pruitt',
+  patientFriendlyId: 'PT-1001',
   serviceDate: '2026-09-14',
-  service: 'Office Visit',
+  facilityName: 'Main Clinic',
+  serviceLines: [{ description: 'Office Visit', unitPriceCents: 18000, quantity: 1, totalCents: 18000 }],
+  billedCents: 18000,
   amountCents: 18000,
   ...overrides,
 });
@@ -63,7 +66,11 @@ const data = (overrides: Partial<NioInvoicePdfData> = {}): NioInvoicePdfData => 
       claimId: 'claim-2',
       patientName: 'Maya Collins',
       serviceDate: '2026-09-18',
-      service: 'Sports Physical',
+      serviceLines: [
+        { description: 'Sports Physical', unitPriceCents: 6000, quantity: 1, totalCents: 6000 },
+        { description: 'Vision Screening', unitPriceCents: 3550, quantity: 1, totalCents: 3550 },
+      ],
+      billedCents: 9550,
       amountCents: 9550,
     }),
   ],
@@ -108,26 +115,59 @@ describe('renderNioInvoicePdf', () => {
         'Sunrise Pediatrics',
         '2500 Medical Plaza Drive, Suite 400',
         'Austin, TX 78701',
-        'INVOICE',
         'Invoice #: INV-00042',
-        'Issue date: 10/03/2026',
-        'Due date: 11/02/2026',
+        'Issued on 10/03/2026',
+        'Due 11/02/2026',
         'BILL TO',
         'Acme Health Services',
         '4820 Commerce Parkway',
         'Austin, TX 78744',
-        '09/14/2026',
+        'Visit',
+        'Service',
+        'Price',
+        'Qty',
+        'Total',
         'Jordan Pruitt',
+        '09/14/2026',
+        'Main Clinic',
+        'Patient ID: PT-1001',
         'Office Visit',
-        'claim-1',
         '$180.00',
-        'claim-2',
+        '$180.00',
+        'Vision Screening',
+        '$35.50',
+        '$35.50',
+        'Visit total:',
         '$95.50',
         'Claims (2)',
         'Total due',
       ])
     );
     expect(text.filter((value) => value === '$275.50')).toHaveLength(2);
+  });
+
+  it('shows the adjustments between the claim total and the amount due when they differ', async () => {
+    const { text } = await render(
+      data({
+        lines: [
+          line({
+            billedCents: 20000,
+            amountCents: 15000,
+            serviceLines: [{ description: 'Office Visit', unitPriceCents: 20000, quantity: 1, totalCents: 20000 }],
+          }),
+        ],
+      })
+    );
+
+    expect(text).toEqual(
+      expect.arrayContaining(['Claims (1)', '$200.00', 'Less payments and adjustments', '-$50.00', 'Total due'])
+    );
+    expect(text.filter((value) => value === '$150.00')).toHaveLength(1);
+  });
+
+  it('omits the adjustments row when nothing was paid or adjusted', async () => {
+    const { text } = await render(data());
+    expect(text).not.toContain('Less payments and adjustments');
   });
 
   it('renders a recipient with no address on file', async () => {
@@ -143,8 +183,10 @@ describe('renderNioInvoicePdf', () => {
     );
 
     expect(document.getPageCount()).toBeGreaterThan(1);
-    expect(text.filter((value) => value === 'Amount Due')).toHaveLength(document.getPageCount());
-    expect(text).toContain('claim-59');
+    expect(text.filter((value) => value === 'Total')).toHaveLength(document.getPageCount());
+    expect(text).toContain('Jordan Pruitt');
+    expect(text.filter((value) => value === 'Visit total:')).toHaveLength(60);
+    expect(text).toContain('Patient ID: PT-1001');
   });
 
   it('keeps patient details out of the logs', async () => {
