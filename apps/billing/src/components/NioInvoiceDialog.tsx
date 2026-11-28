@@ -193,8 +193,9 @@ export function NioInvoiceDialog({
       maxWidth={false}
       PaperProps={{
         sx: {
-          width: 960,
-          maxWidth: '95vw',
+          width: '85vw',
+          maxWidth: '85vw',
+          height: '85vh',
         },
       }}
       aria-labelledby="nio-invoice-dialog-title"
@@ -227,9 +228,13 @@ export function NioInvoiceDialog({
         sx={{
           px: 3,
           pb: 0,
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <Stack spacing={2}>
+        <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
           {createError && <Alert severity="error">{createError}</Alert>}
           {notDownloadedInvoiceNumber && (
             <Alert severity="warning">
@@ -261,7 +266,8 @@ export function NioInvoiceDialog({
                 title="Invoice preview"
                 style={{
                   width: '100%',
-                  height: '60vh',
+                  flex: 1,
+                  minHeight: 0,
                   border: '1px solid rgba(0, 0, 0, 0.12)',
                   borderRadius: 4,
                 }}

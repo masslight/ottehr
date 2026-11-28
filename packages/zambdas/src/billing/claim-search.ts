@@ -90,6 +90,8 @@ export const CLAIM_LIST_ELEMENTS = [
   'Claim.created',
   'Claim.billablePeriod',
   'Claim.total',
+  // Carries the non-insurance payer reference the Non-insurance Organization column reads.
+  'Claim.extension',
   'Claim.patient',
   'Claim.insurer',
   'Claim.facility',

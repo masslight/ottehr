@@ -401,6 +401,12 @@ describe('CLAIM_LIST_ELEMENTS', () => {
       value: 250,
       currency: 'USD',
     },
+    extension: [
+      {
+        url: 'https://fhir.ottehr.com/billing/non-insurance-payer',
+        valueReference: { reference: 'Organization/nio-1', display: 'FedEx' },
+      },
+    ],
     patient: {
       reference: 'Patient/patient-1',
     },
@@ -609,6 +615,7 @@ describe('CLAIM_LIST_ELEMENTS', () => {
     expect(fromFull.memberId).toBe('MEM-1');
     expect(fromFull.rulesEngine).toBe('claim-submission');
     expect(fromFull.payerName).toBe('Acme Health');
+    expect(fromFull.nonInsurancePayerName).toBe('FedEx');
   });
 
   it.each(narrowedFixtures)(

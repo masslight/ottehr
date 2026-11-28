@@ -350,11 +350,11 @@ export async function loadCustomInsuranceOrganizations(
 }
 
 // The candidate charge masters for the applyChargeMasterPrices action: every active billing
-// ChargeItemDefinition designated as the insurance or self-pay default, via the same shared search
-// definition the charge master screen's list is built on. Both kinds are fetched because the action
-// picks between them at apply time — earlier rules in the same run can change the claim's coverage
-// (and therefore its billing type). Skipped entirely when no enabled rule applies charge master
-// prices.
+// ChargeItemDefinition designated as the insurance, self-pay, or non-insurance default, via the same
+// shared search definition the charge master screen's list is built on. All kinds are fetched because
+// the action picks between them at apply time — earlier rules in the same run can change the claim's
+// coverage (and therefore its billing type). Skipped entirely when no enabled rule applies charge
+// master prices.
 async function loadChargeMasters(
   oystehr: Oystehr,
   rules: BillingRule[]
@@ -362,7 +362,7 @@ async function loadChargeMasters(
   if (!rules.some((rule) => rule.enabled && ruleUsesChargeMasterPrices(rule))) return undefined;
   const result = await oystehr.fhir.search<ChargeItemDefinition>({
     resourceType: 'ChargeItemDefinition',
-    params: activeDefaultChargeMasterSearchParams(['insurance', 'self-pay']),
+    params: activeDefaultChargeMasterSearchParams(['insurance', 'self-pay', 'non-insurance']),
   });
   return result.unbundle();
 }

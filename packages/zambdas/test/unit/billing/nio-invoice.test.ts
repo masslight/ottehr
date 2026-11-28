@@ -1,9 +1,18 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Invoice, Location, Organization, Patient, Resource } from 'fhir/r4b';
+import { ChargeItemDefinition, Claim, Invoice, Location, Organization, Patient, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { claimNonInsurancePayerExtension } from 'utils/lib/fhir/billing';
 import { buildBillingInvoice } from 'utils/lib/fhir/billing-invoice';
-import { CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
+import {
+  CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
+  CPT_CODE_SYSTEM,
+  FRIENDLY_PATIENT_ID_SYSTEM_BASE,
+} from 'utils/lib/fhir/constants';
+import {
+  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+  EXTENSION_URL_CPT_MODIFIER,
+} from 'utils/lib/helpers/rcm/constants';
 import { parseInvoiceConfigFromQR } from 'utils/lib/helpers/rcm/invoice-config';
 import { AR_STAGE, ClaimStatusValues, claimStatusValuesToTags } from 'utils/lib/types/data/billing/claim-status';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -77,6 +86,7 @@ const facilityCopy = (id: string, sourceId: string, line = '1 Clinic Way'): Loca
 const patient = (id: string, family: string): Patient => ({
   resourceType: 'Patient',
   id,
+  identifier: [{ system: FRIENDLY_PATIENT_ID_SYSTEM_BASE, value: `PT-${id}` }],
   name: [
     {
       given: ['Jordan'],
@@ -131,7 +141,10 @@ const makeClaim = ({
     item: [
       {
         sequence: 1,
-        productOrService: {},
+        productOrService: {
+          coding: [{ code: '99213', display: 'Office visit, established' }],
+        },
+        net: { value: billed },
         servicedDate: '2026-09-14',
       },
     ],
@@ -167,22 +180,29 @@ const setup = ({
   claims,
   extra = [],
   patientPaid,
+  chargeMasters = [],
+  patients = [patient('pat-1', 'Pruitt'), patient('pat-2', 'Collins')],
 }: {
   claims: Claim[];
   extra?: Resource[];
   patientPaid?: Record<string, number>;
+  chargeMasters?: ChargeItemDefinition[];
+  patients?: Patient[];
 }): Oystehr => {
   const resources: Resource[] = [
     ...claims,
     billingProvider,
     facilityCopy('facility-copy-1', 'facility-1'),
-    patient('pat-1', 'Pruitt'),
-    patient('pat-2', 'Collins'),
+    ...patients,
     ...extra,
   ];
   mockBuildClaimLookups.mockResolvedValue(lookupsFor(resources, patientPaid));
   const search = vi.fn(async ({ resourceType }: { resourceType: string }) => ({
-    unbundle: () => (resourceType === 'Organization' ? [nio] : resources),
+    unbundle: () => {
+      if (resourceType === 'Organization') return [nio];
+      if (resourceType === 'ChargeItemDefinition') return chargeMasters;
+      return resources;
+    },
   }));
   return {
     fhir: {
@@ -199,11 +219,110 @@ const assemble = (oystehr: Oystehr, claimIds: string[]): ReturnType<typeof assem
     now: NOW,
   });
 
+const nioChargeMaster = (
+  entries: { code: string; display: string; amount: number; modifier?: string }[]
+): ChargeItemDefinition => ({
+  resourceType: 'ChargeItemDefinition',
+  id: 'cm-nio',
+  status: 'active',
+  url: 'cm-nio',
+  date: '2026-01-01',
+  meta: { tag: [{ system: CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM, code: 'non-insurance' }] },
+  propertyGroup: entries.map(({ code, display, amount, modifier }) => ({
+    priceComponent: [
+      {
+        type: 'base',
+        code: { coding: [{ system: CPT_CODE_SYSTEM, code, display }] },
+        amount: { value: amount, currency: 'USD' },
+        ...(modifier ? { extension: [{ url: EXTENSION_URL_CPT_MODIFIER, valueCode: modifier }] } : {}),
+      },
+    ],
+  })),
+});
+
+type ClaimItem = NonNullable<Claim['item']>[number];
+
+const lineWithModifier = (code: string, modifier: string | undefined, net: number, display?: string): ClaimItem => ({
+  sequence: 1,
+  productOrService: { coding: [{ code, display }] },
+  ...(modifier
+    ? { modifier: [{ coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER, code: modifier }] }] }
+    : {}),
+  net: { value: net },
+  servicedDate: '2026-09-14',
+});
+
 describe('assembleNioInvoice', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockReadInvoicingConfig.mockResolvedValue(parseInvoiceConfigFromQR(undefined));
     mockFetchActiveClaimInvoices.mockResolvedValue([]);
+  });
+
+  it('takes service-line descriptions and prices from the non-insurance charge master', async () => {
+    const claim = makeClaim({ id: 'claim-1' });
+    const oystehr = setup({
+      claims: [claim],
+      chargeMasters: [nioChargeMaster([{ code: '99213', display: 'Established visit (CM)', amount: 150 }])],
+    });
+
+    const { pdf } = await assemble(oystehr, ['claim-1']);
+
+    expect(pdf.lines[0].serviceLines).toEqual([
+      { description: 'Established visit (CM)', unitPriceCents: 15000, quantity: 1, totalCents: 15000 },
+    ]);
+    // The claim's own total still drives the amounts billed.
+    expect(pdf.lines[0].billedCents).toBe(15000);
+  });
+
+  it('multiplies the charge master price by quantity and divides the claim total for unpriced lines', async () => {
+    const claim = {
+      ...makeClaim({ id: 'claim-1' }),
+      item: [
+        { ...lineWithModifier('99213', undefined, 300), quantity: { value: 2 } },
+        { ...lineWithModifier('87880', undefined, 90, 'Strep test'), quantity: { value: 3 } },
+      ],
+    } as Claim;
+    const oystehr = setup({
+      claims: [claim],
+      chargeMasters: [nioChargeMaster([{ code: '99213', display: 'Established visit (CM)', amount: 150 }])],
+    });
+
+    const { pdf } = await assemble(oystehr, ['claim-1']);
+
+    expect(pdf.lines[0].serviceLines).toEqual([
+      { description: 'Established visit (CM)', unitPriceCents: 15000, quantity: 2, totalCents: 30000 },
+      { description: 'Strep test', unitPriceCents: 3000, quantity: 3, totalCents: 9000 },
+    ]);
+    expect(pdf.lines[0].billedCents).toBe(39000);
+  });
+
+  it('prices modifier-specific entries, retries without modifiers, and falls back to the claim line', async () => {
+    const claim = {
+      ...makeClaim({ id: 'claim-1' }),
+      item: [
+        lineWithModifier('99213', '25', 180, 'Office visit, established'),
+        lineWithModifier('99213', '59', 180, 'Office visit, established'),
+        lineWithModifier('87880', undefined, 35, 'Strep test'),
+      ],
+    } as Claim;
+    const oystehr = setup({
+      claims: [claim],
+      chargeMasters: [
+        nioChargeMaster([
+          { code: '99213', display: 'Established visit (CM)', amount: 150 },
+          { code: '99213', display: 'Established visit with procedure (CM)', amount: 120, modifier: '25' },
+        ]),
+      ],
+    });
+
+    const { pdf } = await assemble(oystehr, ['claim-1']);
+
+    expect(pdf.lines[0].serviceLines).toEqual([
+      { description: 'Established visit with procedure (CM)', unitPriceCents: 12000, quantity: 1, totalCents: 12000 },
+      { description: 'Established visit (CM)', unitPriceCents: 15000, quantity: 1, totalCents: 15000 },
+      { description: 'Strep test', unitPriceCents: 3500, quantity: 1, totalCents: 3500 },
+    ]);
   });
 
   it("bills the NIO each claim's balance, sent from the shared issuer", async () => {
@@ -266,20 +385,47 @@ describe('assembleNioInvoice', () => {
         {
           claimId: 'claim-1',
           patientName: 'Pruitt, Jordan',
+          patientFriendlyId: 'PT-pat-1',
           serviceDate: '2026-09-14',
-          service: 'Office Visit',
+          facilityName: 'Main Clinic',
+          serviceLines: [
+            { description: 'Office visit, established', unitPriceCents: 18000, quantity: 1, totalCents: 18000 },
+          ],
+          billedCents: 18000,
           amountCents: 15000,
         },
         {
           claimId: 'claim-2',
           patientName: 'Collins, Jordan',
+          patientFriendlyId: 'PT-pat-2',
           serviceDate: '2026-09-14',
-          service: 'Office Visit',
+          facilityName: 'Main Clinic',
+          serviceLines: [
+            { description: 'Office visit, established', unitPriceCents: 9550, quantity: 1, totalCents: 9550 },
+          ],
+          billedCents: 9550,
           amountCents: 9550,
         },
       ],
     });
     expect(mockFetchActiveClaimInvoices).toHaveBeenCalledWith(oystehr, ['claim-1', 'claim-2']);
+  });
+
+  it('falls back to the patient FHIR id when the patient has no friendly ID', async () => {
+    const oystehr = setup({
+      claims: [makeClaim({ id: 'claim-1' })],
+      patients: [
+        {
+          resourceType: 'Patient',
+          id: 'pat-1',
+          name: [{ given: ['Jordan'], family: 'Pruitt' }],
+        },
+      ],
+    });
+
+    const { pdf } = await assemble(oystehr, ['claim-1']);
+
+    expect(pdf.lines[0].patientFriendlyId).toBe('pat-1');
   });
 
   it('rejects claims that do not exist', async () => {
