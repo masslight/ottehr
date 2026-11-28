@@ -9,6 +9,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks (hoisted before imports) ─────────────────────────────────────────────
 
+// FEATURE_FLAGS_CONFIG is a frozen compile-time constant; pin customOrganizationsEnabled off so
+// shouldUseCandid does not reject the 'candid' billing integration used in these tests.
+vi.mock('utils/lib/ottehr-config/feature-flags', () => ({
+  FEATURE_FLAGS_CONFIG: { customOrganizationsEnabled: false },
+}));
+
 vi.mock('../../../src/shared/sentry', () => ({ wrapHandler: (_name: string, handler: unknown) => handler }));
 vi.mock('../../../src/shared/auth', () => ({
   checkOrCreateM2MClientToken: vi.fn().mockResolvedValue('token'),
