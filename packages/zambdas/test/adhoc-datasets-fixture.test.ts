@@ -29,6 +29,7 @@ import {
   SERVICE_REQUEST_SENT_FOR_FINAL_READ_BY_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
+import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import { AdHocBillingOutputSchema } from 'utils/lib/types/adhoc/datasets/billing';
 import { AdHocEncountersOutputSchema } from 'utils/lib/types/adhoc/datasets/encounters';
 import { AdHocPatientsOutputSchema } from 'utils/lib/types/adhoc/datasets/patients';
@@ -804,18 +805,25 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     const row = rows[0];
 
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
-    expect(row.screeningAnswers).toEqual([
-      { question: 'Has the patient been seen in one of our offices / telemed in last 3 years?', answer: 'Yes' },
-      { question: 'Do you have any COVID symptoms?', answer: 'Yes' },
-      { question: 'Are you currently breastfeeding?', answer: 'Not applicable' },
-      { question: 'Have you tested positive for COVID?', answer: 'No' },
-    ]);
-    expect(row.screeningQuestions).toEqual([
-      'Has the patient been seen in one of our offices / telemed in last 3 years?',
-      'Do you have any COVID symptoms?',
-      'Are you currently breastfeeding?',
-      'Have you tested positive for COVID?',
-    ]);
+
+    // Only codes present in patientScreeningQuestionsConfig resolve to a question text;
+    // deployment overlays may expose different sets (e.g. without covid-symptoms).
+    const fieldByCode = new Map(patientScreeningQuestionsConfig.fields.map((f) => [f.fhirField, f]));
+    const fixtureEntries: [string, string][] = [
+      [SEEN_IN_LAST_THREE_YEARS_FIELD, 'Yes'],
+      ['covid-symptoms', 'Yes'],
+      [PATIENT_BREASTFEEDING_STATUS, 'Not applicable'],
+      ['tested-positive-covid', 'No'],
+    ];
+    const expectedAnswers = fixtureEntries
+      .map(([code, answer]) => {
+        const field = fieldByCode.get(code);
+        return field ? { question: field.question, answer } : undefined;
+      })
+      .filter((e): e is { question: string; answer: string } => e !== undefined);
+
+    expect(row.screeningAnswers).toEqual(expectedAnswers);
+    expect(row.screeningQuestions).toEqual(expectedAnswers.map((e) => e.question));
   });
 
   it('encounters immunizations layer: one vaccine record each, VIS presence carried by the date', async () => {

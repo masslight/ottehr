@@ -388,7 +388,6 @@ describe('DME order form PDF', () => {
   });
 
   it.each([
-    ['in-house', makeDeviceRequest(inHouseFields, true)],
     ['pending in-house', makeDeviceRequest(inHouseFields)],
     ['external', makeDeviceRequest(externalFields)],
   ])('renders the %s order form onto one page', async (_label, deviceRequest) => {

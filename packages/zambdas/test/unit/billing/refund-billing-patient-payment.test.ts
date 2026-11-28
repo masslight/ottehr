@@ -37,6 +37,13 @@ vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => ({
   getStripeClient: vi.fn().mockReturnValue({}),
 }));
 vi.mock('utils/lib/helpers/candidApi', () => ({ getOrCreateCandidApiClient: vi.fn() }));
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/ottehr-config/feature-flags')>();
+  return {
+    ...actual,
+    FEATURE_FLAGS_CONFIG: Object.freeze({ ...actual.FEATURE_FLAGS_CONFIG, customOrganizationsEnabled: false }),
+  };
+});
 // transitive imports of shared/candid that pull heavy modules
 vi.mock('../../../src/ehr/shared/harvest', () => ({ getAccountAndCoverageResourcesForPatient: vi.fn() }));
 vi.mock('../../../src/shared/chart-data', () => ({ chartDataResourceHasMetaTagByCode: vi.fn() }));
