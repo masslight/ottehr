@@ -15,6 +15,11 @@ import { ReferralStatus } from 'utils/lib/types/api/referrals/referrals.types';
 import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  FEATURE_FLAGS_CONFIG: { skipSendingVisitNoteToPatientPortalEnabled: false },
+}));
+
 const mockSendEmail = vi.fn();
 vi.mock('../../src/shared/communication', () => ({
   getEmailClient: () => ({

@@ -52,6 +52,43 @@ vi.mock('../src/shared/pdf', async (importOriginal) => {
   return { ...original, createPdfBytes: vi.fn() };
 });
 
+// Pin to a stable 2-form config so tests are independent of the per-instance overlay.
+vi.mock('utils/lib/ottehr-config/consent-forms', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/consent-forms')>();
+  const HIPAA_BASE = {
+    id: 'hipaa-acknowledgement',
+    formTitle: 'HIPAA Acknowledgement',
+    resourceTitle: 'HIPAA forms',
+    assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+    publicUrl: '/hipaa_notice_template.pdf',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+      text: 'HIPAA Acknowledgement forms',
+    },
+    createsConsentResource: false,
+  };
+  const CTT_BASE = {
+    id: 'consent-to-treat',
+    formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
+    resourceTitle: 'Consent forms',
+    assetPath: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf',
+    publicUrl: '/ctt_template.pdf',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '59284-0', display: 'Consent Document' }],
+      text: 'Consent forms',
+    },
+    createsConsentResource: true,
+  };
+  const CTT_IL = {
+    ...CTT_BASE,
+    assetPath: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf',
+  };
+  return {
+    ...original,
+    getConsentFormsForLocation: (locationState?: string) => [HIPAA_BASE, locationState === 'IL' ? CTT_IL : CTT_BASE],
+  };
+});
+
 const mockCreateFilesDocumentReferences = vi.mocked(createFilesDocumentReferences);
 const mockCreateConsentResource = vi.mocked(createConsentResource);
 const mockGetConsentAndDocRefs = vi.mocked(getConsentAndRelatedDocRefsForAppointment);
