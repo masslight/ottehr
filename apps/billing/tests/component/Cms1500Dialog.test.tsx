@@ -68,7 +68,7 @@ describe('Cms1500Dialog', () => {
     renderDialog();
 
     const preview = await screen.findByTitle('CMS-1500 preview');
-    expect(preview).toHaveAttribute('src', 'blob:cms1500-1');
+    expect(preview).toHaveAttribute('src', 'blob:cms1500-1#navpanes=0&pagemode=none&zoom=100');
     expect(getBillingClaimCms1500Mock).toHaveBeenCalledWith(oystehrZambdaStub, {
       claimId: CLAIM_ID,
       submissionType: 'new',
@@ -152,7 +152,10 @@ describe('Cms1500Dialog', () => {
     await screen.findByText(/failed to download the cms-1500 form/i);
 
     fireEvent.click(screen.getByRole('button', { name: /data only/i }));
-    expect(await screen.findByTitle('CMS-1500 preview')).toHaveAttribute('src', 'blob:cms1500-1');
+    expect(await screen.findByTitle('CMS-1500 preview')).toHaveAttribute(
+      'src',
+      'blob:cms1500-1#navpanes=0&pagemode=none&zoom=100'
+    );
     expect(screen.queryByText(/failed to download/i)).not.toBeInTheDocument();
 
     // The form still can't be downloaded, so the data-only preview goes rather than stand in for it.

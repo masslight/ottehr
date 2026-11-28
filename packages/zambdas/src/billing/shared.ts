@@ -489,21 +489,30 @@ const orderingProviderIds = (claim: Claim): string[] => [
 
 // The item's ordering provider, resolved from the claim's contained resources or, for an existing
 // Practitioner, from `practitioners` (the ones fetchClaimGraph loads).
+export function resolveClaimItemOrderingPractitioner(
+  claim: Claim,
+  item: ClaimItem,
+  practitioners: Practitioner[]
+): Practitioner | undefined {
+  const ref = item.extension?.find((ext) => ext.url === EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER)?.valueReference
+    ?.reference;
+  if (!ref) return undefined;
+
+  return ref.startsWith('#')
+    ? claim.contained?.find((r): r is Practitioner => r.id === ref.slice(1) && r.resourceType === 'Practitioner')
+    : findRef<Practitioner>(practitioners, ref);
+}
+
 export function readClaimItemOrderingProvider(
   claim: Claim,
   item: ClaimItem,
   practitioners: Practitioner[]
 ): ClaimLineOrderingProvider | undefined {
-  const valueReference = item.extension?.find((ext) => ext.url === EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER)
-    ?.valueReference;
-  const ref = valueReference?.reference;
-  if (!ref) return undefined;
-
-  const isContained = ref.startsWith('#');
-  const practitioner = isContained
-    ? claim.contained?.find((r): r is Practitioner => r.id === ref.slice(1) && r.resourceType === 'Practitioner')
-    : findRef<Practitioner>(practitioners, ref);
+  const practitioner = resolveClaimItemOrderingPractitioner(claim, item, practitioners);
   if (!practitioner) return undefined;
+  const isContained = !!item.extension
+    ?.find((ext) => ext.url === EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER)
+    ?.valueReference?.reference?.startsWith('#');
 
   const npi = getNPI(practitioner);
   return {
