@@ -26,6 +26,7 @@ import {
   CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_OYSTEHR_CLAIM_DATE_TYPE,
   CODE_SYSTEM_OYSTEHR_CLAIM_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
   EXTENSION_CLAIM_AUTO_ACCIDENT,
   EXTENSION_CLAIM_AUTO_ACCIDENT_STATE,
   EXTENSION_CLAIM_INSURANCE_TYPE,
@@ -36,8 +37,10 @@ import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/get-billing-claim-cms1500';
 import { buildCms1500FormData, Cms1500Resources } from '../../../src/billing/get-billing-claim-cms1500/helpers';
 import {
+  buildClaimItemDrugDetail,
   CLAIM_PCN_IDENTIFIER_SYSTEM,
   ClaimGraph,
+  EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER,
   fetchClaimGraph,
   resolvePayersByRef,
 } from '../../../src/billing/shared';
@@ -200,6 +203,31 @@ const renderingProvider: Practitioner = {
   identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '1987654329' }, taxonomy('207Q00000X')],
 };
 
+const orderingProvider: Practitioner = {
+  resourceType: 'Practitioner',
+  id: 'ordering-1',
+  name: [{ family: 'Patel', given: ['Asha'] }],
+  identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '1112223334' }, taxonomy('208D00000X')],
+};
+
+// Points the items with the given sequences at ordering providers (by Practitioner reference)
+const withLineOrdering = (claim: Claim, referenceBySequence: Record<number, string>): Claim => ({
+  ...claim,
+  item: claim.item?.map((item) =>
+    referenceBySequence[item.sequence]
+      ? {
+          ...item,
+          extension: [
+            {
+              url: EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER,
+              valueReference: { reference: referenceBySequence[item.sequence] },
+            },
+          ],
+        }
+      : item
+  ),
+});
+
 const facility: Location = {
   resourceType: 'Location',
   id: 'facility-1',
@@ -343,6 +371,74 @@ describe('buildCms1500FormData', () => {
       renderingProviderOtherId: '207Q00000X',
     });
     expect(second).toMatchObject({ procedureCode: '87880', charges: 35 });
+  });
+
+  it('puts the line drug in the shaded row as N4, NDC, unit qualifier and quantity', () => {
+    const base = resources();
+    const withDrug: Claim = {
+      ...base.claim,
+      item: base.claim.item?.map((item) =>
+        item.sequence === 1
+          ? { ...item, detail: buildClaimItemDrugDetail({ ndc: '00409488802', quantity: 2.5, units: 'ML' }) }
+          : item
+      ),
+    };
+    const [first, second] = buildCms1500FormData(resources({ claim: withDrug })).serviceLines;
+    expect(first.supplementalInformation).toBe('N400409488802ML2.5');
+    expect(second.supplementalInformation).toBeUndefined();
+  });
+
+  it("puts a line's ordering provider in 24I/24J on that line only", () => {
+    const claimWithOrdering = withLineOrdering(resources().claim, { 1: 'Practitioner/ordering-1' });
+    const [first, second] = buildCms1500FormData(
+      resources({ claim: claimWithOrdering, orderingProviders: [orderingProvider] })
+    ).serviceLines;
+    expect(first).toMatchObject({
+      renderingProviderNpi: '1112223334',
+      renderingProviderOtherIdQualifier: 'ZZ',
+      renderingProviderOtherId: '208D00000X',
+    });
+    expect(second).toMatchObject({ renderingProviderNpi: '1987654329', renderingProviderOtherId: '207Q00000X' });
+  });
+
+  it('reports the first ordering provider in item 17 as DK when the claim has no referring provider', () => {
+    const otherOrdering: Practitioner = { ...orderingProvider, id: 'ordering-2', name: [{ family: 'Other' }] };
+    const claimWithOrdering = withLineOrdering(resources().claim, {
+      1: 'Practitioner/ordering-1',
+      2: 'Practitioner/ordering-2',
+    });
+    const form = buildCms1500FormData(
+      resources({ claim: claimWithOrdering, orderingProviders: [orderingProvider, otherOrdering] })
+    );
+    expect(form.referringProvider).toEqual({
+      qualifier: 'DK',
+      name: { last: 'Patel', first: 'Asha' },
+      npi: '1112223334',
+    });
+  });
+
+  it('keeps the referring provider in item 17 when the claim has one', () => {
+    const base = resources();
+    const claimWithReferring: Claim = {
+      ...withLineOrdering(base.claim, { 1: 'Practitioner/ordering-1' }),
+      careTeam: [
+        {
+          sequence: 2,
+          provider: { reference: 'Practitioner/referring-1' },
+          role: { coding: [{ system: CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE, code: 'referring' }] },
+        },
+      ],
+    };
+    const referring: Practitioner = {
+      resourceType: 'Practitioner',
+      id: 'referring-1',
+      name: [{ family: 'Wilson', given: ['James'] }],
+      identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '1234567893' }],
+    };
+    const form = buildCms1500FormData(
+      resources({ claim: claimWithReferring, orderingProviders: [orderingProvider], referringProvider: referring })
+    );
+    expect(form.referringProvider).toMatchObject({ qualifier: 'DN', name: { last: 'Wilson' }, npi: '1234567893' });
   });
 
   it('reports the rendering provider in 24J only when it differs from the billing provider', () => {

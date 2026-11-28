@@ -40,6 +40,8 @@ interface PrintOffset {
 }
 
 const OFFSET_STORAGE_KEY = 'billing.cms1500.dataOnlyOffset';
+// PDF viewer open parameters: hide the page thumbnails and show the form at actual size
+const PDF_PREVIEW_VIEW_PARAMS = '#navpanes=0&pagemode=none&zoom=100';
 const MAX_OFFSET_INCHES = 1;
 
 function loadOffset(): PrintOffset {
@@ -216,15 +218,24 @@ export function Cms1500Dialog({ open, onClose, claim }: Cms1500DialogProps): Rea
   const fileName = `claim-${claim.id}-cms1500${mode === 'data-only' ? '-data-only' : ''}.pdf`;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth={false} PaperProps={{ sx: { width: 900, maxWidth: '95vw' } }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth={false}
+      PaperProps={{
+        sx: form
+          ? { width: '80vw', height: '80vh', maxWidth: '80vw', maxHeight: '80vh', m: 0 }
+          : { width: 900, maxWidth: '95vw' },
+      }}
+    >
       <DialogTitle sx={{ px: 3, pt: 3, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         CMS-1500
         <IconButton size="small" onClick={onClose} aria-label="Close">
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>
-      <DialogContent sx={{ px: 3, pb: 0 }}>
-        <Stack spacing={2} sx={{ pt: 1 }}>
+      <DialogContent sx={{ px: 3, pb: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Stack spacing={2} sx={{ pt: 1, flex: 1, minHeight: 0 }}>
           <FormProvider {...claimMethods}>{!loading && !form && <ClaimSubmissionFields claim={claim} />}</FormProvider>
           {form && (
             <>
@@ -276,9 +287,15 @@ export function Cms1500Dialog({ open, onClose, claim }: Cms1500DialogProps): Rea
           {pdfUrl && (
             <iframe
               ref={previewRef}
-              src={pdfUrl}
+              src={`${pdfUrl}${PDF_PREVIEW_VIEW_PARAMS}`}
               title="CMS-1500 preview"
-              style={{ width: '100%', height: '65vh', border: '1px solid rgba(0, 0, 0, 0.12)', borderRadius: 4 }}
+              style={{
+                width: '100%',
+                flex: 1,
+                minHeight: 0,
+                border: '1px solid rgba(0, 0, 0, 0.12)',
+                borderRadius: 4,
+              }}
             />
           )}
         </Stack>

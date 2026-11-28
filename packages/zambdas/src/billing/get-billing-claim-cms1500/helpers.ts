@@ -15,6 +15,7 @@ import { getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { FHIR_IDENTIFIER_CODE_TAX_SS, FHIR_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
 import { getExtensionValue, getNPI, getTaxID } from 'utils/lib/fhir/helpers';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { formatUnits } from 'utils/lib/helpers/rcm/cms1500/format';
 import {
   CLAIM_ACCIDENT_STATE_EXTENSION_URL,
   CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
@@ -45,7 +46,14 @@ import {
 } from 'utils/lib/types/data/billing/cms1500.types';
 import { RulesEngineInsurance, RulesEngineSubmissionType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { getCLIA } from '../service-facility.helpers';
-import { ClaimGraph, getClaimPcn, getClaimSupportingInfo, getTaxonomy } from '../shared';
+import {
+  ClaimGraph,
+  getClaimPcn,
+  getClaimSupportingInfo,
+  getTaxonomy,
+  readClaimItemDrug,
+  resolveClaimItemOrderingPractitioner,
+} from '../shared';
 
 export interface Cms1500Resources extends ClaimGraph {
   // Payer Organizations keyed by their payer list reference (Claim.insurer, Coverage.payor)
@@ -164,6 +172,11 @@ export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormDa
   const planName = (coverage: Coverage | undefined, coveragePayer: Organization | undefined): string | undefined =>
     coverageClass(coverage, 'plan')?.name || coveragePayer?.name;
   const referringMember = referringCareTeamMember(claim);
+  // Item 17 falls back to the first line's ordering provider (DK) when there is no referring provider
+  const firstOrderingProvider = [...(claim.item ?? [])]
+    .sort((a, b) => a.sequence - b.sequence)
+    .map((item) => resolveClaimItemOrderingPractitioner(claim, item, resources.orderingProviders))
+    .find((practitioner): practitioner is Practitioner => !!practitioner);
 
   const form: Cms1500FormData = {
     payer: payer ? { name: payer.name, address: toAddress(payer.address?.[0]) } : undefined,
@@ -227,6 +240,13 @@ export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormDa
                 : undefined,
             npi: getNPI(referringProvider),
           }
+        : !referringMember && firstOrderingProvider
+        ? {
+            qualifier: 'DK',
+            name: toPersonName(firstOrderingProvider.name?.[0]),
+            credentials: firstOrderingProvider.name?.[0]?.suffix?.join(' '),
+            npi: getNPI(firstOrderingProvider),
+          }
         : undefined,
     hospitalization: hospitalized?.timingPeriod
       ? { from: hospitalized.timingPeriod.start, to: hospitalized.timingPeriod.end }
@@ -252,8 +272,17 @@ export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormDa
       .map<Cms1500ServiceLine>((item) => {
         const supplemental = (item.informationSequence ?? [])
           .map((sequence) => supportingInfo.find((info) => info.sequence === sequence)?.valueString)
-          .filter(Boolean)
-          .join(' ');
+          .filter(Boolean);
+        // The line's drug goes first in the shaded row: N4, 11-digit NDC, unit qualifier, quantity
+        const drug = readClaimItemDrug(item);
+        const drugText = drug ? `N4${drug.ndc}${drug.units}${formatUnits(drug.quantity)}` : undefined;
+        // A line's ordering provider replaces the rendering provider in 24I/24J on that line only
+        const lineOrderingProvider = resolveClaimItemOrderingPractitioner(claim, item, resources.orderingProviders);
+        const lineRendering = lineOrderingProvider
+          ? { npi: getNPI(lineOrderingProvider), taxonomy: getTaxonomy(lineOrderingProvider) }
+          : reportRendering
+          ? { npi: renderingNpi, taxonomy: renderingTaxonomy }
+          : undefined;
         return {
           dateFrom: item.servicedPeriod?.start ?? item.servicedDate,
           dateTo: item.servicedPeriod?.end,
@@ -270,10 +299,10 @@ export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormDa
             item.net?.value ??
             (item.unitPrice?.value != null ? item.unitPrice.value * (item.quantity?.value ?? 1) : undefined),
           units: item.quantity?.value,
-          renderingProviderNpi: reportRendering ? renderingNpi : undefined,
-          renderingProviderOtherIdQualifier: reportRendering && renderingTaxonomy ? 'ZZ' : undefined,
-          renderingProviderOtherId: reportRendering && renderingTaxonomy ? renderingTaxonomy : undefined,
-          supplementalInformation: supplemental || undefined,
+          renderingProviderNpi: lineRendering?.npi,
+          renderingProviderOtherIdQualifier: lineRendering?.taxonomy ? 'ZZ' : undefined,
+          renderingProviderOtherId: lineRendering?.taxonomy || undefined,
+          supplementalInformation: [drugText, ...supplemental].filter(Boolean).join(' ') || undefined,
         };
       }),
     federalTaxId: taxId ? { value: taxId, type: taxIdIsSsn ? 'SSN' : 'EIN' } : undefined,
