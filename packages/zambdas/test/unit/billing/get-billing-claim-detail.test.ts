@@ -33,6 +33,11 @@ import {
 import { WRITE_OFF_SYSTEM } from '../../../src/billing/write-offs';
 import { adjudication, casAdjustment, claimResponse, eraItem } from './era-fixtures';
 
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('utils/lib/ottehr-config/feature-flags')>()),
+  FEATURE_FLAGS_CONFIG: { ottehrBillingInvoicingEnabled: true },
+}));
+
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   fetchClaimGraph: vi.fn(),
